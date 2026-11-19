@@ -1,0 +1,80 @@
+###
+# AROMA-Next Magisk / KernelSU / Optional-RW Module Configuration
+###
+
+ini_set("rom_name",    "AROMA-Next Module Template");
+ini_set("rom_version", "3.00-next");
+ini_set("rom_author",  "Miustone");
+ini_set("rom_device",  "Universal arm64/arm32");
+
+theme("ics");
+
+viewbox(
+  "Welcome",
+  "<b>" + ini_get("rom_name") + "</b> (" + ini_get("rom_version") + ")\n\n" +
+  "Bring back classic Touch-GUI Android modding without breaking EROFS, Dynamic Partitions, or dm-verity.\n\n" +
+  "<b>Systemless Mode (Default):</b> Generates a clean Magisk / KernelSU / APatch overlay module.\n" +
+  "<b>Direct RW Mode (Optional):</b> Only for devices pre-converted with RO2RW / SystemRW and rebooted beforehand.",
+  "@welcome"
+);
+
+selectbox(
+  "Select Installation Mode",
+  "Choose how modifications should be applied to your device:",
+  "@install",
+  "mode.prop",
+  "Systemless Overlay Module (Recommended)",
+    "Creates a Magisk / KernelSU / APatch module. Safe on EROFS, shared_blocks, Virtual A/B, and active dm-verity.", 1,
+  "Direct Partition RW Mode (Advanced)",
+    "Requires partitions pre-converted to RW via RO2RW or SystemRW + prior reboot. Falls back safely if still read-only.", 0
+);
+
+checkbox(
+  "Customize Modifications",
+  "Select which systemless (or RW) changes to apply:",
+  "@personalize",
+  "customize.prop",
+  "System Tweaks (system.prop)", "", 2,
+    "Smooth UI & Media Steps", "Sets ro.config.media_vol_steps=30 and disables error profiler", 1,
+    "Skip Boot Sound",         "Sets ro.config.play.bootsound=0", 0,
+  "Debloat Example (Systemless Mask / RW Delete)", "", 2,
+    "Hide Demo Bloat App",     "Demonstrates safe .replace / whiteout masking of system apps", 0
+);
+
+ini_set("text_next", "Install Now");
+ini_set("icon_next", "@installbutton");
+
+viewbox(
+  "Ready to Install",
+  "Press <b>Install Now</b> to generate and install your customized module.",
+  "@install"
+);
+
+ini_set("text_next", "Next");
+ini_set("icon_next", "@next");
+
+setvar("retstatus",
+  install(
+    "Installing Module",
+    "Applying your selections safely...",
+    "@install",
+    "Installation completed (status: " + getvar("retstatus") + ")."
+  )
+);
+
+ini_set("text_next", "Finish");
+ini_set("icon_next", "@finish");
+
+checkviewbox(
+  "Finished",
+  "<#selectbg_g><b>All Done!</b></#>\n\n" +
+  "If you used Systemless Mode, the module is active on your next boot via Magisk / KernelSU / APatch.",
+  "@welcome",
+  "Reboot device now",
+  "0",
+  "reboot_it"
+);
+
+if getvar("reboot_it") == "1" then
+  reboot("onfinish");
+endif;

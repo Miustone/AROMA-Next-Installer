@@ -7,5 +7,6 @@
 *.mk text eol=lf
 update-binary text eol=lf
 magisk-installer text eol=lf
+aroma-config text eol=lf
 customize.sh text eol=lf
 module.prop text eol=lf

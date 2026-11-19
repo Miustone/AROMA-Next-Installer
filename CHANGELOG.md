@@ -15,8 +15,10 @@ All notable changes in **AROMA-Next-Installer** compared to the upstream fork ba
   - Detects `BOOTMODE` (`true` in Magisk/KernelSU/APatch App vs. `false` in Recovery).
   - Selects `aroma_installer-arm64` (`aarch64`), `aroma_installer-arm32` (`armv7l`/`armv8l`), or `aroma_installer-x86_64` at runtime in recovery and triggers the non-GUI fallback on exit code `77`.
   - Automatically skips the recovery Touch GUI in `BOOTMODE=true` and delegates directly to `magisk-installer` / `customize.sh`.
-- **Magisk / KernelSU Module Template (`magisk-template/`):**
-  - Added `module.prop`, `customize.sh` (reads `${AROMA_TMP:-/tmp/aroma}/*.prop` from Touch GUI or falls back to defaults in App mode), and `META-INF/com/google/android/magisk-installer`.
+- **Magisk / KernelSU Module Template & Systemless Modding Library (`magisk-template/`):**
+  - Added `META-INF/com/google/android/aroma-mod-lib.sh` providing `aroma_mod_init()`, `aroma_probe_rw()`, `aroma_mod_copy()`, `aroma_mod_delete()` (`.replace` / KernelSU `c 0 0` whiteouts), `aroma_mod_edit_prop()`, and `aroma_mod_patch_file()`.
+  - Defaults to safe **Systemless Overlay Mode** (compatible with EROFS, `shared_blocks` ext4, Virtual A/B, and active `dm-verity`) while supporting an **Optional Direct RW Mode** when partitions were pre-converted beforehand via `RO2RW` / `SystemRW` (probing actual writability before modifying anything).
+  - Added `META-INF/com/google/android/aroma-config` (Systemless vs. Pre-RW Touch Wizard), `module.prop`, `customize.sh`, and `META-INF/com/google/android/magisk-installer` (with standalone TWRP/KernelSU/APatch `/data/adb/modules` fallback).
 - **Modern Build Tooling & CI:**
   - Added `Application.mk` (`APP_ABI := arm64-v8a armeabi-v7a`, `APP_PLATFORM := android-35`).
   - Added `build.py` (cross-compiling static `arm64` / `arm32` / `x86_64` binaries via Zig `cc` and packaging `AROMA-Next-Installer.zip` + `AROMA-Next-Magisk-Template.zip`).

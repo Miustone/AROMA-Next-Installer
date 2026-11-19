@@ -188,32 +188,37 @@ def build_zip(out_zip: Path, include_magisk_template: bool, bins: dict[str, Path
     assets_dir = ROOT / "assets"
     magisk_dir = ROOT / "magisk-template"
 
-    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        for p in sorted(assets_dir.rglob("*")):
+    entries: dict[str, tuple[bytes, int]] = {}
+
+    for p in sorted(assets_dir.rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(assets_dir).as_posix()
+            if rel in ("META-INF/CERT.RSA", "META-INF/CERT.SF", "META-INF/MANIFEST.MF"):
+                continue
+            if include_magisk_template and rel == "META-INF/com/google/android/update-binary-installer":
+                continue
+            mode = 0o755 if rel.endswith((".sh", "update-binary", "update-binary-installer", "sleep")) else 0o644
+            entries[rel] = (p.read_bytes(), mode)
+
+    for _, bin_path in bins.items():
+        arc = f"META-INF/com/google/android/bin/{bin_path.name}"
+        entries[arc] = (bin_path.read_bytes(), 0o755)
+
+    if include_magisk_template and magisk_dir.exists():
+        for p in sorted(magisk_dir.rglob("*")):
             if p.is_file():
-                rel = p.relative_to(assets_dir).as_posix()
-                # Skip legacy signature files if present so modern ZIPs don't carry stale certs
-                if rel in ("META-INF/CERT.RSA", "META-INF/CERT.SF", "META-INF/MANIFEST.MF"):
-                    continue
-                if include_magisk_template and rel == "META-INF/com/google/android/update-binary-installer":
-                    continue
-                zf.write(p, rel)
+                rel = p.relative_to(magisk_dir).as_posix()
+                mode = 0o755 if rel.endswith((".sh", "magisk-installer")) else 0o644
+                entries[rel] = (p.read_bytes(), mode)
 
-        for _, bin_path in bins.items():
-            arc = f"META-INF/com/google/android/bin/{bin_path.name}"
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for arc in sorted(entries.keys()):
+            data, mode = entries[arc]
             zi = zipfile.ZipInfo(arc)
-            zi.external_attr = 0o755 << 16
-            zf.writestr(zi, bin_path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
+            zi.external_attr = mode << 16
+            zf.writestr(zi, data, compress_type=zipfile.ZIP_DEFLATED)
 
-        if include_magisk_template and magisk_dir.exists():
-            for p in sorted(magisk_dir.rglob("*")):
-                if p.is_file():
-                    rel = p.relative_to(magisk_dir).as_posix()
-                    zi = zipfile.ZipInfo(rel)
-                    zi.external_attr = (0o755 if rel.endswith((".sh", "magisk-installer")) else 0o644) << 16
-                    zf.writestr(zi, p.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
-
-    print(f"[zip] Created {out_zip} ({out_zip.stat().st_size} bytes)")
+    print(f"[zip] Created {out_zip} ({out_zip.stat().st_size} bytes, {len(entries)} entries)")
 
 
 def main() -> None:
