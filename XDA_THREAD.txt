@@ -33,10 +33,12 @@ Ahmad Amarullah's original [URL="https://github.com/amarullz/AROMA-Installer"]AR
   [*]Added `ABS_MT_SLOT` (Protocol Type-B) filtering so multi-finger touches do not corrupt slot-0 UI coordinates.
   [*]Added `BTN_TOUCH` release handling, `ABS_X`/`ABS_Y` calibration fallback, and `/sys/class/leds/vibrator/{duration,activate}` haptic fallback.
   [/LIST]
-[*][B]Universal Recovery + Magisk / KernelSU / APatch Dual-Mode:[/B]
+[*][B]Universal Recovery + Magisk / KernelSU / APatch Dual-Mode & Systemless File Modder:[/B]
   [LIST]
   [*][B]In Custom Recovery (`BOOTMODE=false`):[/B] Auto-detects `uname -m` (`aarch64` vs `armv7l`), launches the Touch GUI, saves user selections to `/tmp/aroma/*.prop`, and executes either `update-binary-installer` or `magisk-installer` (`customize.sh`).
   [*][B]In Magisk / KernelSU / APatch App (`BOOTMODE=true`):[/B] Automatically skips the recovery GUI (since Android SurfaceFlinger owns the display) and runs the module's `customize.sh` with defaults/headless fallback.
+  [*][B]Systemless-First Modding (`aroma-mod-lib.sh`):[/B] Brings back classic AROMA-style file copy/replace, debloat/delete (`.replace` & KernelSU `0:0` whiteouts), `system.prop` tweaks, and file patching safely as a systemless overlay module — works on EROFS, `shared_blocks` ext4, Virtual A/B, and active `dm-verity` with zero bootloop risk.
+  [*][B]Optional Direct RW Mode (`RO2RW` / `SystemRW`):[/B] Power users who pre-converted partitions to RW beforehand (and rebooted) can select Direct RW Mode in the wizard; AROMA-Next probes actual partition writability first and safely falls back to Systemless if partitions are still EROFS/RO.
   [/LIST]
 [*][B]Modern Recovery Compatibility:[/B] Dynamic `mount`/`umount` binary lookup (`/sbin`, `/system/bin`, `/bin`, `/vendor/bin`) instead of hardcoded `/sbin/mount`.
 [/LIST]
