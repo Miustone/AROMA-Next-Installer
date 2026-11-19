@@ -1,0 +1,96 @@
+[CENTER][SIZE="6"][B]AROMA-Next Installer[/B][/SIZE]
+[SIZE="3"]Modern [B]arm64-v8a[/B] & [B]armeabi-v7a[/B] port of AROMA Installer with DRM/KMS + fbdev support, Type-B Multitouch & Magisk/KernelSU Dual-Mode[/SIZE][/CENTER]
+
+[HR][/HR]
+
+[SIZE="4"][B]Why AROMA-Next?[/B][/SIZE]
+Ahmad Amarullah's original [URL="https://github.com/amarullz/AROMA-Installer"]AROMA Installer[/URL] has been broken on modern smartphones and custom recoveries for years. Contrary to common rumors, the problem was not Toolbox/Toybox — AROMA is a standalone statically-linked C binary that failed on modern devices due to:
+[LIST]
+[*]32-bit-only ARM builds (`armeabi-v7a`) and 64-bit pointer truncation bugs on `arm64-v8a` devices
+[*]Hardcoded `/dev/graphics/fb0` (`fbdev`) graphics without DRM/KMS support or real `fb_var_screeninfo` channel offsets
+[*]Input device scanner capped at 15 `/dev/input/event*` nodes (`INDR_MAXDEV = 15`), missing touchscreens on `event15+`
+[*]Broken Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`) handling and shared static touch globals
+[*]Hanging/freezing TWRP if display initialization failed while the parent recovery process was `SIGSTOP`ped
+[/LIST]
+
+[B]AROMA-Next Installer[/B] modernizes the C codebase so ROM, kernel, and Magisk/KernelSU module developers can ship [B]one universal flashable ZIP[/B] with Touch GUI in recovery and clean app-mode installation in Android.
+
+[HR][/HR]
+
+[SIZE="4"][B]Key Features & Changes[/B][/SIZE]
+[LIST]
+[*][B]Native 64-bit (`arm64-v8a`) + 32-bit (`armeabi-v7a`) Support:[/B] Fixed 64-bit pointer truncation (`uintptr_t`), C11 inline linkage, allocation bugs, and NEON intrinsics; compiles cleanly with Android NDK r27c and Zig `cc`.
+[*][B]Dual Display Backend (`fbdev` + Pure-ioctl `DRM/KMS`):[/B]
+  [LIST]
+  [*]Supports `/dev/graphics/fb0` & `/dev/fb0` with proper `red/green/blue/transp` channel offsets and `MAP_FAILED` validation.
+  [*]Includes a zero-dependency Linux kernel-ioctl DRM/KMS dumb-buffer backend (`/dev/dri/card0..3`, `DRM_IOCTL_MODE_SETCRTC` + `DIRTYFB` flush for command-mode OLED panels).
+  [*]Auto-detects available backend (or override via `AROMA_DISPLAY=drm` / `fbdev`).
+  [/LIST]
+[*][B]Anti-Freeze Recovery Safety (`EXIT 77`):[/B] If neither `fbdev` nor DRM master can be acquired (see [I]Known Limitations[/I] below), AROMA-Next immediately resumes the parent recovery (`SIGCONT`) and exits with code `77` so the universal dispatcher runs the non-GUI fallback instead of freezing TWRP.
+[*][B]Modern Touch & Haptics:[/B]
+  [LIST]
+  [*]Raised `INDR_MAXDEV` from `15` to `64` for modern `/dev/input/event*` layouts.
+  [*]Added `ABS_MT_SLOT` (Protocol Type-B) filtering so multi-finger touches do not corrupt slot-0 UI coordinates.
+  [*]Added `BTN_TOUCH` release handling, `ABS_X`/`ABS_Y` calibration fallback, and `/sys/class/leds/vibrator/{duration,activate}` haptic fallback.
+  [/LIST]
+[*][B]Universal Recovery + Magisk / KernelSU / APatch Dual-Mode:[/B]
+  [LIST]
+  [*][B]In Custom Recovery (`BOOTMODE=false`):[/B] Auto-detects `uname -m` (`aarch64` vs `armv7l`), launches the Touch GUI, saves user selections to `/tmp/aroma/*.prop`, and executes either `update-binary-installer` or `magisk-installer` (`customize.sh`).
+  [*][B]In Magisk / KernelSU / APatch App (`BOOTMODE=true`):[/B] Automatically skips the recovery GUI (since Android SurfaceFlinger owns the display) and runs the module's `customize.sh` with defaults/headless fallback.
+  [/LIST]
+[*][B]Modern Recovery Compatibility:[/B] Dynamic `mount`/`umount` binary lookup (`/sbin`, `/system/bin`, `/bin`, `/vendor/bin`) instead of hardcoded `/sbin/mount`.
+[/LIST]
+
+[HR][/HR]
+
+[SIZE="4"][B]Changelog (vs. amarullz/AROMA-Installer `de82ccc`)[/B][/SIZE]
+[B]v3.00-next[/B]
+[LIST]
+[*][B]Added:[/B] Pure-ioctl Linux DRM/KMS dumb-buffer backend (`src/libs/graph_drm.c`, `/dev/dri/card0..3`, `DIRTYFB` flush, zero `libdrm.so` dependency).
+[*][B]Added:[/B] Display auto-detection (`fbdev` + `DRM/KMS`, `AROMA_DISPLAY=drm|fbdev`) and safe exit code `77` (`AROMA_EXIT_NO_DISPLAY`) with parent `SIGCONT` to prevent TWRP freezes.
+[*][B]Added:[/B] Universal multi-arch `update-binary` dispatcher (`arm64` / `arm32` / `x86_64`) with `BOOTMODE` detection for Magisk / KernelSU / APatch App installs.
+[*][B]Added:[/B] `magisk-template/` (`module.prop`, `customize.sh`, `magisk-installer` bridge), `Application.mk` (`android-35`), `build.py` (Zig static cross-build), and GitHub Actions NDK r27c CI (`.github/workflows/build.yml`).
+[*][B]Fixed (64-bit & C11):[/B] `uintptr_t` pointer tracking in `aroma_memory.c`, `intptr_t` casts in `aroma_graph.c` & `Zip.c`, `static __inline__` in `inline_magic.h`, NEON intrinsics in `blt_neon.c`, and NDK r27c `Android.mk` (`LOCAL_LDLIBS := -lm` instead of AOSP `libm libc`).
+[*][B]Fixed (Display & Touch):[/B] `/dev/fb0` fallback, `MAP_FAILED` check, real `FBIOGET_VSCREENINFO` channel offsets, `INDR_MAXDEV` `15 -> 64`, Protocol Type-B `ABS_MT_SLOT` slot-0 tracking, `BTN_TOUCH` release, `ABS_X`/`ABS_Y` calibration fallback, and `/sys/class/leds/vibrator` haptics.
+[*][B]Fixed (Core & Recovery):[/B] `sizeof(AARRAY_ITEM)` & `NULL` key checks in `aroma_array.c`, `0755` octal mode in `aroma_zip.c`, `fabs()` in `aroma_libs.c`, log `NULL` guards in `aroma_installer.c`, and dynamic `mount`/`umount` lookup in `aroma_ui.c`.
+[/LIST]
+
+[HR][/HR]
+
+[SIZE="4"][B]Known Limitations & Call for Testers[/B][/SIZE]
+[B]Important technical note on DRM-based TWRP / OrangeFox builds:[/B]
+On modern recoveries that use DRM/KMS and keep [B]DRM Master[/B] open while executing an `update-binary` child process, `SIGSTOP` pauses the recovery without calling `drmDropMaster()`. In that scenario, any child binary attempting `DRM_IOCTL_SET_MASTER` will receive `EBUSY`/`EACCES` unless the recovery itself releases DRM master.
+On recoveries that still expose `fbdev` or release DRM master, the Touch GUI renders directly. On recoveries that lock DRM master, AROMA-Next now [B]exits cleanly with code 77 and triggers the fallback installer[/B] instead of hanging your device.
+
+[I]Testing feedback from different devices, TWRP/OrangeFox builds, and Magisk/KernelSU setups is very welcome! Please include `/tmp/recovery.log` if you report an issue.[/I]
+
+[HR][/HR]
+
+[SIZE="4"][B]For Developers / Module Authors[/B][/SIZE]
+Check out the included `magisk-template/` folder in the repository:
+[LIST]
+[*][B]`META-INF/com/google/android/update-binary`[/B] — Universal `arm64`/`arm32` Recovery & Magisk/KernelSU dispatcher
+[*][B]`META-INF/com/google/android/aroma-config`[/B] — Your Touch GUI wizard (writes selections to `/tmp/aroma/*.prop`)
+[*][B]`META-INF/com/google/android/magisk-installer`[/B] — Bridges AROMA into Magisk's `util_functions.sh` / `install_module`
+[*][B]`customize.sh`[/B] — Reads `${AROMA_TMP:-/tmp/aroma}/*.prop` in Recovery mode or falls back to defaults in App mode
+[/LIST]
+
+[SIZE="3"][B]Building from Source[/B][/SIZE]
+[CODE]
+# Using Android NDK (r27c+):
+ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Application.mk -j4
+
+# Or cross-compiling static binaries + ZIPs with Zig:
+python build.py --arch arm64 arm32
+[/CODE]
+
+[HR][/HR]
+
+[SIZE="4"][B]Links & Credits[/B][/SIZE]
+[LIST]
+[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Installer"]https://github.com/Miustone/AROMA-Installer[/URL] [I](update link if renamed to AROMA-Next-Installer)[/I]
+[*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — Apache License 2.0
+[/LIST]
+
+[HR][/HR]
+[B]License:[/B] Apache License 2.0
