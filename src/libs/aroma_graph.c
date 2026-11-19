@@ -3325,6 +3325,23 @@ void ag_takescreenshoot() {
     fwrite(ag_c.data, 1, ag_c.sz, fp);
     fclose(fp);
     LOGS("Save on \"%s\" %i Bytes\n", filename, bmph.filesize);
+
+    byte * saved = (byte *) malloc(ag_c.sz);
+    if (saved != NULL) {
+      memcpy(saved, ag_c.data, ag_c.sz);
+      int fw = agdp() * 2;
+      if (fw < 4) fw = 4;
+      ag_rectopa(&ag_c, 0, 0, ag_c.w, ag_c.h, 0xffff, 110);
+      ag_rect(&ag_c, 0, 0, ag_c.w, fw, 0xffff);
+      ag_rect(&ag_c, 0, ag_c.h - fw, ag_c.w, fw, 0xffff);
+      ag_rect(&ag_c, 0, 0, fw, ag_c.h, 0xffff);
+      ag_rect(&ag_c, ag_c.w - fw, 0, fw, ag_c.h, 0xffff);
+      ag_sync();
+      usleep(95000);
+      memcpy(ag_c.data, saved, ag_c.sz);
+      ag_sync();
+      free(saved);
+    }
   }
   
 #pragma pack(pop)

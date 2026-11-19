@@ -332,6 +332,18 @@ int atouch_wait(ATEV * atev) {
   return atouch_wait_ex(atev, 0);
 }
 static int volume_down_pressed = 0;
+static int power_key_pressed = 0;
+
+static void aroma_do_screenshot() {
+  vibrate(30);
+  LOGS("PRINT SCREEN...\n");
+  ag_takescreenshoot();
+  usleep(80000);
+  vibrate(30);
+  volume_down_pressed = 2;
+  power_key_pressed = 2;
+}
+
 int atouch_wait_ex(ATEV * atev, byte calibratingtouch) {
   atev->x = -1;
   atev->y = -1;
@@ -372,6 +384,55 @@ int atouch_wait_ex(ATEV * atev, byte calibratingtouch) {
         }
       }
     }
+    else if (key == KEY_VOLUMEDOWN) {
+      if (atev->d) {
+        if (power_key_pressed) {
+          if (power_key_pressed == 1) {
+            aroma_do_screenshot();
+          }
+          volume_down_pressed = 2;
+          power_key_pressed = 2;
+        }
+        else if (volume_down_pressed != 2) {
+          volume_down_pressed = 1;
+        }
+        continue;
+      }
+      else {
+        int was = volume_down_pressed;
+        volume_down_pressed = 0;
+        if (was == 2) {
+          continue;
+        }
+      }
+    }
+    else if (key == KEY_POWER) {
+      if (atev->d) {
+        if (volume_down_pressed) {
+          if (volume_down_pressed == 1) {
+            aroma_do_screenshot();
+          }
+          volume_down_pressed = 2;
+          power_key_pressed = 2;
+        }
+        else if (power_key_pressed != 2) {
+          power_key_pressed = 1;
+        }
+        continue;
+      }
+      else {
+        int was = power_key_pressed;
+        power_key_pressed = 0;
+        if (was == 2) {
+          continue;
+        }
+        vibrate(30);
+      }
+    }
+
+    if (key == evtouch_code) {
+      continue;
+    }
     else if ((key != 0) && (key == acfg()->ckey_up)) {
       return ATEV_UP;
     }
@@ -388,12 +449,6 @@ int atouch_wait_ex(ATEV * atev, byte calibratingtouch) {
       return ATEV_MENU;
     }
     else {
-      if (key == KEY_VOLUMEDOWN) {
-        if (volume_down_pressed != 2) {
-          volume_down_pressed = atev->d;
-        }
-      }
-      
       /* DEFINED KEYS */
       switch (key) {
           /* RIGHT */
@@ -409,14 +464,8 @@ int atouch_wait_ex(ATEV * atev, byte calibratingtouch) {
           /* DOWN */
         case KEY_DOWN:
         case KEY_CAPSLOCK:
-        case KEY_VOLUMEDOWN: {
-            if (volume_down_pressed != 2) {
-              return ATEV_DOWN;
-            }
-            else if (atev->d == 0) {
-              volume_down_pressed = 0;
-            }
-          }
+        case KEY_VOLUMEDOWN:
+          return ATEV_DOWN;
           break;
           
           /* UP */
@@ -436,23 +485,8 @@ int atouch_wait_ex(ATEV * atev, byte calibratingtouch) {
         case KEY_CAMERA:
         case KEY_F21:
         case KEY_SEND:
-        case KEY_END: {
-            if (volume_down_pressed) {
-              if (atev->d) {
-                vibrate(30);
-                LOGS("PRINT SCREEN...\n");
-                ag_takescreenshoot();
-                usleep(200000);
-                vibrate(30);
-                usleep(200000);
-                vibrate(30);
-                volume_down_pressed = 2;
-              }
-            }
-            else {
-              return ATEV_SELECT;
-            }
-          }
+        case KEY_END:
+          return ATEV_SELECT;
           break;
           
           /* SHOW MENU */

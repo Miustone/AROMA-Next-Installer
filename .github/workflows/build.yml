@@ -2,10 +2,10 @@ name: Build and Release AROMA-Next Installer
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ main, master ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
@@ -64,9 +64,9 @@ jobs:
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'AROMA-Next Installer (Latest Build)' }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') || contains(github.ref_name, '-') }}
           generate_release_notes: true
-          make_latest: ${{ startsWith(github.ref, 'refs/tags/') && 'true' || 'false' }}
+          make_latest: ${{ startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-') && 'true' || 'false' }}
           files: |
             dist/AROMA-Next-Installer.zip
             dist/AROMA-Next-Magisk-Template.zip

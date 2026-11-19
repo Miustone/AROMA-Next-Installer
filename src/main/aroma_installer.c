@@ -471,10 +471,11 @@ static void * ac_progressthread(void * cookie) {
     ag_textfs(ai_cv, ptx1_w, ptx1_x + 1, ptxt_y + 1, ai_progress_text, acfg()->winbg, 0);
     ag_texts (ai_cv, ptx1_w, ptx1_x  , ptxt_y  , ai_progress_text, acfg()->winfg, 0);
     ag_textfs(ai_cv, ai_prog_w - (ai_prog_or * 2), ptx1_x + 1, ptxt_y + 1 + ag_fontheight(0), ai_progress_info, acfg()->winbg, 0);
-    ag_texts (ai_cv, ai_prog_w - (ai_prog_or * 2), ptx1_x  , ptxt_y + ag_fontheight(0) + agdp(), ai_progress_info, acfg()->winfg_gray, 0);
+    ag_texts (ai_cv, ai_prog_w - (ai_prog_or * 2), ptx1_x  , ptxt_y + ag_fontheight(0) + agdp(), ai_progress_info, ag_getcolorset(3), 0);
     ag_textfs(ai_cv, ptxt_w, ptxt_x + 1, ptxt_y + 1, prog_percent_str, acfg()->winbg, 0);
     ag_texts (ai_cv, ptxt_w, ptxt_x, ptxt_y, prog_percent_str, acfg()->winfg, 0);
-    prog_g = ai_prog_w - (ai_prog_r * 2);
+    int filled_w = atheme("img.prograss.fill") ? curr_prog_w : (issmall >= 0 ? issmall : ai_progress_w);
+    prog_g = filled_w - (ai_prog_r * 2);
     
     if (++ai_progani_pos > 60) {
       ai_progani_pos = 0;
@@ -517,9 +518,9 @@ static void * ac_progressthread(void * cookie) {
         byte eg = 0;
         byte eb = 0;
         
-        for (yy = 0; yy < ai_prog_oh; yy++) {
-          color * ic = agxy(ai_cv, anix, ai_prog_oy + yy);
-          byte  l  = alpha * (0.5 + ((((float) yy + 1) / ((float) ai_prog_oh)) * 0.5));
+        for (yy = 0; yy < ai_prog_h; yy++) {
+          color * ic = agxy(ai_cv, anix, ai_prog_y + yy);
+          byte  l  = alpha * (0.5 + ((((float) yy + 1) / ((float) ai_prog_h)) * 0.5));
           byte  ralpha = 255 - l;
           byte r = (byte) (((((int) ag_r(ic[0])) * ralpha) + (((int) sg_r) * l)) >> 8);
           byte g = (byte) (((((int) ag_g(ic[0])) * ralpha) + (((int) sg_g) * l)) >> 8);

@@ -3,8 +3,8 @@ img.titlebar=titlebar
 img.navbar=navbar
 img.dialog=dialog
 img.dialog.titlebar=dialog_titlebar
-img.progress=progress
-img.prograss.fill=progress_fill
+img.progress=progress.9
+img.prograss.fill=progress_fill.9
 img.selection=select
 img.selection.push=select_push
 

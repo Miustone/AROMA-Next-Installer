@@ -13,6 +13,12 @@ All notable changes in **AROMA-Next-Installer** compared to the upstream fork ba
   - Walks ancestor PIDs up to `recovery`/`twrp` so both shell dispatchers (`update-binary`) and the recovery compositor are paused (`SIGSTOP`) and resumed (`SIGCONT`) cleanly in reverse order.
 - **Startup Theme/Font Initialization for Dialogs (`src/main/aroma_ui.c`):**
   - Added `aui_ensure_ready()` to `alert()`, `confirm()`, and `textdialog()` so `theme()` and `fontresload()` are always applied even when a dialog appears before the first `viewbox()`.
+- **Live In-Installer Theme Switcher (`src/controls/aroma_controls.c`, `src/main/aroma_ui.c`):**
+  - Added **Select Theme** inside the 3-Dot Menu with live current-page theme reloading (`Black & White` default + `ICS`, `MIUI 4`, `MIUI`, `Touchwiz`, `Franzyroy`, `Generic`).
+  - Fixed 9-patch dialog borders (`aw_draw_dialog_border()`), `ag_getcolorset()` contrast fallbacks on dark themes, `blacknwhite` 9-patch progress bar + monochrome button icons (`icon.finish.png`, `icon.installbutton.png`), and bounded install glow animation (`src/main/aroma_installer.c`).
+- **Hardware Key & Screenshot Combo Fixes (`src/libs/aroma_input.c`, `src/libs/aroma_graph.c`):**
+  - Deferred `KEY_VOLUMEDOWN` and `KEY_POWER` events until release with mutual combo suppression so `Vol-Down + Power` screenshots never trigger accidental navigation or menu opening regardless of press/release order.
+  - Added crisp camera-shutter white flash & frame visual feedback in `ag_takescreenshoot()`.
 - **Startup Root & RW Environment Check (`magisk-template/META-INF/com/google/android/aroma-env-check.sh`):**
   - Probes Magisk, KernelSU/APatch (`/data/adb`), and pre-converted `RO2RW`/`SystemRW` partitions at startup and shows an Environment Notice Info Box + start-page banner if no writable target is detected.
 - **Dynamic Versioning (`src/aroma.h`, `Android.mk`, `build.py`):**

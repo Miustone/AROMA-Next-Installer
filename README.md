@@ -96,4 +96,4 @@ Outputs static binaries to `out/bin/` and flashable ZIPs to `dist/AROMA-Next-Ins
 ## License & Credits
 Apache License 2.0 (see `README`).
 - **2013** Ahmad Amarullah (`amarullz`) — Original AROMA Installer ([amarullz/AROMA-Installer](https://github.com/amarullz/AROMA-Installer))
-- **2026** Miustone (`AROMA-Next-Installer`) — Support: Miustone (XDA & GitHub: [Miustone/AROMA-Next-Installer](https://github.com/Miustone/AROMA-Next-Installer))
+- **2026** Miustone (`AROMA-Next-Installer`) — Support: Miustone (XDA & GitHub: [Miustone/AROMA-Installer](https://github.com/Miustone/AROMA-Installer))

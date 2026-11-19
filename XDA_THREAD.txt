@@ -14,14 +14,15 @@ Remember the classic [B]AROMA Installer[/B] touch wizards inside TWRP? On modern
 [*][B][COLOR="#00AA55"]Safe by Design (Zero Recovery Hangs):[/COLOR][/B] Cleanly pauses/resumes recovery and restores its display on exit; if a recovery locks the screen without a fallback, AROMA-Next exits cleanly (`EXIT 77`) and runs the standard text installer instead of freezing.
 [*][B][COLOR="#E67E22"]Smart Startup Environment Check:[/COLOR][/B] Automatically detects [B]Magisk[/B], [B]KernelSU / APatch[/B], or [B]RO2RW / SystemRW[/B] partitions at launch and alerts you immediately if no writable modding target is available.
 [*][B][COLOR="#00AA55"]Flash Anywhere (Recovery OR Root App):[/COLOR][/B] Use the full Touch GUI inside TWRP/OrangeFox, or flash the exact same ZIP directly inside the Magisk / KernelSU / APatch app (automatic headless fallback).
-[*][B][COLOR="#9B59B6"]Live Theme Switcher:[/COLOR][/B] Ships with [B]Black & White[/B] by Miustone as the default theme — switch live anytime via the [B]3-Dot Menu → Select Theme[/B] (ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic).
+[*][B][COLOR="#9B59B6"]Built-in Live Theme Switcher (New!):[/COLOR][/B] Ships with Miustone's crisp [B]Black & White[/B] OLED theme (custom 9-patch progress bar & monochrome icon set) as default — open [B]3-Dot Menu → Select Theme[/B] at any step to preview & switch themes live ([I]Black & White, ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic[/I]) without losing your current selections or restarting the installer.
+[*][B][COLOR="#0099CC"]Reliable Hardware Key & Screenshot Combo:[/COLOR][/B] Volume/Power navigation no longer triggers accidental menu/button clicks during [B]Vol-Down + Power[/B] screenshots, complete with a crisp visual shutter flash when capturing `.bmp` screenshots.
 [/LIST]
 
 [HR][/HR]
 
 [SIZE="4"][B][COLOR="#0099CC"]Downloads & Compatibility[/COLOR][/B][/SIZE]
 [LIST]
-[*][B]GitHub Releases:[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer/releases"]https://github.com/Miustone/AROMA-Next-Installer/releases[/URL]
+[*][B]GitHub Releases:[/B] [URL="https://github.com/Miustone/AROMA-Installer/releases"]https://github.com/Miustone/AROMA-Installer/releases[/URL]
 [*][B]Packages included per release:[/B]
   [LIST]
   [*]`AROMA-Next-Installer.zip` — Universal demo & test ZIP (`arm64` + `arm32`)
@@ -79,7 +80,7 @@ python build.py --arch arm64 arm32
 
 [SIZE="4"][B][COLOR="#0099CC"]Links & Credits[/COLOR][/B][/SIZE]
 [LIST]
-[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer"]https://github.com/Miustone/AROMA-Next-Installer[/URL]
+[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Installer"]https://github.com/Miustone/AROMA-Installer[/URL]
 [*][B]Support:[/B] [COLOR="#00AA55"]Miustone[/COLOR] (XDA & GitHub)
 [*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — [COLOR="#7F8C8D"]2013 amarullz | 2026 Miustone — Apache License 2.0[/COLOR]
 [/LIST]
