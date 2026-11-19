@@ -729,6 +729,9 @@ dword aw_dispatch(AWINDOWP win) {
               if (resmenu == 2) {
                 msg = aw_msg(4, 0, 0, 0);
               }
+              else if (resmenu == 3) {
+                msg = aw_msg(7, 0, 0, 0);
+              }
             }
             else if (on_dialog_window == 2) {
               msg = aw_msg(5, 0, 0, 0);
@@ -865,6 +868,9 @@ dword aw_dispatch(AWINDOWP win) {
           if (resmenu == 2) {
             msg = aw_msg(4, 0, 0, 0);
           }
+          else if (resmenu == 3) {
+            msg = aw_msg(7, 0, 0, 0);
+          }
         }
         else if (on_dialog_window == 2) {
           msg = aw_msg(5, 0, 0, 0);
@@ -997,6 +1003,27 @@ void aw_unmaskparent(AWINDOWP win, CANVAS * p, CANVAS * maskc, int x, int y, int
     aw_unmuteparent(win, p);
   }
 }
+static void aw_draw_dialog_border(CANVAS * c, PNGCANVASP winp, int winX, int winY, int winW, int winH, int titH) {
+  (void) winp;
+  int dlg_id = atheme_id("img.dialog");
+  if (dlg_id >= 0 && acfg_var.theme_9p[dlg_id]) {
+    return;
+  }
+  if (acfg_var.border == acfg_var.dialogbg) {
+    return;
+  }
+  int bw = agdp() / 3;
+  if (bw < 2) bw = 2;
+  int bh = (bw > 2) ? 2 : bw;
+  ag_rect(c, winX, winY, winW, bw, acfg_var.border);
+  ag_rect(c, winX, winY + winH - bw, winW, bw, acfg_var.border);
+  ag_rect(c, winX, winY, bw, winH, acfg_var.border);
+  ag_rect(c, winX + winW - bw, winY, bw, winH, acfg_var.border);
+  if (titH > bw) {
+    ag_rect(c, winX, winY + titH - bh, winW, bh, acfg_var.border);
+  }
+}
+
 void aw_textdialog(AWINDOWP parent, char * titlev, char * text, char * ok_text) {
   // actext(hWin,txtX,txtY,txtW,txtH,text,0);
   CANVAS * tmpc = aw_muteparent(parent);
@@ -1078,6 +1105,7 @@ void aw_textdialog(AWINDOWP parent, char * titlev, char * text, char * ok_text) 
   if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
     ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
   }
+  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
   
   ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
   ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
@@ -1207,6 +1235,7 @@ void aw_alert(AWINDOWP parent, char * titlev, char * textv, char * img, char * o
   if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
     ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
   }
+  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
   
   ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
   ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
@@ -1345,6 +1374,7 @@ byte aw_confirm(AWINDOWP parent, char * titlev, char * textv, char * img, char *
   if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
     ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
   }
+  aw_draw_dialog_border(&alertbg, winp, winX - 1, winY - 1, winW + 2, winH + 2, titH + 1);
   
   ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
   ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
@@ -1897,6 +1927,139 @@ void aw_about_dialog(AWINDOWP parent) {
            "@install",
            NULL);
 }
+static byte aw_theme_dialog(AWINDOWP parent) {
+  static const struct {
+    const char * id;
+    const char * title;
+    const char * desc;
+  } known_themes[] = {
+    { "blacknwhite", "Black & White", "By Miustone (Default)" },
+    { "ics",         "ICS Theme",     "Ice Cream Sandwich by DemonWav & amarullz" },
+    { "miui4",       "MIUI 4 Theme",  "MIUI 4/ICS by amarullz & Lennox" },
+    { "miui",        "MIUI Theme",    "Classic MIUI by mickey-r & amarullz" },
+    { "touchwiz",    "Touchwiz",      "Touchwiz by titanic_fanatic" },
+    { "franzyroy",   "Franzyroy",     "Franzyroy by franzyroy" },
+    { "",            "Generic",       "Unthemed Classic AROMA" }
+  };
+
+  const char * avail_ids[8];
+  const char * avail_titles[8];
+  const char * avail_descs[8];
+  int avail_cnt = 0;
+  int i;
+  for (i = 0; i < (int)(sizeof(known_themes) / sizeof(known_themes[0])); i++) {
+    if (aui_theme_exists(known_themes[i].id)) {
+      avail_ids[avail_cnt]    = known_themes[i].id;
+      avail_titles[avail_cnt] = known_themes[i].title;
+      avail_descs[avail_cnt]  = known_themes[i].desc;
+      avail_cnt++;
+    }
+  }
+  if (avail_cnt == 0) {
+    return 0;
+  }
+
+  CANVAS * tmpc = aw_muteparent(parent);
+  on_dialog_window = 1;
+  CANVAS * maskc = aw_maskparent();
+
+  char title[32];
+  snprintf(title, sizeof(title), "Select Theme");
+  int pad  = agdp() * 4;
+  int winW = agw() - (pad * 2);
+  int btnH = agdp() * 20;
+  int titW = ag_txtwidth(title, 1);
+  int titH = ag_fontheight(1) + (pad * 2);
+
+  PNGCANVASP winp = atheme("img.dialog");
+  PNGCANVASP titp = atheme("img.dialog.titlebar");
+  APNG9 winv, titv;
+  int vtitY = -1;
+  int vpadB = pad;
+  int listX = pad * 2;
+  int listW = winW - (pad * 2);
+  int tit_id = atheme_id("img.dialog.titlebar");
+  int dlg_id = atheme_id("img.dialog");
+
+  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
+    int tmptitH = titH - (pad * 2);
+    titH  = tmptitH + (titv.t + titv.b);
+    vtitY = titv.t;
+  }
+  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
+    listW = winW - (winv.l + winv.r);
+    listX = pad + winv.l;
+    vpadB = winv.b;
+  }
+
+  int listH = (agh() * 55) / 100;
+  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
+  int winX  = pad;
+  int winY  = (agh() / 2) - (winH / 2);
+  int titX  = (agw() / 2) - (titW / 2);
+  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
+  int listY = winY + titH + pad;
+  int btnW  = (listW / 2) - (pad / 2);
+  int btnY  = listY + listH + pad;
+  int btnX  = listX;
+  int btnX2 = listX + (listW / 2) + (pad / 2);
+
+  CANVAS alertbg;
+  ag_canvas(&alertbg, agw(), agh());
+  ag_draw(&alertbg, agc(), 0, 0);
+
+  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  }
+  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  }
+  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+
+  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
+
+  AWINDOWP hWin = aw(&alertbg);
+  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
+  for (i = 0; i < avail_cnt; i++) {
+    byte sel = (strcmp(acfg_var.themename, avail_ids[i]) == 0) ? 1 : 0;
+    acopt_add(opt1, (char *) avail_titles[i], (char *) avail_descs[i], sel);
+  }
+  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
+  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
+  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+
+  byte applied = 0;
+  byte ondispatch = 1;
+  while (ondispatch) {
+    dword msg = aw_dispatch(hWin);
+    switch (aw_gm(msg)) {
+      case 6: {
+        int selidx = acopt_getselectedindex(opt1, 0);
+        if (selidx != -1) {
+          int pick = acopt_getgroupid(opt1, selidx);
+          if (pick >= 0 && pick < avail_cnt) {
+            aui_set_user_theme(avail_ids[pick]);
+            applied = 1;
+          }
+        }
+        ondispatch = 0;
+      }
+      break;
+      case 5:
+        ondispatch = 0;
+        break;
+    }
+  }
+
+  aw_destroy(hWin);
+  ag_ccanvas(&alertbg);
+  on_dialog_window = 0;
+  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
+  return applied;
+}
+
 byte aw_showmenu(AWINDOWP parent) {
   CANVAS * tmpc = aw_muteparent(parent);
   //-- Set Mask
@@ -1907,7 +2070,7 @@ byte aw_showmenu(AWINDOWP parent) {
   int btnH  = agdp() * 20;
   int pad   = agdp() * 2;
   int vpad  = agdp() * 1;
-  int winH  = ((btnH + vpad) * 3) + pad;
+  int winH  = ((btnH + vpad) * 4) + pad;
   int winW  = agw();
   int winX  = 0;
   int winY  = agh() - winH;
@@ -1924,10 +2087,9 @@ byte aw_showmenu(AWINDOWP parent) {
   //-- Create Window
   AWINDOWP hWin   = aw(&alertbg);
   acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_about, 0, 11);
-  //acbutton(hWin,btnX,btnY+((btnH+vpad)*1),btnW,btnH,"Help",0,12);
-  //acbutton(hWin,btnX,btnY+((btnH+vpad)*1),btnW,btnH,acfg_var.text_calibrating,0,13);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 1), btnW, btnH, acfg_var.text_quit, 0, 14);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 2), btnW, btnH, acfg_var.text_back, 0, 5);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 1), btnW, btnH, "Select Theme", 0, 15);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 2), btnW, btnH, acfg_var.text_quit, 0, 14);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 3), btnW, btnH, acfg_var.text_back, 0, 5);
   /* aw_show(hWin); */
   aw_show_ex(hWin, 1, winY - 1, NULL);
   byte ondispatch = 1;
@@ -1960,6 +2122,11 @@ byte aw_showmenu(AWINDOWP parent) {
         res = 4;
         ondispatch = 0;
         break;
+        
+      case 15:
+        res = 5;
+        ondispatch = 0;
+        break;
     }
   }
   
@@ -1982,6 +2149,11 @@ byte aw_showmenu(AWINDOWP parent) {
     
     if (res) {
       return 2;
+    }
+  }
+  else if (res == 5) {
+    if (aw_theme_dialog(parent)) {
+      return 3;
     }
   }
   

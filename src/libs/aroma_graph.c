@@ -2337,6 +2337,9 @@ color ag_getcolorset(int color_index) {
       
     case 3:
       cl = acfg()->winfg_gray;
+      if (cl == acfg()->winbg) {
+        cl = ag_rgb(180, 180, 180);
+      }
       break;
       
     case 4:
@@ -2381,6 +2384,9 @@ color ag_getcolorset(int color_index) {
       
     case 14:
       cl = acfg()->selectbg_g;
+      if (cl == acfg()->dialogbg && cl == acfg()->winbg) {
+        cl = ag_rgb(204, 204, 204);
+      }
       break;
       
     case 15:

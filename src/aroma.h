@@ -812,6 +812,8 @@ void aw_alert(AWINDOWP parent, char * titlev, char * textv, char * img, char * o
 byte aw_confirm(AWINDOWP parent, char * titlev, char * textv, char * img, char * yes_text, char * no_text);
 void aw_textdialog(AWINDOWP parent, char * title, char * text, char * ok_text);
 void aw_about_dialog(AWINDOWP parent);
+byte aui_theme_exists(const char * id);
+void aui_set_user_theme(const char * id);
 byte aw_showmenu(AWINDOWP parent);
 
 //

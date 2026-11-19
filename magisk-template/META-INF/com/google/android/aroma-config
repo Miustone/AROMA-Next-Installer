@@ -41,21 +41,6 @@ viewbox(
 );
 
 selectbox(
-  "Select Theme",
-  "Choose your preferred installer theme:",
-  "@personalize",
-  "theme.prop",
-  "Black & White (Default)", "Black And White Theme by Miustone", 1,
-  "ICS Theme",               "Ice Cream Sandwich by DemonWav & amarullz", 0
-);
-
-if prop("theme.prop", "selected.0") == "2" then
-  theme("ics");
-else
-  theme("blacknwhite");
-endif;
-
-selectbox(
   "Select Installation Mode",
   "Choose how modifications should be applied to your device:",
   "@install",

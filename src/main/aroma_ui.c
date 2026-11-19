@@ -218,6 +218,30 @@ void aui_setthemeconfig(char * prop, char * key, byte * b);
 void aui_setthemecolor(char * prop, char * key, color * cl);
 char aroma_theme_request[64] = {0};
 byte aroma_theme_new_request = 1;
+static char aroma_user_theme[64] = {0};
+static byte aroma_has_user_theme = 0;
+
+byte aui_theme_exists(const char * id) {
+  if (id == NULL || id[0] == '\0' || strcmp(id, "generic") == 0) {
+    return 1;
+  }
+  char prop_path[256];
+  AZMEM mem;
+  snprintf(prop_path, sizeof(prop_path), "%s/themes/%s/theme.prop", AROMA_DIR, id);
+  if (az_readmem(&mem, prop_path, 0)) {
+    free(mem.data);
+    return 1;
+  }
+  return 0;
+}
+
+void aui_set_user_theme(const char * id) {
+  aroma_has_user_theme = 1;
+  snprintf(aroma_user_theme, sizeof(aroma_user_theme), "%s", (id != NULL) ? id : "");
+  snprintf(aroma_theme_request, sizeof(aroma_theme_request), "%s", aroma_user_theme);
+  aroma_theme_new_request = 1;
+  aui_isbgredraw = 1;
+}
 byte aroma_theme_update() {
   //-- Parse The Prop
   char themename[256];
@@ -675,10 +699,12 @@ Value * AROMA_THEME(const char * name, State * state, int argc, Expr * argv[]) {
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
-  //-- Request Theme Change
-  snprintf(aroma_theme_request, 64, "%s", args[0]);
-  aroma_theme_new_request = 1;
-  aui_isbgredraw = 1;
+  //-- Request Theme Change (unless overridden via 3-dot menu theme picker)
+  if (!aroma_has_user_theme) {
+    snprintf(aroma_theme_request, 64, "%s", args[0]);
+    aroma_theme_new_request = 1;
+    aui_isbgredraw = 1;
+  }
   _FREEARGS();
   //-- Return
   return StringValue(strdup(""));
@@ -1883,6 +1909,15 @@ Value * AROMA_VIEWBOX(const char * name, State * state, int argc, Expr * argv[])
           ondispatch      = 0;
         }
         break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
+          ondispatch      = 0;
+        }
+        break;
     }
   }
   
@@ -2071,6 +2106,15 @@ Value * AROMA_TEXTBOX(const char * name, State * state, int argc, Expr * argv[])
       case 4: {
           //-- EXIT
           func_pos        = -4;
+          ondispatch      = 0;
+        }
+        break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
           ondispatch      = 0;
         }
         break;
@@ -2268,6 +2312,15 @@ Value * AROMA_CHECKOPT(const char * name, State * state, int argc, Expr * argv[]
       case 4: {
           //-- EXIT
           func_pos        = -4;
+          ondispatch      = 0;
+        }
+        break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
           ondispatch      = 0;
         }
         break;
@@ -2483,6 +2536,15 @@ Value * AROMA_CHECKBOX(const char * name, State * state, int argc, Expr * argv[]
           ondispatch      = 0;
         }
         break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
+          ondispatch      = 0;
+        }
+        break;
     }
   }
   
@@ -2684,6 +2746,15 @@ Value * AROMA_SELECTBOX(const char * name, State * state, int argc, Expr * argv[
           ondispatch      = 0;
         }
         break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
+          ondispatch      = 0;
+        }
+        break;
     }
   }
   
@@ -2848,6 +2919,15 @@ Value * AROMA_MENUBOX(const char * name, State * state, int argc, Expr * argv[])
       case 4: {
           //-- EXIT
           func_pos        = -4;
+          ondispatch      = 0;
+        }
+        break;
+        
+      case 7: {
+          //-- LIVE THEME RELOAD ON CURRENT STEP
+          aparse_startpos = func_pos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
           ondispatch      = 0;
         }
         break;
@@ -3844,7 +3924,12 @@ byte aui_start() {
     aparse_history_pos  = 0;
     aparse_isback       = 0;
     aparse_current_position = 0;
-    snprintf(aroma_theme_request, 64, "");
+    if (aroma_has_user_theme) {
+      snprintf(aroma_theme_request, 64, "%s", aroma_user_theme);
+    }
+    else {
+      snprintf(aroma_theme_request, 64, "");
+    }
     aroma_theme_new_request = 1;
     result = Evaluate(&state, root);
   }
