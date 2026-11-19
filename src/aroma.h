@@ -77,21 +77,21 @@
 // AROMA Main Configurations
 //
 #ifndef AROMA_NAME
-#define AROMA_NAME        "AROMA-Next Installer"
+#define AROMA_NAME        "AROMA-Next-Installer"
 #endif
 #ifndef AROMA_VERSION
-#define AROMA_VERSION     "3.00-next"
+#define AROMA_VERSION     "26.11"
 #endif
 #ifndef AROMA_BUILD
-#define AROMA_BUILD       "next"
+#define AROMA_BUILD       "19.01"
 #endif
 #ifndef AROMA_BUILD_CN
 #define AROMA_BUILD_CN    "NextGen"
 #endif
-#define AROMA_BUILD_L     "Bandung - Indonesia / Community Port"
-#define AROMA_BUILD_A     "<support@amarullz.com>"
-#define AROMA_BUILD_URL   "https://github.com/Miustone/AROMA-Installer"
-#define AROMA_COPY        "(c) 2013 amarullz | AROMA-Next arm64/DRM port"
+#define AROMA_BUILD_L     "Bandung - Indonesia / Bavaria - Germany"
+#define AROMA_BUILD_A     "Support: Miustone - XDA & Github"
+#define AROMA_BUILD_URL   "https://github.com/Miustone/AROMA-Next-Installer"
+#define AROMA_COPY        "2013 amarullz | 2026 Miustone"
 
 //-- Temporary Dir - Move from /tmp/aroma-data to /tmp/aroma symlink to /tmp/aroma-data for backward compatibility
 #define AROMA_SYSTMP      "/tmp"

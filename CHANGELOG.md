@@ -2,12 +2,21 @@
 
 All notable changes in **AROMA-Next-Installer** compared to the upstream fork base (`amarullz/AROMA-Installer`, commit `de82ccc`).
 
-## [3.00-next] — 2026-11-19
+## [26.11] — 2026-11-19 (Build `DD.HH` / `NextGen`, verified on Google Pixel 7 Pro + OrangeFox R12.0)
 
 ### Added
-- **Pure-ioctl Linux DRM/KMS Display Backend (`src/libs/graph_drm.c`):**
-  - Scans `/dev/dri/card0`..`/dev/dri/card3`, acquires DRM master (`DRM_IOCTL_SET_MASTER`), discovers connected modes, allocates 32-bit `XRGB8888` dumb buffers, calls `DRM_IOCTL_MODE_SETCRTC`, and flushes updates via `DRM_IOCTL_MODE_DIRTYFB` (for command-mode OLED panels) without requiring external `libdrm.so`.
-  - Restores the previous CRTC and drops DRM master cleanly on exit (`ag_drm_close()`).
+- **Pure-ioctl Linux DRM/KMS & Atomic KMS Backend (`src/libs/graph_drm.c`):**
+  - Detects and reuses inherited DRM master FDs passed via `/proc/self/fd` by custom recoveries (TWRP / OrangeFox) when `/dev/dri/card0` is opened without `O_CLOEXEC`.
+  - Uses **Atomic KMS** (`DRM_IOCTL_MODE_ATOMIC`) with double-buffered dumb buffers, automatically disables active recovery overlay planes (`plane-1` etc.) during UI execution, and restores the parent recovery's saved scanout framebuffer + overlay planes before `RMFB` so returning to recovery never triggers `-EINVAL` black screens.
+  - Queries `DRM_IOCTL_VERSION` (`exynos` / standard DRM) to apply native `RGBA8888` byte-order shifts on Exynos/Tensor DPU panels and standard `XRGB8888`/`ABGR8888` shifts elsewhere, with legacy `SETCRTC` + `DIRTYFB` fallback.
+- **Process Hierarchy Pause & Safe Exit (`src/main/aroma.c`):**
+  - Walks ancestor PIDs up to `recovery`/`twrp` so both shell dispatchers (`update-binary`) and the recovery compositor are paused (`SIGSTOP`) and resumed (`SIGCONT`) cleanly in reverse order.
+- **Startup Theme/Font Initialization for Dialogs (`src/main/aroma_ui.c`):**
+  - Added `aui_ensure_ready()` to `alert()`, `confirm()`, and `textdialog()` so `theme()` and `fontresload()` are always applied even when a dialog appears before the first `viewbox()`.
+- **Startup Root & RW Environment Check (`magisk-template/META-INF/com/google/android/aroma-env-check.sh`):**
+  - Probes Magisk, KernelSU/APatch (`/data/adb`), and pre-converted `RO2RW`/`SystemRW` partitions at startup and shows an Environment Notice Info Box + start-page banner if no writable target is detected.
+- **Dynamic Versioning (`src/aroma.h`, `Android.mk`, `build.py`):**
+  - Uses `%y.%m` (`26.11`) for `AROMA_VERSION` and `%d.%H` (`DD.HH`) for `AROMA_BUILD`, updated credits (`2013 amarullz | 2026 Miustone`), support (`Miustone - XDA & Github`), and repository URL (`https://github.com/Miustone/AROMA-Next-Installer`).
 - **Display Backend Auto-Selection & Safe Exit (`src/libs/aroma_graph.c`, `src/main/aroma.c`, `src/aroma.h`):**
   - Added `ag_backend()` (`0 = none`, `1 = fbdev`, `2 = drm`) and `AROMA_DISPLAY=drm|fbdev` environment override.
   - Added `AROMA_EXIT_NO_DISPLAY` (`77`): if neither `fbdev` nor DRM master can be initialized, AROMA-Next resumes the parent recovery (`SIGCONT`) and exits cleanly instead of hanging TWRP.

@@ -1,6 +1,6 @@
 id=aroma_next_example
-name=AROMA-Next Example Module
-version=v1.0
-versionCode=1
+name=AROMA-Next-Installer Example Module
+version=26.11
+versionCode=2611
 author=Miustone
-description=Example Magisk/KernelSU module using AROMA-Next Touch GUI in Recovery and automatic fallback in App mode.
+description=Example Magisk/KernelSU/APatch module using AROMA-Next-Installer Touch GUI in Recovery and automatic fallback in App mode.

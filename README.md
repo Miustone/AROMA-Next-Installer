@@ -19,10 +19,11 @@ Prebuilt flashable ZIPs and static binaries (`arm64-v8a` & `armeabi-v7a`) are pu
    - Fixed 64-bit pointer truncation (`uintptr_t` in `src/libs/aroma_memory.c`, `intptr_t` casts in `src/libs/aroma_graph.c` and `libs/minzip/Zip.c`), `sizeof(AARRAY_ITEM)` allocation & `NULL`-key checks in `src/libs/aroma_array.c`, `0755` permissions in `src/libs/aroma_zip.c`, `fabs()` in `src/libs/aroma_libs.c`, and C11 inline linkage in `libs/minzip/inline_magic.h`.
    - Updated `Android.mk` + added `Application.mk` (`APP_PLATFORM := android-35`) for Android NDK r27c (`arm64-v8a` + `armeabi-v7a`).
 
-2. **Dual Display Engine (`fbdev` + Pure-ioctl `DRM/KMS`):**
-   - Added `src/libs/graph_drm.c`: pure Linux kernel ioctl DRM/KMS dumb-buffer backend (`/dev/dri/card0..3`, `DRM_IOCTL_MODE_SETCRTC` + `DIRTYFB` flush for command-mode OLED panels) with zero external `libdrm.so` dependency.
+2. **Dual Display Engine (`fbdev` + Pure-ioctl `DRM/KMS` + Atomic KMS):**
+   - Added `src/libs/graph_drm.c`: pure Linux kernel ioctl DRM/KMS dumb-buffer backend (`/dev/dri/card0..3`) with **inherited DRM master FD detection** (`/proc/self/fd`), **Atomic KMS** double-buffering & overlay plane management (`DRM_IOCTL_MODE_ATOMIC`), clean scanout restoration before `RMFB` (prevents `-EINVAL` black screen on return to OrangeFox/TWRP), Exynos/Google Tensor byte-order handling (`RGBA8888`), legacy `SETCRTC` + `DIRTYFB` fallback, and zero external `libdrm.so` dependency.
    - Enhanced `fbdev` in `src/libs/aroma_graph.c`: tries `/dev/graphics/fb0` and `/dev/fb0`, validates `mmap != MAP_FAILED`, and reads real `red/green/blue/transp` channel offsets from `FBIOGET_VSCREENINFO`.
-   - **Anti-Freeze Recovery Safety (`EXIT 77`):** If neither `fbdev` nor DRM master (`DRM_IOCTL_SET_MASTER`) can be acquired (for example when a recovery holds DRM master across `SIGSTOP`), AROMA-Next immediately resumes the parent recovery (`SIGCONT`) and exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) so the dispatcher runs the non-GUI fallback instead of hanging TWRP.
+   - **Anti-Freeze Recovery Safety (`EXIT 77`):** If neither `fbdev` nor DRM master can be acquired, AROMA-Next immediately resumes the parent recovery (`SIGCONT`) and exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) so the dispatcher runs the non-GUI fallback instead of hanging TWRP.
+   - **Process Hierarchy Pause (`src/main/aroma.c`):** Walks ancestor PIDs up to `recovery`/`twrp` so both shell dispatchers (`update-binary`) and the recovery compositor stay paused during Touch GUI execution and resume cleanly in reverse order.
 
 3. **Modern Touch & Input (`src/libs/input/`):**
    - Raised `INDR_MAXDEV` from `15` to `64` so touchscreens on `/dev/input/event15+` are detected.
@@ -92,5 +93,7 @@ Outputs static binaries to `out/bin/` and flashable ZIPs to `dist/AROMA-Next-Ins
 
 ---
 
-## License
-Apache License 2.0 (see `README`). Original AROMA Installer by Ahmad Amarullah (`amarullz`).
+## License & Credits
+Apache License 2.0 (see `README`).
+- **2013** Ahmad Amarullah (`amarullz`) — Original AROMA Installer ([amarullz/AROMA-Installer](https://github.com/amarullz/AROMA-Installer))
+- **2026** Miustone (`AROMA-Next-Installer`) — Support: Miustone (XDA & GitHub: [Miustone/AROMA-Next-Installer](https://github.com/Miustone/AROMA-Next-Installer))

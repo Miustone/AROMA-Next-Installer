@@ -2997,6 +2997,15 @@ Value * AROMA_CALIBTOOL(const char * name, State * state, int argc, Expr * argv[
   return StringValue(strdup(""));
 }
 
+static void aui_ensure_ready(void) {
+  if (aui_isbgredraw || aroma_theme_new_request || af_request_font) {
+    aui_isbgredraw = 1;
+    aui_redraw();
+    ag_draw(NULL, &aui_bg, 0, 0);
+    ag_sync();
+  }
+}
+
 //*
 //* alert
 //*
@@ -3013,6 +3022,7 @@ Value * AROMA_ALERT(const char * name, State * state, int argc, Expr * argv[]) {
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
   //-- Show Alert
@@ -3045,6 +3055,7 @@ Value * AROMA_CONFIRM(const char * name, State * state, int argc, Expr * argv[])
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
   //-- Show Confirm
@@ -3083,6 +3094,7 @@ Value * AROMA_TEXTDIALOG(const char * name, State * state, int argc, Expr * argv
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
   //-- Show Text Dialog

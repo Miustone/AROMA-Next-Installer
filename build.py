@@ -6,6 +6,7 @@ for arm64-v8a (aarch64), armeabi-v7a (arm), and x86_64, plus flashable ZIPs.
 """
 
 import argparse
+import datetime
 import os
 import shutil
 import subprocess
@@ -119,6 +120,9 @@ TARGETS = {
     },
 }
 
+BUILD_VERSION = datetime.datetime.now().strftime("%y.%m")
+BUILD_NUM = datetime.datetime.now().strftime("%d.%H")
+
 COMMON_CFLAGS = [
     "-O2",
     "-static",
@@ -126,9 +130,9 @@ COMMON_CFLAGS = [
     "-DFT2_BUILD_LIBRARY=1",
     "-DDARWIN_NO_CARBON",
     "-D_AROMA_NODEBUG",
-    "-DAROMA_NAME=\"AROMA-Next Installer\"",
-    "-DAROMA_VERSION=\"3.00-next\"",
-    "-DAROMA_BUILD=\"next\"",
+    "-DAROMA_NAME=\"AROMA-Next-Installer\"",
+    f"-DAROMA_VERSION=\"{BUILD_VERSION}\"",
+    f"-DAROMA_BUILD=\"{BUILD_NUM}\"",
     "-DAROMA_BUILD_CN=\"NextGen\"",
     "-ffunction-sections",
     "-fdata-sections",

@@ -1,5 +1,5 @@
-[CENTER][SIZE="6"][B]AROMA-Next Installer[/B][/SIZE]
-[SIZE="3"]Modern [B]arm64-v8a[/B] & [B]armeabi-v7a[/B] port of AROMA Installer with DRM/KMS + fbdev support, Type-B Multitouch & Magisk/KernelSU Dual-Mode[/SIZE][/CENTER]
+[CENTER][SIZE="6"][B]AROMA-Next-Installer[/B][/SIZE]
+[SIZE="3"]Modern [B]arm64-v8a[/B] & [B]armeabi-v7a[/B] port of AROMA Installer with Atomic DRM/KMS + fbdev support, Type-B Multitouch & Magisk/KernelSU Dual-Mode[/SIZE][/CENTER]
 
 [HR][/HR]
 
@@ -46,9 +46,10 @@ Ahmad Amarullah's original [URL="https://github.com/amarullz/AROMA-Installer"]AR
 [HR][/HR]
 
 [SIZE="4"][B]Changelog (vs. amarullz/AROMA-Installer `de82ccc`)[/B][/SIZE]
-[B]v3.00-next[/B]
+[B]v26.11 (NextGen — Tested Live on Google Pixel 7 Pro + OrangeFox R12.0)[/B]
 [LIST]
-[*][B]Added:[/B] Pure-ioctl Linux DRM/KMS dumb-buffer backend (`src/libs/graph_drm.c`, `/dev/dri/card0..3`, `DIRTYFB` flush, zero `libdrm.so` dependency).
+[*][B]Added:[/B] Pure-ioctl Linux DRM/KMS + Atomic KMS dumb-buffer backend (`src/libs/graph_drm.c`) with inherited DRM master FD detection (`/proc/self/fd`), double-buffered Atomic flips, overlay plane save/restore before `RMFB` (clean return to OrangeFox/TWRP), Exynos/Tensor `RGBA8888` handling, and legacy `SETCRTC` + `DIRTYFB` fallback.
+[*][B]Added:[/B] Process ancestor `SIGSTOP`/`SIGCONT` chain in `aroma.c`, `aui_ensure_ready()` for pre-`viewbox()` dialogs, startup Magisk/KernelSU/APatch/RO2RW environment probe + Info Box (`aroma-env-check.sh`), and `AROMA_EXIT_NO_DISPLAY` (`77`) safe fallback.
 [*][B]Added:[/B] Display auto-detection (`fbdev` + `DRM/KMS`, `AROMA_DISPLAY=drm|fbdev`) and safe exit code `77` (`AROMA_EXIT_NO_DISPLAY`) with parent `SIGCONT` to prevent TWRP freezes.
 [*][B]Added:[/B] Universal multi-arch `update-binary` dispatcher (`arm64` / `arm32` / `x86_64`) with `BOOTMODE` detection for Magisk / KernelSU / APatch App installs.
 [*][B]Added:[/B] `magisk-template/` (`module.prop`, `customize.sh`, `magisk-installer` bridge), `Application.mk` (`android-35`), `build.py` (Zig static cross-build), and GitHub Actions NDK r27c CI (`.github/workflows/build.yml`).
@@ -59,10 +60,10 @@ Ahmad Amarullah's original [URL="https://github.com/amarullz/AROMA-Installer"]AR
 
 [HR][/HR]
 
-[SIZE="4"][B]Known Limitations & Call for Testers[/B][/SIZE]
-[B]Important technical note on DRM-based TWRP / OrangeFox builds:[/B]
-On modern recoveries that use DRM/KMS and keep [B]DRM Master[/B] open while executing an `update-binary` child process, `SIGSTOP` pauses the recovery without calling `drmDropMaster()`. In that scenario, any child binary attempting `DRM_IOCTL_SET_MASTER` will receive `EBUSY`/`EACCES` unless the recovery itself releases DRM master.
-On recoveries that still expose `fbdev` or release DRM master, the Touch GUI renders directly. On recoveries that lock DRM master, AROMA-Next now [B]exits cleanly with code 77 and triggers the fallback installer[/B] instead of hanging your device.
+[SIZE="4"][B]Recovery Compatibility & Call for Testers[/B][/SIZE]
+[B]Note on DRM-based TWRP / OrangeFox builds:[/B]
+When a recovery opens `/dev/dri/card0` without `O_CLOEXEC` (verified live on Pixel 7 Pro + OrangeFox R12.0), AROMA-Next automatically inherits the DRM Master FD via `/proc/self/fd`, switches via Atomic KMS, and restores the recovery's framebuffer cleanly on exit.
+Only if a recovery explicitly sets `O_CLOEXEC` and locks DRM Master (with no `fbdev` fallback), `DRM_IOCTL_SET_MASTER` receives `EBUSY`/`EACCES` — in that case, AROMA-Next [B]exits cleanly with code 77 and triggers the non-GUI fallback installer[/B] instead of hanging your device.
 
 [I]Testing feedback from different devices, TWRP/OrangeFox builds, and Magisk/KernelSU setups is very welcome! Please include `/tmp/recovery.log` if you report an issue.[/I]
 
@@ -90,8 +91,9 @@ python build.py --arch arm64 arm32
 
 [SIZE="4"][B]Links & Credits[/B][/SIZE]
 [LIST]
-[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Installer"]https://github.com/Miustone/AROMA-Installer[/URL] [I](update link if renamed to AROMA-Next-Installer)[/I]
-[*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — Apache License 2.0
+[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer"]https://github.com/Miustone/AROMA-Next-Installer[/URL]
+[*][B]Support:[/B] Miustone (XDA & GitHub)
+[*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — 2013 amarullz | 2026 Miustone — Apache License 2.0
 [/LIST]
 
 [HR][/HR]

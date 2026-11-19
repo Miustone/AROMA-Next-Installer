@@ -13,11 +13,11 @@ include $(CLEAR_VARS)
   endif
   
   ##
-  ## VERSIONING
+  ## VERSIONING (keep in sync with src/aroma.h / build.py)
   ##
-  AROMA_NAME    := AROMA-Next Installer
-  AROMA_VERSION := 3.00-next
-  AROMA_BUILD   := $(shell date +%y%m%d%H)
+  AROMA_NAME    := AROMA-Next-Installer
+  AROMA_VERSION := $(shell date +%y.%m)
+  AROMA_BUILD   := $(shell date +%d.%H)
   AROMA_CN      := NextGen
 
   ## LOCAL PATH COPY

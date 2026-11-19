@@ -28,7 +28,7 @@
 #include <pthread.h>
 #include "../aroma.h"
 
-extern unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned char ** out_map);
+extern unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned char ** out_map, unsigned char * out_shifts);
 extern void ag_drm_flush(void);
 extern void ag_drm_close(void);
 
@@ -431,7 +431,8 @@ static byte ag_init_fbdev() {
 static byte ag_init_drm() {
   int w = 0, h = 0, pitch = 0;
   byte * map = NULL;
-  if (!ag_drm_init(&w, &h, &pitch, &map)) {
+  byte shifts[4] = {16, 8, 0, 24};
+  if (!ag_drm_init(&w, &h, &pitch, &map, shifts)) {
     return 0;
   }
 
@@ -452,11 +453,10 @@ static byte ag_init_drm() {
   memset(ag_bf32, 0, ag_fbsz);
   memset(ag_bz32, 0, ag_fbsz);
 
-  /* DRM XRGB8888 little-endian: B=0, G=8, R=16, X=24 */
-  colorspace_positions[0] = 16;
-  colorspace_positions[1] = 8;
-  colorspace_positions[2] = 0;
-  colorspace_positions[3] = 24;
+  colorspace_positions[0] = shifts[0];
+  colorspace_positions[1] = shifts[1];
+  colorspace_positions[2] = shifts[2];
+  colorspace_positions[3] = shifts[3];
 
   ag_canvas(&ag_c, w, h);
   ag_dp = (int) floor(min(w, h) / 160.0);
@@ -938,7 +938,8 @@ void ag_busyprogress() {
           *((dword *) (ag_fbuf32 + dxy)) =
             (alp << colorspace_positions[0]) |
             (alp << colorspace_positions[1]) |
-            (alp << colorspace_positions[2]);
+            (alp << colorspace_positions[2]) |
+            (0xffu << colorspace_positions[3]);
         }
       }
     }
@@ -997,7 +998,8 @@ void ag32fbufcopy(dword * bfbz) {
       *((dword *) (ag_fbuf32 + yd + (x * agclp))) =
         (ag_r32(bfbz[xy]) << colorspace_positions[0]) |
         (ag_g32(bfbz[xy]) << colorspace_positions[1]) |
-        (ag_b32(bfbz[xy]) << colorspace_positions[2]);
+        (ag_b32(bfbz[xy]) << colorspace_positions[2]) |
+        (0xffu << colorspace_positions[3]);
     }
   }
   

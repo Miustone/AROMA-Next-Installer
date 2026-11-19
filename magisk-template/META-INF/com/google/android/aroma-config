@@ -1,17 +1,39 @@
 ###
-# AROMA-Next Magisk / KernelSU / Optional-RW Module Configuration
+# AROMA-Next-Installer Module Configuration
 ###
 
 ini_set("rom_name",    "AROMA-Next Module Template");
-ini_set("rom_version", "3.00-next");
+ini_set("rom_version", "26.11");
 ini_set("rom_author",  "Miustone");
 ini_set("rom_device",  "Universal arm64/arm32");
 
+fontresload("0", "ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+fontresload("1", "ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+
 theme("ics");
+
+# Probe Magisk / KernelSU / APatch / RO2RW capability at startup
+ziptotmp("META-INF/com/google/android/aroma-env-check.sh", "envcheck.sh");
+exec("/sbin/sh", "/tmp/aroma/envcheck.sh");
+
+if prop("env.prop", "can_modify") != "1" then
+  alert(
+    "Environment Notice",
+    "<b>No supported mod target found!</b>\n\n" +
+    "- Magisk / KernelSU / APatch (/data/adb) missing or /data encrypted.\n" +
+    "- System partitions are read-only (no RO2RW / SystemRW).\n\n" +
+    "Running in Preview mode. Install Magisk/KernelSU/APatch, decrypt /data, or flash in the Magisk/KSU app to apply changes.",
+    "@alert"
+  );
+  setvar("env_banner", "<b>Status:</b> <#selectbg_g>No Root Manager or RW Partition Detected (Preview Only)</#>\n\n");
+else
+  setvar("env_banner", "<b>Detected Target:</b> <#selectbg_g>" + prop("env.prop", "env_summary") + "</#>\n\n");
+endif;
 
 viewbox(
   "Welcome",
   "<b>" + ini_get("rom_name") + "</b> (" + ini_get("rom_version") + ")\n\n" +
+  getvar("env_banner") +
   "Bring back classic Touch-GUI Android modding without breaking EROFS, Dynamic Partitions, or dm-verity.\n\n" +
   "<b>Systemless Mode (Default):</b> Generates a clean Magisk / KernelSU / APatch overlay module.\n" +
   "<b>Direct RW Mode (Optional):</b> Only for devices pre-converted with RO2RW / SystemRW and rebooted beforehand.",

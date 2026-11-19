@@ -29,9 +29,94 @@
 //*
 static  FILE  * acmd_pipe;
 static  int     parent_pid = 0;
+static  int     paused_pids[8];
+static  int     paused_count = 0;
 static  char    currArgv[2][256];
 static  byte    reboot_opt = 0;
 static  char    reboot_type[32] = {0};
+
+static int a_read_proc_info(int pid, char * comm_buf, size_t comm_sz) {
+  char path[64];
+  char statbuf[512];
+  FILE * fp;
+  int ppid = 0;
+
+  if (comm_buf && comm_sz > 0) {
+    comm_buf[0] = '\0';
+    snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+    fp = fopen(path, "r");
+    if (fp) {
+      if (fgets(comm_buf, (int) comm_sz, fp)) {
+        size_t len = strlen(comm_buf);
+        while (len > 0 && (comm_buf[len - 1] == '\n' || comm_buf[len - 1] == '\r')) {
+          comm_buf[--len] = '\0';
+        }
+      }
+      fclose(fp);
+    }
+  }
+
+  snprintf(path, sizeof(path), "/proc/%d/stat", pid);
+  fp = fopen(path, "r");
+  if (fp) {
+    if (fgets(statbuf, sizeof(statbuf), fp)) {
+      char * rparen = strrchr(statbuf, ')');
+      if (rparen && rparen[1] == ' ' && rparen[2] != '\0') {
+        sscanf(rparen + 2, "%*c %d", &ppid);
+      }
+    }
+    fclose(fp);
+  }
+  return ppid;
+}
+
+static void a_pause_ancestors(void) {
+  int chain[8];
+  char comms[8][64];
+  int count = 0;
+  int rec_idx = -1;
+  int pid = parent_pid;
+  int i;
+
+  paused_count = 0;
+  while (pid > 1 && count < 8) {
+    int next_ppid = a_read_proc_info(pid, comms[count], sizeof(comms[count]));
+    if (strcmp(comms[count], "init") == 0 || strcmp(comms[count], "adbd") == 0) {
+      break;
+    }
+    chain[count] = pid;
+    if (strcmp(comms[count], "recovery") == 0 || strcmp(comms[count], "twrp") == 0) {
+      rec_idx = count;
+      count++;
+      break;
+    }
+    count++;
+    if (next_ppid <= 1 || next_ppid == pid) {
+      break;
+    }
+    pid = next_ppid;
+  }
+
+  int stop_limit = (rec_idx >= 0) ? (rec_idx + 1) : (count > 0 ? 1 : 0);
+  if (stop_limit > 0) {
+    aroma_memory_parentpid(chain[stop_limit - 1]);
+  }
+  for (i = 0; i < stop_limit; i++) {
+    LOGS("Mute Ancestor PID %d (%s)\n", chain[i], comms[i]);
+    if (kill(chain[i], 19) == 0) {
+      paused_pids[paused_count++] = chain[i];
+    }
+  }
+}
+
+static void a_resume_ancestors(void) {
+  int i;
+  for (i = paused_count - 1; i >= 0; i--) {
+    LOGS("Unmute Ancestor PID %d\n", paused_pids[i]);
+    kill(paused_pids[i], 18);
+  }
+  paused_count = 0;
+}
 
 //*
 //* Pass Recovery PIPE
@@ -166,11 +251,9 @@ int main(int argc, char ** argv) {
   //-- Init Pipe & Show Splash Info
   a_splash(argv[2]);
   
-  //-- Mute Parent Thread
+  //-- Mute Parent & Recovery Compositor
   if (parent_pid) {
-    LOGS("Mute Parent\n");
-    aroma_memory_parentpid(parent_pid);
-    kill(parent_pid, 19);
+    a_pause_ancestors();
   }
   
   //-- Save to Argument
@@ -211,11 +294,8 @@ int main(int argc, char ** argv) {
     LOGE("Cannot Open Archive\n");
   }
   
-  //-- Unmute Parent
-  if (parent_pid) {
-    LOGS("Unmute Parent\n");
-    kill(parent_pid, 18);
-  }
+  //-- Unmute Recovery & Parent
+  a_resume_ancestors();
   
   //-- REMOVE AROMA TEMPORARY
   LOGS("Cleanup Temporary\n");
