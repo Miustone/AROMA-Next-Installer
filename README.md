@@ -11,6 +11,19 @@ Prebuilt flashable ZIPs and static binaries (`arm64-v8a` & `armeabi-v7a`) are pu
 - **`AROMA-Next-Magisk-Template.zip`** — Ready-to-use Magisk / KernelSU / APatch module template with Touch GUI in Recovery, App-mode fallback, and `aroma-mod-lib.sh`.
 - **`aroma_installer-arm64`** / **`aroma_installer-arm32`** — Standalone static ELF binaries.
 
+<details>
+<summary><b>Screenshots (Google Pixel 7 Pro • OrangeFox R12.0 • Black &amp; White Theme)</b></summary>
+
+| Welcome & Root Detection | Live Theme Switcher | About Dialog | Installation Mode |
+| :---: | :---: | :---: | :---: |
+| ![Welcome](screenshots/01-welcome.png) | ![Theme Switcher](screenshots/02-theme-switcher.png) | ![About](screenshots/03-about-dialog.png) | ![Install Mode](screenshots/04-installation-mode.png) |
+
+| Customization | Ready to Install | Live Progress |
+| :---: | :---: | :---: |
+| ![Customize](screenshots/05-customize-modifications.png) | ![Ready](screenshots/06-ready-to-install.png) | ![Installing](screenshots/07-installing-progress.png) |
+
+</details>
+
 ---
 
 ## Why Legacy AROMA Broke & What Changed

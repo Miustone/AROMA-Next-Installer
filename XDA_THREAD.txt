@@ -84,3 +84,29 @@ python build.py --arch arm64 arm32
 [*][B]Support:[/B] [COLOR="#00AA55"]Miustone[/COLOR] (XDA & GitHub)
 [*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — [COLOR="#7F8C8D"]2013 amarullz | 2026 Miustone — Apache License 2.0[/COLOR]
 [/LIST]
+
+[HR][/HR]
+
+[SIZE="5"][B][COLOR="#0099CC"]Post 3 — Screenshots (Pixel 7 Pro • OrangeFox R12.0 • Black & White Theme)[/COLOR][/B][/SIZE]
+[CENTER]
+[B]1. Welcome & Startup Root Target Detection[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/01-welcome.png[/IMG]
+
+[B]2. Live In-Installer Theme Switcher (3-Dot Menu)[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/02-theme-switcher.png[/IMG]
+
+[B]3. About Dialog (AROMA-Next 26.11)[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/03-about-dialog.png[/IMG]
+
+[B]4. Systemless Overlay vs. Direct Partition RW Mode[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/04-installation-mode.png[/IMG]
+
+[B]5. Module Customization Checkboxes[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/05-customize-modifications.png[/IMG]
+
+[B]6. Ready to Install[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/06-ready-to-install.png[/IMG]
+
+[B]7. Live Module Installation & 9-Patch Progress Bar[/B]
+[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/07-installing-progress.png[/IMG]
+[/CENTER]

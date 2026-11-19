@@ -10,3 +10,5 @@ magisk-installer text eol=lf
 aroma-config text eol=lf
 customize.sh text eol=lf
 module.prop text eol=lf
+screenshots export-ignore
+screenshots/** export-ignore

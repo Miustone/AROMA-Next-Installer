@@ -9,4 +9,4 @@ libs/x86_64/
 __pycache__/
 .zig-cache/
 zig-out/
-screenshots/
+*.bmp
