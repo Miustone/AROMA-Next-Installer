@@ -16,17 +16,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <signal.h>
 
 #ifndef _AROMA_NODEBUG
 #include <sys/statfs.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <unistd.h>
 
 #define AROMA_MEM_TMPDIR "/tmp/aroma-memory"
 long aroma_isexist_mem(void * x) {
   char pn[256];
-  snprintf(pn, 256, "%s/%i", AROMA_MEM_TMPDIR, (long) x);
+  snprintf(pn, 256, "%s/%llx", AROMA_MEM_TMPDIR, (unsigned long long)(uintptr_t) x);
   FILE * fp = fopen(pn, "r");
   
   if (fp) {
@@ -43,13 +46,12 @@ void aroma_touch_memaddr(void * x, long sz, long line, char * filename) {
   
   if (fz == 0) {
     char pn[256];
-    snprintf(pn, 256, "%s/%i", AROMA_MEM_TMPDIR, (long) x);
+    snprintf(pn, 256, "%s/%llx", AROMA_MEM_TMPDIR, (unsigned long long)(uintptr_t) x);
     FILE * fp = fopen(pn, "wb");
-    fwrite(&sz, 1, sizeof(long), fp);
-    fwrite(&line, 1, sizeof(long), fp);
-    fwrite(filename, 1, strlen(filename), fp);
-    
     if (fp) {
+      fwrite(&sz, 1, sizeof(long), fp);
+      fwrite(&line, 1, sizeof(long), fp);
+      fwrite(filename, 1, strlen(filename), fp);
       fclose(fp);
     }
   }
@@ -59,7 +61,7 @@ void aroma_unlink_memaddr(void * x) {
   
   if (fz) {
     char pn[256];
-    snprintf(pn, 256, "%s/%i", AROMA_MEM_TMPDIR, (long) x);
+    snprintf(pn, 256, "%s/%llx", AROMA_MEM_TMPDIR, (unsigned long long)(uintptr_t) x);
     unlink(pn);
   }
 }
@@ -93,13 +95,13 @@ void aroma_dump_malloc() {
           if (S_ISDIR(statbuf.st_mode)) {
           }
           else {
-            long memaddr = atoi(p->d_name);
+            uintptr_t memaddr = (uintptr_t) strtoull(p->d_name, NULL, 16);
             char pn[256];
             long fz = 0;
             long fl = 0;
             char fn[256];
             memset(fn, 0, 256);
-            snprintf(pn, 256, "%s/%i", AROMA_MEM_TMPDIR, (long) memaddr);
+            snprintf(pn, 256, "%s/%llx", AROMA_MEM_TMPDIR, (unsigned long long) memaddr);
             FILE * fp = fopen(pn, "r");
             
             if (fp) {
@@ -113,10 +115,10 @@ void aroma_dump_malloc() {
             memset(str, 0, 10);
             
             if (fz > 0) {
-              snprintf(str, 10, (char *) memaddr);
+              snprintf(str, 10, "%s", (char *) memaddr);
             }
             
-            printf("[0x%x %ib] = \"%s\" LINE %i <%s>\n", memaddr, fz, fn, fl, str);
+            printf("[0x%llx %ldb] = \"%s\" LINE %ld <%s>\n", (unsigned long long) memaddr, fz, fn, fl, str);
           }
         }
         

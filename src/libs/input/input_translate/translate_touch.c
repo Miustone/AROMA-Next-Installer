@@ -75,13 +75,38 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
   /* Get Internal Data */
   INDR_INTERNALP mi = (INDR_INTERNALP)
                       me->internal;
-  /* DUMP RAW EVENTS */
-  //ALOGRT("INDR RAW TOUCH: T=%i, C=%i, V=%i",ev->type,ev->code,ev->value);
-  static int MT_TRACKING_IS_UNTOUCHED = 0;
-  static int TOUCH_RELEASE_NEXTSYN = 0;
-  
+
+  /* Handle BTN_TOUCH key release cleanly */
+  if (ev->type == EV_KEY && ev->code == BTN_TOUCH) {
+    if (ev->value == 0) {
+      dev->p.state |= INDR_POS_ST_RLS_NEXT;
+      dev->p.mt_release_next = 1;
+      dev->p.mt_untouched = 1;
+    }
+    else {
+      dev->p.mt_untouched = 0;
+    }
+    goto return_none;
+  }
+
   /* Process EV_ABS Event */
   if (ev->type == EV_ABS) {
+    if (ev->code == ABS_MT_SLOT) {
+      dev->p.mt_slot = ev->value;
+      goto return_none;
+    }
+
+    /* Ignore secondary fingers in Type-B MT slots > 0 */
+    if ((dev->devclass & INDR_DEVCLASS_MULTITOUCH) &&
+        dev->p.mt_slot != 0 &&
+        (ev->code == ABS_MT_POSITION_X ||
+         ev->code == ABS_MT_POSITION_Y ||
+         ev->code == ABS_MT_TRACKING_ID ||
+         ev->code == ABS_MT_TOUCH_MAJOR ||
+         ev->code == ABS_MT_PRESSURE)) {
+      goto return_none;
+    }
+
     switch (ev->code) {
       case ABS_X:
         /* X Only Event */
@@ -99,57 +124,56 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
         /* Multitouch X Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_X;
         dev->p.x         = ev->value;
+        dev->p.mt_untouched = 0;
         break;
         
       case ABS_MT_POSITION_Y:
         /* Multitouch Y Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_Y;
         dev->p.y         = ev->value;
+        dev->p.mt_untouched = 0;
         break;
         
       case ABS_MT_POSITION:
         /* Multitouch XY Event */
         dev->p.state    |= INDR_POS_ST_SYNC_X | INDR_POS_ST_SYNC_Y;
-        if (dev->p.x != 0 && dev->p.y != 0) {
-          if (ev->value == (1 << 31)) {
-            dev->p.state  |= INDR_POS_ST_LASTSYNC;
-            dev->p.x = 0;
-            dev->p.y = 0;
-          }
-          else {
-            dev->p.state  &= ~INDR_POS_ST_LASTSYNC;
-            dev->p.x = (ev->value & 0x7FFF0000) >> 16;
-            dev->p.y = (ev->value & 0xFFFF);
-          }
-        
-          ev->type = EV_SYN;
-          ev->code = SYN_REPORT;
-          break;
-        
-        case ABS_MT_TOUCH_MAJOR:
-        case ABS_MT_PRESSURE:
-      
-          /* Multitouch Pressure Event */
-          if (ev->value == 0) {
-            /* Screen UnTouched */
-            dev->p.state |= INDR_POS_ST_RLS_NEXT;
-            dev->p.x = 0;
-            dev->p.y = 0;
-          }
-        
-          break;
-        
-        case ABS_MT_TRACKING_ID:
-          if (ev->value < 0) {
-            /* Screen UnTouched */
-            dev->p.state |= INDR_POS_ST_RLS_NEXT;
-            dev->p.x = 0;
-            dev->p.y = 0;
-            TOUCH_RELEASE_NEXTSYN = 1;
-            MT_TRACKING_IS_UNTOUCHED = 1;
-          }
+        if ((unsigned int) ev->value == 0x80000000U) {
+          dev->p.state  |= INDR_POS_ST_LASTSYNC;
+          dev->p.x = 0;
+          dev->p.y = 0;
         }
-
+        else {
+          dev->p.state  &= ~INDR_POS_ST_LASTSYNC;
+          dev->p.x = (ev->value & 0x7FFF0000) >> 16;
+          dev->p.y = (ev->value & 0xFFFF);
+        }
+        ev->type = EV_SYN;
+        ev->code = SYN_REPORT;
+        break;
+        
+      case ABS_MT_TOUCH_MAJOR:
+      case ABS_MT_PRESSURE:
+        /* Multitouch Pressure Event */
+        if (ev->value == 0) {
+          /* Screen UnTouched */
+          dev->p.state |= INDR_POS_ST_RLS_NEXT;
+          dev->p.x = 0;
+          dev->p.y = 0;
+        }
+        break;
+        
+      case ABS_MT_TRACKING_ID:
+        if (ev->value < 0) {
+          /* Screen UnTouched */
+          dev->p.state |= INDR_POS_ST_RLS_NEXT;
+          dev->p.x = 0;
+          dev->p.y = 0;
+          dev->p.mt_release_next = 1;
+          dev->p.mt_untouched = 1;
+        }
+        else {
+          dev->p.mt_untouched = 0;
+        }
         break;
         
       default:
@@ -169,15 +193,15 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       goto return_clear_sync;
     }
     
-    if (((dev->p.state & (INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT)) && !MT_TRACKING_IS_UNTOUCHED) ||
-        (MT_TRACKING_IS_UNTOUCHED && TOUCH_RELEASE_NEXTSYN == 1)) {
+    if (((dev->p.state & (INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT)) && !dev->p.mt_untouched) ||
+        (dev->p.mt_untouched && dev->p.mt_release_next == 1)) {
       /* Set Destination Coordinate */
-      TOUCH_RELEASE_NEXTSYN = 0;
+      dev->p.mt_release_next = 0;
       dest_ev->x      = dev->p.tx;
       dest_ev->y      = dev->p.ty;
       
       /* Sometime It Reported Twice, So Check This Value */
-      if ((dev->p.tx == -1) || (dev->p.tx == -1)) {
+      if ((dev->p.tx == -1) || (dev->p.ty == -1)) {
         /* LOG RAW */
         //ALOGRT("INDR Got Double EV_SYN-UP Event. Ignore It.");
         dev->p.state    &= ~INDR_POS_ST_DOWNED;

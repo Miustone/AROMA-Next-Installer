@@ -29,6 +29,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
@@ -75,17 +76,22 @@
 //
 // AROMA Main Configurations
 //
-/*
-  //-- MOVE TO Android.mk
-  #define AROMA_NAME        "AROMA INSTALLER"
-  #define AROMA_VERSION     "2.70B6"
-  #define AROMA_BUILD       "130624-042B"
-  #define AROMA_BUILD_CN    "Flamboyan-Beta"
-*/
-#define AROMA_BUILD_L     "Bandung - Indonesia"
+#ifndef AROMA_NAME
+#define AROMA_NAME        "AROMA-Next Installer"
+#endif
+#ifndef AROMA_VERSION
+#define AROMA_VERSION     "3.00-next"
+#endif
+#ifndef AROMA_BUILD
+#define AROMA_BUILD       "next"
+#endif
+#ifndef AROMA_BUILD_CN
+#define AROMA_BUILD_CN    "NextGen"
+#endif
+#define AROMA_BUILD_L     "Bandung - Indonesia / Community Port"
 #define AROMA_BUILD_A     "<support@amarullz.com>"
-#define AROMA_BUILD_URL   "http://www.amarullz.com/"
-#define AROMA_COPY        "(c) 2013 by amarullz xda-developers"
+#define AROMA_BUILD_URL   "https://github.com/Miustone/AROMA-Installer"
+#define AROMA_COPY        "(c) 2013 amarullz | AROMA-Next arm64/DRM port"
 
 //-- Temporary Dir - Move from /tmp/aroma-data to /tmp/aroma symlink to /tmp/aroma-data for backward compatibility
 #define AROMA_SYSTMP      "/tmp"
@@ -97,7 +103,10 @@
 #define AROMA_CFG         "META-INF/com/google/android/aroma-config"
 #define AROMA_UPDATESCRPT "META-INF/com/google/android/updater-script"
 #define AROMA_ORIB        "META-INF/com/google/android/update-binary-installer"
+#define AROMA_MAGISK_ORIB "META-INF/com/google/android/magisk-installer"
 #define AROMA_FRAMEBUFFER "/dev/graphics/fb0"
+#define AROMA_FRAMEBUFFER_ALT "/dev/fb0"
+#define AROMA_EXIT_NO_DISPLAY 77
 #define AROMA_INSTALL_LOG (AROMA_TMP "/.install.log")
 #define AROMA_INSTALL_TXT (AROMA_TMP "/.install.txt")
 #define AROMA_THEME_CNT   24
@@ -566,6 +575,7 @@ byte      ag_isfreetype(byte isbig);
 byte      ag_fontready(byte isbig);
 CANVAS  * agc();          // Get Main AROMA Graph Canvas
 byte      ag_init();      // Init AROMA Graph and Framebuffers
+byte      ag_backend();   // Get active display backend (0=none, 1=fbdev, 2=drm)
 void      ag_close_thread(); // Close Graph Thread
 void      ag_close();     // Close AROMA Graph and Framebuffers
 void      ag_changecolorspace(int r, int g, int b, int a); // Change Color Space

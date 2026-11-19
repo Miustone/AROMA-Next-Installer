@@ -1,0 +1,55 @@
+name: Build AROMA-Next Installer
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+
+      - name: Build arm64-v8a and armeabi-v7a binaries
+        run: |
+          ${{ steps.setup-ndk.outputs.ndk-path }}/ndk-build \
+            NDK_PROJECT_PATH=. \
+            APP_BUILD_SCRIPT=Android.mk \
+            NDK_APPLICATION_MK=Application.mk \
+            -j$(nproc)
+          mkdir -p out/bin
+          cp libs/arm64-v8a/aroma_installer out/bin/aroma_installer-arm64
+          cp libs/armeabi-v7a/aroma_installer out/bin/aroma_installer-arm32
+
+      - name: Package flashable ZIPs
+        run: |
+          mkdir -p dist staging_rec staging_magisk
+          cp -r assets/* staging_rec/
+          rm -f staging_rec/META-INF/CERT.* staging_rec/META-INF/MANIFEST.MF
+          mkdir -p staging_rec/META-INF/com/google/android/bin
+          cp out/bin/aroma_installer-arm64 staging_rec/META-INF/com/google/android/bin/
+          cp out/bin/aroma_installer-arm32 staging_rec/META-INF/com/google/android/bin/
+          (cd staging_rec && zip -r9 ../dist/AROMA-Next-Installer.zip .)
+
+          cp -r staging_rec/* staging_magisk/
+          rm -f staging_magisk/META-INF/com/google/android/update-binary-installer
+          cp -r magisk-template/* staging_magisk/
+          (cd staging_magisk && zip -r9 ../dist/AROMA-Next-Magisk-Template.zip .)
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aroma-next-binaries-and-zips
+          path: |
+            out/bin/*
+            dist/*.zip

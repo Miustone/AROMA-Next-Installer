@@ -3278,7 +3278,16 @@ Value * AROMA_GETPART(const char * name, State * state, int argc, Expr * argv[])
   byte mtd = ismounted(args[0]);
   
   if (!mtd) {
-    alib_exec("/sbin/mount", args[0]);
+    const char * mount_bins[] = {"/sbin/mount", "/system/bin/mount", "/bin/mount", "/vendor/bin/mount"};
+    const char * mbin = mount_bins[0];
+    int bi;
+    for (bi = 0; bi < 4; bi++) {
+      if (file_exists(mount_bins[bi])) {
+        mbin = mount_bins[bi];
+        break;
+      }
+    }
+    alib_exec((char *) mbin, args[0]);
     
     if (!ismounted(args[0])) {
       _FREEARGS();
@@ -3323,7 +3332,16 @@ Value * AROMA_GETPART(const char * name, State * state, int argc, Expr * argv[])
   
   //-- Unmount if previous was unmounted
   if (!mtd) {
-    alib_exec("/sbin/umount", args[0]);
+    const char * umount_bins[] = {"/sbin/umount", "/system/bin/umount", "/bin/umount", "/vendor/bin/umount"};
+    const char * ubin = umount_bins[0];
+    int bi;
+    for (bi = 0; bi < 4; bi++) {
+      if (file_exists(umount_bins[bi])) {
+        ubin = umount_bins[bi];
+        break;
+      }
+    }
+    alib_exec((char *) ubin, args[0]);
   }
   
   //-- Release Arguments

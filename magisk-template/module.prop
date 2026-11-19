@@ -1,0 +1,6 @@
+id=aroma_next_example
+name=AROMA-Next Example Module
+version=v1.0
+versionCode=1
+author=Miustone
+description=Example Magisk/KernelSU module using AROMA-Next Touch GUI in Recovery and automatic fallback in App mode.

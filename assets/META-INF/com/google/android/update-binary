@@ -1,0 +1,98 @@
+#!/sbin/sh
+# AROMA-Next Installer - Universal Multi-Arch Recovery & Magisk/KernelSU Dispatcher
+# Arguments: $1 = API version, $2 = OUTFD pipe fd, $3 = ZIP path
+
+OUTFD="$2"
+ZIPFILE="$3"
+
+ui_print() {
+  if [ -n "$OUTFD" ] && [ -e "/proc/self/fd/$OUTFD" ]; then
+    echo "ui_print $1" >&"$OUTFD"
+    echo "ui_print" >&"$OUTFD"
+  else
+    echo "$1"
+  fi
+}
+
+# Detect booted Android (Magisk / KernelSU / APatch app) vs Recovery
+if [ -z "$BOOTMODE" ]; then
+  if ps 2>/dev/null | grep -qE "zygote|surfaceflinger"; then
+    BOOTMODE=true
+  else
+    BOOTMODE=false
+  fi
+fi
+
+ARCH="$(uname -m)"
+TMPDIR="/tmp/aroma-next"
+[ "$BOOTMODE" = "true" ] && TMPDIR="/dev/tmp/aroma-next"
+rm -rf "$TMPDIR"
+mkdir -p "$TMPDIR"
+
+run_fallback_installer() {
+  if unzip -l "$ZIPFILE" "META-INF/com/google/android/magisk-installer" >/dev/null 2>&1; then
+    unzip -o "$ZIPFILE" "META-INF/com/google/android/magisk-installer" -d "$TMPDIR" >/dev/null 2>&1
+    chmod 755 "$TMPDIR/META-INF/com/google/android/magisk-installer"
+    exec sh "$TMPDIR/META-INF/com/google/android/magisk-installer" "$1" "$2" "$3"
+  elif unzip -l "$ZIPFILE" "META-INF/com/google/android/update-binary-installer" >/dev/null 2>&1; then
+    unzip -o "$ZIPFILE" "META-INF/com/google/android/update-binary-installer" -d "$TMPDIR" >/dev/null 2>&1
+    chmod 755 "$TMPDIR/META-INF/com/google/android/update-binary-installer"
+    exec "$TMPDIR/META-INF/com/google/android/update-binary-installer" "$1" "$2" "$3"
+  elif [ -f /data/adb/magisk/util_functions.sh ]; then
+    export OUTFD ZIPFILE BOOTMODE
+    . /data/adb/magisk/util_functions.sh
+    install_module
+    exit $?
+  fi
+  ui_print "! No fallback installer found in archive."
+  exit 1
+}
+
+if [ "$BOOTMODE" = "true" ]; then
+  ui_print "- AROMA-Next: Booted Android detected (Magisk/KernelSU mode)"
+  ui_print "- Touch GUI requires recovery; running module installer..."
+  run_fallback_installer "$1" "$2" "$3"
+fi
+
+# Select matching binary for Recovery CPU architecture
+CANDIDATES=""
+case "$ARCH" in
+  aarch64|arm64*)
+    CANDIDATES="META-INF/com/google/android/bin/aroma_installer-arm64 META-INF/com/google/android/bin/aroma_installer-arm32 META-INF/com/google/android/aroma_installer"
+    ;;
+  armv7*|armv8*|arm*)
+    CANDIDATES="META-INF/com/google/android/bin/aroma_installer-arm32 META-INF/com/google/android/aroma_installer"
+    ;;
+  x86_64|amd64)
+    CANDIDATES="META-INF/com/google/android/bin/aroma_installer-x86_64 META-INF/com/google/android/aroma_installer"
+    ;;
+  *)
+    CANDIDATES="META-INF/com/google/android/aroma_installer"
+    ;;
+esac
+
+BIN_PATH=""
+for c in $CANDIDATES; do
+  if unzip -l "$ZIPFILE" "$c" >/dev/null 2>&1; then
+    unzip -o "$ZIPFILE" "$c" -d "$TMPDIR" >/dev/null 2>&1
+    BIN_PATH="$TMPDIR/$c"
+    chmod 755 "$BIN_PATH"
+    break
+  fi
+done
+
+if [ -z "$BIN_PATH" ] || [ ! -x "$BIN_PATH" ]; then
+  ui_print "! No compatible AROMA-Next binary for arch: $ARCH"
+  run_fallback_installer "$1" "$2" "$3"
+fi
+
+"$BIN_PATH" "$1" "$2" "$3"
+RC=$?
+
+if [ "$RC" -eq 77 ]; then
+  ui_print "! AROMA-Next: Display locked by recovery (DRM master / no fbdev)."
+  ui_print "- Falling back to non-GUI installer..."
+  run_fallback_installer "$1" "$2" "$3"
+fi
+
+exit "$RC"

@@ -34,7 +34,7 @@
  *
  */
 #define INDR_DEVPATH                  "/dev/input"
-#define INDR_MAXDEV                   0xf
+#define INDR_MAXDEV                   64
 #define INDR_SIZEOF_BIT_ARRAY(bits)   ((bits + 7) / 8)
 #define INDR_TEST_BIT(bit, array)     (array[bit/8] & (1<<(bit%8)))
 
@@ -72,6 +72,9 @@ typedef struct {
   int     ty;               /* Translated Y Position */
   int     vk;               /* Virtual Key Code ID */
   byte    state;            /* State */
+  int     mt_slot;          /* Active Type-B MT slot */
+  byte    mt_untouched;     /* Slot 0 untouched flag */
+  byte    mt_release_next;  /* Release on next SYN_REPORT */
   struct  input_absinfo xi; /* Calibrate X */
   struct  input_absinfo yi; /* Calibrate Y */
 } INDR_POS, *INDR_POSP;
@@ -96,7 +99,7 @@ typedef struct {
   /* Device Into */
   int       id;              /* device id */
   byte      devclass;        /* Device Class */
-  char      file[10];        /* Input Device Filename */
+  char      file[64];        /* Input Device Filename */
   char      name[64];        /* device name */
   byte      down;            /* pressed */
   int       vkn;             /* Virtual Key Count */
@@ -196,7 +199,7 @@ byte INDR_init(AINPUTP me) {
       /* Set Device ID */
       mi->dev[mi->n].id     = mi->n;
       /* Set Device Filename */
-      snprintf(mi->dev[mi->n].file, 10, "%s", de->d_name);
+      snprintf(mi->dev[mi->n].file, sizeof(mi->dev[mi->n].file), "%s", de->d_name);
       
       /* Load virtualkeys if there are any */
       if (INDR_init_device(mi, fd, &mi->dev[mi->n])) {
@@ -420,6 +423,10 @@ byte INDR_init_device(INDR_INTERNALP mi, int fd, INDR_DEVICEP dev) {
       /* Get Multitouch Calibrations Data */
       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &dev->p.xi);
       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &dev->p.yi);
+      if (dev->p.xi.minimum == dev->p.xi.maximum || dev->p.yi.minimum == dev->p.yi.maximum) {
+        ioctl(fd, EVIOCGABS(ABS_X), &dev->p.xi);
+        ioctl(fd, EVIOCGABS(ABS_Y), &dev->p.yi);
+      }
     }
     else {
       /* Get Singletouch Calibrations Data */
@@ -506,10 +513,12 @@ byte INDR_init_device(INDR_INTERNALP mi, int fd, INDR_DEVICEP dev) {
 byte INDR_translate(AINPUTP me, INDR_DEVICEP dev,
                     AINPUT_EVENTP dest_ev, struct input_event * ev) {
   if (dev->devclass & INDR_DEVCLASS_TOUCH) {
-    /* It's Touch Device - input_translate/translate_touch.c */
-    return INDR_translate_touch(me, dev, dest_ev, ev);
+    byte ret = INDR_translate_touch(me, dev, dest_ev, ev);
+    if (ret != AINPUT_EV_RET_NONE) {
+      return ret;
+    }
   }
-  else if (dev->devclass & INDR_DEVCLASS_KEYBOARD) {
+  if (dev->devclass & INDR_DEVCLASS_KEYBOARD) {
     /* It's Key Device - input_translate/translate_key.c */
     return INDR_translate_keyboard(me, dev, dest_ev, ev);
   }

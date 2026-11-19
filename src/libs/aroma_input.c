@@ -106,22 +106,37 @@ int vibrate(int timeout_ms) {
   
   char str[20];
   int fd;
-  int ret;
+  int len;
+  ssize_t ret;
+  int scaled = (int) round((float) timeout_ms * vibrate_rate);
+  if (scaled <= 0) {
+    return 0;
+  }
+  len = snprintf(str, sizeof(str), "%d", scaled);
+
   fd = open("/sys/class/timed_output/vibrator/enable", O_WRONLY);
-  
-  if (fd < 0) {
-    return -1;
+  if (fd >= 0) {
+    ret = write(fd, str, len);
+    close(fd);
+    return (ret < 0) ? -1 : 0;
   }
-  
-  ret = snprintf(str, sizeof(str), "%d", (int) round((float) timeout_ms * vibrate_rate));
-  ret = write(fd, str, ret);
-  close(fd);
-  
-  if (ret < 0) {
-    return -1;
+
+  /* Modern Android kernels (LED vibrator class) */
+  fd = open("/sys/class/leds/vibrator/duration", O_WRONLY);
+  if (fd >= 0) {
+    ret = write(fd, str, len);
+    close(fd);
+    if (ret >= 0) {
+      int afd = open("/sys/class/leds/vibrator/activate", O_WRONLY);
+      if (afd >= 0) {
+        ret = write(afd, "1", 1);
+        close(afd);
+        return (ret < 0) ? -1 : 0;
+      }
+    }
   }
-  
-  return 0;
+
+  return -1;
 }
 
 //-- KEYPRESS MANAGER

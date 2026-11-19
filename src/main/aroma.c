@@ -103,10 +103,13 @@ void a_splash(char * spipe) {
 //*
 //* Init All Resources
 //*
-void a_init_all() {
+byte a_init_all() {
   //-- Init
-  ag_init();                        //-- Init Graphic Framebuffer
+  if (!ag_init()) {
+    return 0;
+  }
   ui_init();                        //-- Init Event Handler
+  return 1;
 }
 
 //*
@@ -180,23 +183,29 @@ int main(int argc, char ** argv) {
   if (az_init(argv[3])) {
     //-- Initializing All Resources
     LOGS("Initializing Resource\n");
-    a_init_all();
-    //-- Starting AROMA Installer UI
-    LOGS("Starting Interface\n");
-    
-    if (aui_start()) {
-      fprintf(apipe(), "ui_print " AROMA_NAME " Finished...\nui_print\nui_print\n");
-      retval = 0;
+    if (!a_init_all()) {
+      LOGE("No supported display backend (fbdev/DRM) available; restoring parent recovery.\n");
+      az_close();
+      retval = AROMA_EXIT_NO_DISPLAY;
     }
-    
-    //-- Close Graph Thread
-    LOGS("Close Graph Thread\n");
-    ag_close_thread();
-    //-- Wait Until Clean Up
-    usleep(200000);
-    //-- Release All Resource
-    LOGS("Starting Release\n");
-    a_release_all();
+    else {
+      //-- Starting AROMA Installer UI
+      LOGS("Starting Interface\n");
+      
+      if (aui_start()) {
+        fprintf(apipe(), "ui_print " AROMA_NAME " Finished...\nui_print\nui_print\n");
+        retval = 0;
+      }
+      
+      //-- Close Graph Thread
+      LOGS("Close Graph Thread\n");
+      ag_close_thread();
+      //-- Wait Until Clean Up
+      usleep(200000);
+      //-- Release All Resource
+      LOGS("Starting Release\n");
+      a_release_all();
+    }
   }
   else {
     LOGE("Cannot Open Archive\n");

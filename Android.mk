@@ -1,26 +1,24 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-  ## Check for ARM NEON
+  ## Check for 32-bit ARM NEON (excluded on arm64-v8a where NEON is baseline C intrinsics)
   AROMA_ARM_NEON      := false
-  ifeq ($(ARCH_ARM_HAVE_NEON),true)
-    AROMA_ARM_NEON    := true
+  ifneq ($(TARGET_ARCH_ABI),arm64-v8a)
+    ifeq ($(ARCH_ARM_HAVE_NEON),true)
+      AROMA_ARM_NEON  := true
+    endif
+    ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+      AROMA_ARM_NEON  := true
+    endif
   endif
-  
-  ##
-  ## Force Compiling Without ARM NEON
-  ##   -- Uncomment This Line --
-  ##
-  # AROMA_ARM_NEON      := false
-  #
   
   ##
   ## VERSIONING
   ##
-  AROMA_NAME    := AROMA Installer
-  AROMA_VERSION := 2.70RC2
+  AROMA_NAME    := AROMA-Next Installer
+  AROMA_VERSION := 3.00-next
   AROMA_BUILD   := $(shell date +%y%m%d%H)
-  AROMA_CN      := Flamboyan
+  AROMA_CN      := NextGen
 
   ## LOCAL PATH COPY
   AROMA_INSTALLER_LOCALPATH := $(LOCAL_PATH)
@@ -115,6 +113,7 @@ include $(CLEAR_VARS)
     src/libs/aroma_array.c \
     src/libs/aroma_freetype.c \
     src/libs/aroma_graph.c \
+    src/libs/graph_drm.c \
     src/libs/aroma_input.c \
     src/libs/aroma_languages.c \
     src/libs/aroma_libs.c \
@@ -154,9 +153,13 @@ include $(CLEAR_VARS)
   ifeq ($(AROMA_ARM_NEON),true)
     LOCAL_CFLAGS                  += -mfloat-abi=softfp -mfpu=neon -D__ARM_HAVE_NEON
   endif
+  ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+    LOCAL_CFLAGS                  += -D__ARM_NEON__
+  endif
   
   ## INCLUDED LIBRARIES
   LOCAL_STATIC_LIBRARIES        := libm libc
+  LOCAL_LDFLAGS                 += -static -Wl,--gc-sections
   
   ifeq ($(MAKECMDGOALS),$(LOCAL_MODULE))
     $(shell rm -rf $(PRODUCT_OUT)/obj/EXECUTABLES/$(LOCAL_MODULE)_intermediates)

@@ -28,8 +28,13 @@
 #include <pthread.h>
 #include "../aroma.h"
 
+extern unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned char ** out_map);
+extern void ag_drm_flush(void);
+extern void ag_drm_close(void);
+
 /*****************************[ GLOBAL VARIABLES ]*****************************/
-static int                             ag_fb   = 0;       //-- FrameBuffer Handler
+static int                             ag_fb   = -1;      //-- FrameBuffer Handler
+static byte                            ag_display_backend = 0; //-- 0=none, 1=fbdev, 2=drm
 static dword                           ag_fbsz = 0;
 static word              *             ag_fbuf = NULL;    //-- FrameBuffer Direct Memory
 static byte              *             ag_fbuf32 = NULL;
@@ -295,132 +300,212 @@ dword ag_calculatealpha16to32(color dcl, dword scl, byte l) {
 }
 
 /*********************************[ FUNCTIONS ]********************************/
-//-- INITIALIZING AMARULLZ GRAPHIC
-byte ag_init() {
-  if (ag_fb > 0) {
+byte ag_backend() {
+  return ag_display_backend;
+}
+
+static byte ag_init_fbdev() {
+  const char * fb_paths[2] = { AROMA_FRAMEBUFFER, AROMA_FRAMEBUFFER_ALT };
+  int i;
+  for (i = 0; i < 2; i++) {
+    ag_fb = open(fb_paths[i], O_RDWR, 0);
+    if (ag_fb >= 0) {
+      break;
+    }
+  }
+  if (ag_fb < 0) {
     return 0;
   }
-  
-  //-- Open Framebuffer
-  ag_fb = open(AROMA_FRAMEBUFFER, O_RDWR, 0);
-  
-  if (ag_fb > 0) {
-    //-- Init Info from IO
-    ioctl(ag_fb, FBIOGET_FSCREENINFO, &ag_fbf);
-    ioctl(ag_fb, FBIOGET_VSCREENINFO, &ag_fbv);
-    //-- Init 32 Buffer
-    ag_canvas(&ag_c, ag_fbv.xres, ag_fbv.yres);
-    ag_dp = floor( min(ag_fbv.xres, ag_fbv.yres) / 160);
-    //-- Init Frame Buffer Size
-    agclp    = (ag_fbv.bits_per_pixel >> 3);
-    ag_fbsz  = (ag_fbv.xres * ag_fbv.yres * ((agclp == 3) ? 4 : agclp));
-    
-    //-- Init Frame Buffer
-    if (ag_fbv.bits_per_pixel == 16) {
-      ag_32   = 0;
-      ag_fbuf = (word *) mmap(0, ag_fbf.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, ag_fb, 0);
-      ag_b    = (word *) malloc(ag_fbsz);
-      ag_bz   = (word *) malloc(ag_fbsz);
-      //-- Resolution with Stride
-      ag_16strd = 0;
-      ag_16w    = ag_fbf.line_length / 2;
-      
-      if (ag_16w != ag_fbv.xres) {
-        if (ag_16w / 2 == ag_fbv.xres) {
-          ag_fbf.line_length = ag_fbf.line_length / 2;
-          ag_16strd          = 0;
-          ag_16w             = ag_fbv.xres;
-        }
-        else {
-          ag_16strd = 1;
-        }
-      }
-      
-      if (ag_16strd == 0) {
-        //-- Can Use memcpy
-        memcpy(ag_b, ag_fbuf, ag_fbsz);
-        memcpy(ag_c.data, ag_fbuf, ag_fbsz);
+
+  if (ioctl(ag_fb, FBIOGET_FSCREENINFO, &ag_fbf) != 0 ||
+      ioctl(ag_fb, FBIOGET_VSCREENINFO, &ag_fbv) != 0 ||
+      ag_fbv.xres == 0 || ag_fbv.yres == 0 || ag_fbf.smem_len == 0) {
+    close(ag_fb);
+    ag_fb = -1;
+    return 0;
+  }
+
+  ag_canvas(&ag_c, ag_fbv.xres, ag_fbv.yres);
+  ag_dp = (int) floor(min(ag_fbv.xres, ag_fbv.yres) / 160.0);
+  if (ag_dp < 1) {
+    ag_dp = 1;
+  }
+  agclp   = (ag_fbv.bits_per_pixel >> 3);
+  if (agclp == 0) {
+    agclp = 4;
+  }
+  ag_fbsz = (ag_fbv.xres * ag_fbv.yres * ((agclp == 3) ? 4 : agclp));
+
+  if (ag_fbv.bits_per_pixel == 16) {
+    ag_32   = 0;
+    ag_fbuf = (word *) mmap(0, ag_fbf.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, ag_fb, 0);
+    if (ag_fbuf == MAP_FAILED) {
+      ag_fbuf = NULL;
+      ag_ccanvas(&ag_c);
+      close(ag_fb);
+      ag_fb = -1;
+      return 0;
+    }
+    ag_b  = (word *) malloc(ag_fbsz);
+    ag_bz = (word *) malloc(ag_fbsz);
+    ag_16strd = 0;
+    ag_16w    = ag_fbf.line_length / 2;
+
+    if (ag_16w != ag_fbv.xres) {
+      if (ag_16w / 2 == ag_fbv.xres) {
+        ag_fbf.line_length = ag_fbf.line_length / 2;
+        ag_16strd          = 0;
+        ag_16w             = ag_fbv.xres;
       }
       else {
-        //-- Should Bit per bit
-        int x, y;
-        
-        for (y = 0; y < ag_fbv.yres; y++) {
-          int yp = y * ag_fbv.xres;
-          int yd = (ag_16w * y);
-          
-          for (x = 0; x < ag_fbv.xres; x++) {
-            int xy = yp + x;
-            int dxy = yd + x;
-            ag_b[xy] = ag_fbuf[dxy];
-            ag_setpixel(&ag_c, x, y, ag_b[xy]);
-          }
+        ag_16strd = 1;
+      }
+    }
+
+    if (ag_16strd == 0) {
+      memcpy(ag_b, ag_fbuf, ag_fbsz);
+      memcpy(ag_c.data, ag_fbuf, ag_fbsz);
+    }
+    else {
+      int x, y;
+      for (y = 0; y < ag_fbv.yres; y++) {
+        int yp = y * ag_fbv.xres;
+        int yd = (ag_16w * y);
+        for (x = 0; x < ag_fbv.xres; x++) {
+          int xy = yp + x;
+          int dxy = yd + x;
+          ag_b[xy] = ag_fbuf[dxy];
+          ag_setpixel(&ag_c, x, y, ag_b[xy]);
         }
       }
     }
+  }
+  else {
+    ag_32     = 1;
+    ag_fbuf32 = (byte *) mmap(0, ag_fbf.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, ag_fb, 0);
+    if (ag_fbuf32 == MAP_FAILED) {
+      ag_fbuf32 = NULL;
+      ag_ccanvas(&ag_c);
+      close(ag_fb);
+      ag_fb = -1;
+      return 0;
+    }
+    ag_bf32 = (dword *) malloc(ag_fbsz);
+    ag_bz32 = (dword *) malloc(ag_fbsz);
+    memset(ag_bf32, 0, ag_fbsz);
+
+    if (ag_fbv.red.length == 8 && ag_fbv.green.length == 8 && ag_fbv.blue.length == 8) {
+      colorspace_positions[0] = ag_fbv.red.offset;
+      colorspace_positions[1] = ag_fbv.green.offset;
+      colorspace_positions[2] = ag_fbv.blue.offset;
+      colorspace_positions[3] = (ag_fbv.transp.length == 8) ? ag_fbv.transp.offset : 24;
+    }
     else {
-      ag_32     = 1;
-      /*
-      //-- Try Force 32bit standard color mode
-      ag_fbv.red.offset         = 16;
-      ag_fbv.red.length         = 8;
-      ag_fbv.red.msb_right      = 0;
-      ag_fbv.green.offset       = 8;
-      ag_fbv.green.length       = 8;
-      ag_fbv.green.msb_right    = 0;
-      ag_fbv.blue.offset        = 0;
-      ag_fbv.blue.length        = 8;
-      ag_fbv.blue.msb_right     = 0;
-      ag_fbv.transp.offset      = 24;
-      ag_fbv.transp.length      = 8;
-      ag_fbv.transp.msb_right   = 0;
-      //-- Activating
-      ag_fbv.activate |= FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
-      ioctl(ag_fb, FBIOPUT_VSCREENINFO, &ag_fbv);
-      //-- Get Forced Data
-      ioctl(ag_fb, FBIOGET_FSCREENINFO, &ag_fbf);
-      ioctl(ag_fb, FBIOGET_VSCREENINFO, &ag_fbv);
-      */
-      //-- Memory Allocation
-      ag_fbuf32 = (byte *) mmap(0, ag_fbf.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, ag_fb, 0);
-      ag_bf32   = (dword *) malloc(ag_fbsz);
-      ag_bz32   = (dword *) malloc(ag_fbsz);
-      memset(ag_bf32, 0, ag_fbsz);
       colorspace_positions[0] = 16;
       colorspace_positions[1] = 8;
       colorspace_positions[2] = 0;
       colorspace_positions[3] = 24;
-      ag_blank(NULL); //-- 32bit Use Blank
-      int x, y;
-      
-      for (y = 0; y < ag_fbv.yres; y++) {
-        int yp = y * ag_fbv.xres;
-        int yd = (ag_fbf.line_length * y);
-        
-        for (x = 0; x < ag_fbv.xres; x++) {
-          int xy = yp + x;
-          int dxy = yd + (x * agclp);
-          ag_bf32[xy] = ag_rgb32(
-                          ag_fbuf32[dxy + (colorspace_positions[0] >> 3)],
-                          ag_fbuf32[dxy + (colorspace_positions[1] >> 3)],
-                          ag_fbuf32[dxy + (colorspace_positions[2] >> 3)]);
-          ag_setpixel(&ag_c, x, y, ag_rgbto16(ag_bf32[xy]));
-        }
+    }
+
+    ag_blank(NULL);
+    int x, y;
+    for (y = 0; y < ag_fbv.yres; y++) {
+      int yp = y * ag_fbv.xres;
+      int yd = (ag_fbf.line_length * y);
+      for (x = 0; x < ag_fbv.xres; x++) {
+        int xy = yp + x;
+        int dxy = yd + (x * agclp);
+        ag_bf32[xy] = ag_rgb32(
+                        ag_fbuf32[dxy + (colorspace_positions[0] >> 3)],
+                        ag_fbuf32[dxy + (colorspace_positions[1] >> 3)],
+                        ag_fbuf32[dxy + (colorspace_positions[2] >> 3)]);
+        ag_setpixel(&ag_c, x, y, ag_rgbto16(ag_bf32[xy]));
       }
     }
-    
-    ag_canvas(&ag_recovery, ag_c.w, ag_c.h);
-    ag_draw(&ag_recovery, &ag_c, 0, 0);
-    //-- Refresh Draw Lock Thread
-    ag_isrun = 1;
-    pthread_create(&ag_pthread, NULL, ag_thread, NULL);
-    //-- Init FreeType
-    LOGS("Opening Freetype\n");
-    aft_open();
-    return 1;
   }
-  
-  return 0;
+
+  ag_display_backend = 1;
+  return 1;
+}
+
+static byte ag_init_drm() {
+  int w = 0, h = 0, pitch = 0;
+  byte * map = NULL;
+  if (!ag_drm_init(&w, &h, &pitch, &map)) {
+    return 0;
+  }
+
+  memset(&ag_fbf, 0, sizeof(ag_fbf));
+  memset(&ag_fbv, 0, sizeof(ag_fbv));
+  ag_fbv.xres           = (uint32_t) w;
+  ag_fbv.yres           = (uint32_t) h;
+  ag_fbv.bits_per_pixel = 32;
+  ag_fbf.line_length    = (uint32_t) pitch;
+  ag_fbf.smem_len       = (uint32_t) (pitch * h);
+
+  ag_32     = 1;
+  agclp     = 4;
+  ag_fbsz   = (dword)(w * h * 4);
+  ag_fbuf32 = map;
+  ag_bf32   = (dword *) malloc(ag_fbsz);
+  ag_bz32   = (dword *) malloc(ag_fbsz);
+  memset(ag_bf32, 0, ag_fbsz);
+  memset(ag_bz32, 0, ag_fbsz);
+
+  /* DRM XRGB8888 little-endian: B=0, G=8, R=16, X=24 */
+  colorspace_positions[0] = 16;
+  colorspace_positions[1] = 8;
+  colorspace_positions[2] = 0;
+  colorspace_positions[3] = 24;
+
+  ag_canvas(&ag_c, w, h);
+  ag_dp = (int) floor(min(w, h) / 160.0);
+  if (ag_dp < 1) {
+    ag_dp = 1;
+  }
+  ag_blank(NULL);
+  ag_display_backend = 2;
+  return 1;
+}
+
+//-- INITIALIZING AMARULLZ GRAPHIC
+byte ag_init() {
+  if (ag_display_backend != 0) {
+    return 0;
+  }
+
+  const char * pref = getenv("AROMA_DISPLAY");
+  byte ok = 0;
+  if (pref && strcmp(pref, "drm") == 0) {
+    ok = ag_init_drm();
+    if (!ok) {
+      ok = ag_init_fbdev();
+    }
+  }
+  else if (pref && strcmp(pref, "fbdev") == 0) {
+    ok = ag_init_fbdev();
+  }
+  else {
+    ok = ag_init_fbdev();
+    if (!ok) {
+      ok = ag_init_drm();
+    }
+  }
+
+  if (!ok) {
+    LOGE("GRAPH ERROR: Neither fbdev nor DRM/KMS display backend could be initialized\n");
+    return 0;
+  }
+
+  ag_canvas(&ag_recovery, ag_c.w, ag_c.h);
+  ag_draw(&ag_recovery, &ag_c, 0, 0);
+  //-- Refresh Draw Lock Thread
+  ag_isrun = 1;
+  pthread_create(&ag_pthread, NULL, ag_thread, NULL);
+  //-- Init FreeType
+  LOGS("Opening Freetype\n");
+  aft_open();
+  return 1;
 }
 void ag_close_thread() {
   ag_isrun = 0;
@@ -619,7 +704,7 @@ byte ag_draw_opa(
 
 //-- RELEASE AMARULLZ GRAPHIC
 void ag_close() {
-  if (ag_fb > 0) {
+  if (ag_display_backend != 0) {
     int fadesz = acfg()->fadeframes;
     
     if (fadesz > 0) {
@@ -657,53 +742,54 @@ void ag_close() {
       free(tmpb);
     }
     
-    /*
-    
-    
-      int anisz = floor(((float) agh()) / acfg()->fadeframes);
-      int i;
-      for (i = 1; i <= acfg()->fadeframes; i++) {
-        ag_draw(NULL, &ag_recovery, 0, (anisz * i));
-        ag_sync();
-      }
-    }
-    */
     ag_draw(&ag_c, &ag_recovery, 0, 0);
     ag_ccanvas(&ag_recovery);
     ag_sync();
   }
   
-  if (ag_fbv.bits_per_pixel != 16) {
+  if (ag_32 == 1) {
     if (ag_bf32 != NULL) {
       free(ag_bf32);
+      ag_bf32 = NULL;
     }
     
     if (ag_bz32 != NULL) {
       free(ag_bz32);
+      ag_bz32 = NULL;
     }
     
-    if (ag_fbuf32 != NULL) {
-      munmap(ag_fbuf32, ag_fbsz);
+    if (ag_display_backend == 1 && ag_fbuf32 != NULL) {
+      munmap(ag_fbuf32, ag_fbf.smem_len);
     }
+    ag_fbuf32 = NULL;
   }
-  else if (ag_fbv.bits_per_pixel == 16) {
+  else {
     if (ag_b != NULL) {
       free(ag_b);
+      ag_b = NULL;
     }
     
     if (ag_bz != NULL) {
       free(ag_bz);
+      ag_bz = NULL;
     }
     
-    if (ag_fbuf != NULL) {
-      munmap(ag_fbuf, ag_fbsz);
+    if (ag_display_backend == 1 && ag_fbuf != NULL) {
+      munmap(ag_fbuf, ag_fbf.smem_len);
     }
+    ag_fbuf = NULL;
   }
   
-  //-- Cleanup Canvas & FrameBuffer
+  //-- Cleanup Canvas & Display Backend
   ag_ccanvas(&ag_c);
-  close(ag_fb);
-  ag_fb = 0;
+  if (ag_display_backend == 2) {
+    ag_drm_close();
+  }
+  else if (ag_fb >= 0) {
+    close(ag_fb);
+  }
+  ag_fb = -1;
+  ag_display_backend = 0;
   //-- Cleanup Freetype
   LOGS("Closing Freetype\n");
   aft_close();
@@ -1046,12 +1132,17 @@ void ag_refreshrate() {
     }
   }
   
-  //-- Wait For Draw
-  fsync(ag_fb);
-  //-- Force Refresh Display
-  ag_fbv.yoffset   = 0;
-  ag_fbv.activate |= FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
-  ioctl(ag_fb, FBIOPUT_VSCREENINFO, &ag_fbv);
+  //-- Wait For Draw / Flush Display
+  if (ag_display_backend == 2) {
+    ag_drm_flush();
+  }
+  else if (ag_fb >= 0) {
+    fsync(ag_fb);
+    //-- Force Refresh Display
+    ag_fbv.yoffset   = 0;
+    ag_fbv.activate |= FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
+    ioctl(ag_fb, FBIOPUT_VSCREENINFO, &ag_fbv);
+  }
 }
 
 byte ag_sync_locked = 0;
@@ -1104,7 +1195,7 @@ void ag_sync_force() {
   }
 }
 static void * ag_sync_fade_thread(void * cookie) {
-  int frame = (int) cookie;
+  int frame = (int)(intptr_t) cookie;
   ag_isbusy = 0;
   ag_sync_locked = 1;
   ag_refreshlock = 1;
@@ -1177,11 +1268,11 @@ static void * ag_sync_fade_thread(void * cookie) {
   return NULL;
 }
 void ag_sync_fade_wait(int frame) {
-  ag_sync_fade_thread((void *) frame);
+  ag_sync_fade_thread((void *)(intptr_t) frame);
 }
 void ag_sync_fade(int frame) {
   pthread_t threadsyncfade;
-  pthread_create(&threadsyncfade, NULL, ag_sync_fade_thread, (void *) frame);
+  pthread_create(&threadsyncfade, NULL, ag_sync_fade_thread, (void *)(intptr_t) frame);
   pthread_detach(threadsyncfade);
 }
 byte ag_blur_h(CANVAS * d, CANVAS * s, int radius) {

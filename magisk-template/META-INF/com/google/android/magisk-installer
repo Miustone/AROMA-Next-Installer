@@ -1,0 +1,27 @@
+#!/sbin/sh
+# AROMA-Next Magisk Module Installer Bridge
+# Invoked by AROMA-Next after Touch GUI completes (or by update-binary in BOOTMODE).
+
+OUTFD="$2"
+ZIPFILE="$3"
+
+# Standard Magisk util_functions.sh path (works in Magisk app and TWRP with Magisk installed)
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+  install_module
+  exit $?
+fi
+
+# Minimal standalone fallback if /data/adb/magisk/util_functions.sh is unavailable (e.g. KernelSU/APatch in recovery)
+ui_print() {
+  if [ -n "$OUTFD" ] && [ -e "/proc/self/fd/$OUTFD" ]; then
+    echo "ui_print $1" >&"$OUTFD"
+    echo "ui_print" >&"$OUTFD"
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "! /data/adb/magisk/util_functions.sh not found."
+ui_print "! Please flash in Magisk/KernelSU app or ensure Magisk is installed."
+exit 1

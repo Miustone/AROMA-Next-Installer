@@ -34,7 +34,7 @@ byte az_init(const char * filename) {
     return 0;
   }
   
-  mkdir(AROMA_TMP, 755);
+  mkdir(AROMA_TMP, 0755);
   return 1;
 }
 

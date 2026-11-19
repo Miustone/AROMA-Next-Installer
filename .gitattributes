@@ -1,0 +1,11 @@
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.mk text eol=lf
+update-binary text eol=lf
+magisk-installer text eol=lf
+customize.sh text eol=lf
+module.prop text eol=lf

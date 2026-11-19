@@ -184,13 +184,17 @@ void ai_dump_logs() {
   }
 }
 static void * aroma_install_package(void * cookie) {
-  //-- Extract update-binary
+  //-- Extract update-binary (traditional AROMA, Magisk bridge, or auto-detected Magisk module)
   int res = az_extract(AROMA_ORIB, AROMA_TMP "/update-binary");
+  if (res == 0) {
+    res = az_extract(AROMA_MAGISK_ORIB, AROMA_TMP "/update-binary");
+  }
   
   if (res == 0) {
     aw_post(aw_msg(15, 0, 0, 0));
     return NULL;
   }
+  chmod(AROMA_TMP "/update-binary", 0755);
   
   //-- Create Pipe
   int pipefd[2];
@@ -238,13 +242,15 @@ static void * aroma_install_package(void * cookie) {
   struct tm * timeinfo;
   time (&rawtime);
   timeinfo = localtime (&rawtime);
-  fprintf(fp, AROMA_NAME " version " AROMA_VERSION "\n");
-  fprintf(fp, "  " AROMA_COPY "\n\n");
-  fprintf(fp, "ROM Name    : %s\n", acfg()->rom_name);
-  fprintf(fp, "ROM Version : %s\n", acfg()->rom_version);
-  fprintf(fp, "ROM Author  : %s\n", acfg()->rom_author);
-  fprintf(fp, "Device      : %s\n", acfg()->rom_device);
-  fprintf(fp, "Start at    : %s\n\n", asctime (timeinfo));
+  if (fp) {
+    fprintf(fp, AROMA_NAME " version " AROMA_VERSION "\n");
+    fprintf(fp, "  " AROMA_COPY "\n\n");
+    fprintf(fp, "ROM Name    : %s\n", acfg()->rom_name);
+    fprintf(fp, "ROM Version : %s\n", acfg()->rom_version);
+    fprintf(fp, "ROM Author  : %s\n", acfg()->rom_author);
+    fprintf(fp, "Device      : %s\n", acfg()->rom_device);
+    fprintf(fp, "Start at    : %s\n\n", timeinfo ? asctime(timeinfo) : "");
+  }
   //-- Start Reading Feedback
   char  buffer[1024];
   FILE * from_child = fdopen(pipefd[0], "r");
