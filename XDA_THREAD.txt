@@ -87,26 +87,14 @@ python build.py --arch arm64 arm32
 
 [HR][/HR]
 
-[SIZE="5"][B][COLOR="#0099CC"]Post 3 — Screenshots (Pixel 7 Pro • OrangeFox R12.0 • Black & White Theme)[/COLOR][/B][/SIZE]
+[SIZE="5"][B][COLOR="#0099CC"]Post 3 — Screenshots[/COLOR][/B][/SIZE] [COLOR="#7F8C8D"](Pixel 7 Pro • OrangeFox R12.0 • Black & White Theme — Click thumbnails for full resolution)[/COLOR]
+
+[HIDE="Click to view Screenshots (7 Thumbnails — Full-Res on Click)"]
 [CENTER]
-[B]1. Welcome & Startup Root Target Detection[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/01-welcome.png[/IMG]
+[URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/01-welcome.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/01-welcome.png[/IMG][/URL] [URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/02-theme-switcher.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/02-theme-switcher.png[/IMG][/URL] [URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/03-about-dialog.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/03-about-dialog.png[/IMG][/URL] [URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/04-installation-mode.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/04-installation-mode.png[/IMG][/URL]
 
-[B]2. Live In-Installer Theme Switcher (3-Dot Menu)[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/02-theme-switcher.png[/IMG]
+[URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/05-customize-modifications.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/05-customize-modifications.png[/IMG][/URL] [URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/06-ready-to-install.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/06-ready-to-install.png[/IMG][/URL] [URL="https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/07-installing-progress.png"][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/07-installing-progress.png[/IMG][/URL]
 
-[B]3. About Dialog (AROMA-Next 26.11)[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/03-about-dialog.png[/IMG]
-
-[B]4. Systemless Overlay vs. Direct Partition RW Mode[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/04-installation-mode.png[/IMG]
-
-[B]5. Module Customization Checkboxes[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/05-customize-modifications.png[/IMG]
-
-[B]6. Ready to Install[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/06-ready-to-install.png[/IMG]
-
-[B]7. Live Module Installation & 9-Patch Progress Bar[/B]
-[IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/07-installing-progress.png[/IMG]
+[COLOR="#7F8C8D"][SIZE="2"]1. Welcome & Root Detection • 2. Live Theme Switcher • 3. About • 4. Systemless vs. RW • 5. Checkboxes • 6. Ready to Install • 7. Live Progress[/SIZE][/COLOR]
 [/CENTER]
+[/HIDE]
