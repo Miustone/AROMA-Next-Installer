@@ -1,6 +1,8 @@
 # AROMA-Next Systemless & Optional Pre-RW Module customize.sh
 # Reads Touch GUI choices from ${AROMA_TMP:-/tmp/aroma}/*.prop (in Recovery)
 # or uses safe Systemless defaults when installed from Magisk/KernelSU/APatch App.
+#
+# All examples below use aroma-mod-lib.sh. Edit or delete any block you don't need!
 
 SKIPUNZIP=0
 
@@ -49,9 +51,15 @@ OPT_DEBLOAT="$(read_aroma_prop "customize.prop" "item.2.1" "0")"
 REQ_MODE="systemless"
 [ "$MODE_CHOICE" = "2" ] && REQ_MODE="rw"
 
-# Initialize modding backend (with safe fallback to systemless if RO/EROFS)
+# Initialize modding backend (falls back safely to systemless if partitions are EROFS/RO)
 aroma_mod_init "$REQ_MODE" "$MODPATH" 1 || abort "! Failed to initialize AROMA modding mode"
 
+# ==============================================================================
+# [PLACEHOLDER EXAMPLES] - Customize or delete any section below for your module
+# ==============================================================================
+
+# 1) Edit or add system properties (writes $MODPATH/system.prop in Systemless mode,
+#    or updates build.prop in Direct RW mode if pre-converted with RO2RW/SystemRW)
 if [ "$OPT_TWEAKS" = "1" ]; then
   ui_print "- Applying system.prop tweaks..."
   aroma_mod_edit_prop "ro.config.media_vol_steps" "30"
@@ -63,12 +71,27 @@ if [ "$OPT_BOOTSOUND" = "1" ]; then
   aroma_mod_edit_prop "ro.config.play.bootsound" "0"
 fi
 
+# 2) Copy/replace files into system/vendor/product/system_ext/odm
+#    (In Systemless mode, placed under $MODPATH/system/...; in RW mode, copied directly)
+# if [ -f "$MODPATH/files/custom_config.example" ]; then
+#   aroma_mod_copy "$MODPATH/files/custom_config.example" "system/etc/custom_config.conf" 0644
+# fi
+
+# 3) Hide/debloat apps or delete files
+#    (In Systemless mode: creates .replace or KernelSU 0:0 whiteout; in RW mode: deletes)
 if [ "$OPT_DEBLOAT" = "1" ]; then
-  ui_print "- Example debloat (uncomment real package paths in customize.sh):"
-  # Example: aroma_mod_delete "system/app/ExampleBloat" "dir"
-  ui_print "  (No destructive paths enabled in template by default)"
+  ui_print "- Debloat placeholder active (uncomment real paths in customize.sh):"
+  # aroma_mod_delete "system/app/ExampleBloat" "dir"
+  # aroma_mod_delete "product/app/ExampleApp" "dir"
+  # aroma_mod_delete "system/media/bootanimation.zip" "file"
 fi
 
-# Remove helper META-INF artifacts if unpacked inside $MODPATH
-rm -rf "$MODPATH/META-INF" 2>/dev/null || true
+# 4) Patch an existing read-only system file without touching the real partition
+#    (Reads original from /system_root or /system, copies into $MODPATH, runs sed)
+# aroma_mod_patch_file "system/etc/hosts" "s/localhost/localhost/"
+
+# ==============================================================================
+# Clean up installer helper files from $MODPATH so only module payload remains
+# ==============================================================================
+rm -rf "$MODPATH/META-INF" "$MODPATH/files" 2>/dev/null || true
 set_perm_recursive "$MODPATH" 0 0 0755 0644

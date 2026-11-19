@@ -1,0 +1,4 @@
+# Example configuration file bundled inside magisk-template/files/
+# Developers can copy files from $MODPATH/files/ (or unpacked ZIP) using aroma_mod_copy.
+# Safe placeholder file - edit or delete as needed.
+example_setting=enabled

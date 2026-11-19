@@ -18,11 +18,11 @@ All notable changes in **AROMA-Next-Installer** compared to the upstream fork ba
 - **Magisk / KernelSU Module Template & Systemless Modding Library (`magisk-template/`):**
   - Added `META-INF/com/google/android/aroma-mod-lib.sh` providing `aroma_mod_init()`, `aroma_probe_rw()`, `aroma_mod_copy()`, `aroma_mod_delete()` (`.replace` / KernelSU `c 0 0` whiteouts), `aroma_mod_edit_prop()`, and `aroma_mod_patch_file()`.
   - Defaults to safe **Systemless Overlay Mode** (compatible with EROFS, `shared_blocks` ext4, Virtual A/B, and active `dm-verity`) while supporting an **Optional Direct RW Mode** when partitions were pre-converted beforehand via `RO2RW` / `SystemRW` (probing actual writability before modifying anything).
-  - Added `META-INF/com/google/android/aroma-config` (Systemless vs. Pre-RW Touch Wizard), `module.prop`, `customize.sh`, and `META-INF/com/google/android/magisk-installer` (with standalone TWRP/KernelSU/APatch `/data/adb/modules` fallback).
+  - Added `META-INF/com/google/android/aroma-config` (Systemless vs. Pre-RW Touch Wizard), `module.prop`, `customize.sh` (with ready-to-edit/delete placeholder examples for all `aroma-mod-lib.sh` helpers), `files/custom_config.example`, and `META-INF/com/google/android/magisk-installer` (with standalone TWRP/KernelSU/APatch `/data/adb/modules` fallback).
 - **Modern Build Tooling & CI:**
   - Added `Application.mk` (`APP_ABI := arm64-v8a armeabi-v7a`, `APP_PLATFORM := android-35`).
   - Added `build.py` (cross-compiling static `arm64` / `arm32` / `x86_64` binaries via Zig `cc` and packaging `AROMA-Next-Installer.zip` + `AROMA-Next-Magisk-Template.zip`).
-  - Added `.github/workflows/build.yml` for automated Android NDK r27c builds and artifact packaging.
+  - Added `.github/workflows/build.yml` for automated Android NDK r27c builds, ZIP packaging, and automatic GitHub Release publishing (`latest` rolling pre-release on branch push and full release on `v*` tags).
   - Added `README.md`, `.gitignore`, and `.gitattributes` (enforcing LF line endings for shell scripts, C sources, and Makefiles).
 
 ### Changed & Fixed
