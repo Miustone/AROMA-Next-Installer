@@ -7,11 +7,9 @@ ZIPFILE="$3"
 
 ui_print() {
   if [ -n "$OUTFD" ] && [ -e "/proc/self/fd/$OUTFD" ]; then
-    echo "ui_print $1" >&"$OUTFD"
-    echo "ui_print" >&"$OUTFD"
-  else
-    echo "$1"
+    printf 'ui_print %s\nui_print\n' "$1" > "/proc/self/fd/$OUTFD" 2>/dev/null && return 0
   fi
+  echo "$1"
 }
 
 # Detect booted Android (Magisk / KernelSU / APatch app) vs Recovery
@@ -30,15 +28,23 @@ rm -rf "$TMPDIR"
 mkdir -p "$TMPDIR"
 
 run_fallback_installer() {
-  if unzip -l "$ZIPFILE" "META-INF/com/google/android/magisk-installer" >/dev/null 2>&1; then
-    unzip -o "$ZIPFILE" "META-INF/com/google/android/magisk-installer" -d "$TMPDIR" >/dev/null 2>&1
+  unzip -o "$ZIPFILE" "META-INF/com/google/android/magisk-installer" -d "$TMPDIR" >/dev/null 2>&1
+  if [ -f "$TMPDIR/META-INF/com/google/android/magisk-installer" ]; then
     chmod 755 "$TMPDIR/META-INF/com/google/android/magisk-installer"
     exec sh "$TMPDIR/META-INF/com/google/android/magisk-installer" "$1" "$2" "$3"
-  elif unzip -l "$ZIPFILE" "META-INF/com/google/android/update-binary-installer" >/dev/null 2>&1; then
-    unzip -o "$ZIPFILE" "META-INF/com/google/android/update-binary-installer" -d "$TMPDIR" >/dev/null 2>&1
+  fi
+  unzip -o "$ZIPFILE" "META-INF/com/google/android/update-binary-installer" -d "$TMPDIR" >/dev/null 2>&1
+  if [ -f "$TMPDIR/META-INF/com/google/android/update-binary-installer" ]; then
     chmod 755 "$TMPDIR/META-INF/com/google/android/update-binary-installer"
-    exec "$TMPDIR/META-INF/com/google/android/update-binary-installer" "$1" "$2" "$3"
-  elif [ -f /data/adb/magisk/util_functions.sh ]; then
+    "$TMPDIR/META-INF/com/google/android/update-binary-installer" "$1" "$2" "$3"
+    FB_RC=$?
+    if [ "$FB_RC" -ne 0 ]; then
+      ui_print "! Legacy update-binary-installer exited with status $FB_RC (32-bit-only binary or unsupported recovery)."
+      ui_print "- Tip: For modern arm64 devices/modules, use AROMA-Next-Magisk-Template.zip."
+    fi
+    exit "$FB_RC"
+  fi
+  if [ -f /data/adb/magisk/util_functions.sh ]; then
     export OUTFD ZIPFILE BOOTMODE
     . /data/adb/magisk/util_functions.sh
     install_module
@@ -73,8 +79,8 @@ esac
 
 BIN_PATH=""
 for c in $CANDIDATES; do
-  if unzip -l "$ZIPFILE" "$c" >/dev/null 2>&1; then
-    unzip -o "$ZIPFILE" "$c" -d "$TMPDIR" >/dev/null 2>&1
+  unzip -o "$ZIPFILE" "$c" -d "$TMPDIR" >/dev/null 2>&1
+  if [ -f "$TMPDIR/$c" ]; then
     BIN_PATH="$TMPDIR/$c"
     chmod 755 "$BIN_PATH"
     break
