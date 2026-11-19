@@ -132,16 +132,16 @@ include $(CLEAR_VARS)
   LOCAL_MODULE_TAGS             := eng
   LOCAL_FORCE_STATIC_EXECUTABLE := true
   
-  ## INCLUDES & OUTPUT PATH
-  LOCAL_C_INCLUDES              := $(AROMA_INSTALLER_LOCALPATH)/include
-  LOCAL_MODULE_PATH             := $(AROMA_INSTALLER_LOCALPATH)/out
+  ## INCLUDES
+  LOCAL_C_INCLUDES              := $(AROMA_INSTALLER_LOCALPATH)/include $(AROMA_INSTALLER_LOCALPATH)/src
   
   ## COMPILER FLAGS
-  LOCAL_CFLAGS                  := -O2 
-  LOCAL_CFLAGS                  += -DFT2_BUILD_LIBRARY=1 -DDARWIN_NO_CARBON 
+  LOCAL_CFLAGS                  := -O2 -std=gnu11
+  LOCAL_CFLAGS                  += -DFT2_BUILD_LIBRARY=1 -DDARWIN_NO_CARBON
   LOCAL_CFLAGS                  += -fdata-sections -ffunction-sections
-  LOCAL_CFLAGS                  += -Wl,--gc-sections -fPIC -DPIC
+  LOCAL_CFLAGS                  += -fPIC -DPIC
   LOCAL_CFLAGS                  += -D_AROMA_NODEBUG
+  LOCAL_CFLAGS                  += -Wno-deprecated-non-prototype -Wno-implicit-function-declaration -Wno-int-conversion -Wno-pointer-sign -Wno-incompatible-pointer-types
 #  LOCAL_CFLAGS                  += -D_AROMA_VERBOSE_INFO
   
   ## SET VERSION
@@ -151,15 +151,16 @@ include $(CLEAR_VARS)
   LOCAL_CFLAGS += -DAROMA_BUILD_CN="\"$(AROMA_CN)\""
   
   ifeq ($(AROMA_ARM_NEON),true)
-    LOCAL_CFLAGS                  += -mfloat-abi=softfp -mfpu=neon -D__ARM_HAVE_NEON
+    LOCAL_ARM_NEON                := true
+    LOCAL_CFLAGS                  += -mfpu=neon -D__ARM_NEON__ -D__ARM_HAVE_NEON
   endif
   ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
     LOCAL_CFLAGS                  += -D__ARM_NEON__
   endif
   
-  ## INCLUDED LIBRARIES
-  LOCAL_STATIC_LIBRARIES        := libm libc
-  LOCAL_LDFLAGS                 += -static -Wl,--gc-sections
+  ## INCLUDED LIBRARIES (NDK links libc/libm automatically; -static + -lm via LDFLAGS/LDLIBS)
+  LOCAL_LDLIBS                  := -lm
+  LOCAL_LDFLAGS                 += -static -Wl,--gc-sections -Wl,-s
   
   ifeq ($(MAKECMDGOALS),$(LOCAL_MODULE))
     $(shell rm -rf $(PRODUCT_OUT)/obj/EXECUTABLES/$(LOCAL_MODULE)_intermediates)
