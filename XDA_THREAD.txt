@@ -22,7 +22,7 @@ Remember the classic [B]AROMA Installer[/B] touch wizards inside TWRP? On modern
 
 [SIZE="4"][B][COLOR="#0099CC"]Downloads & Compatibility[/COLOR][/B][/SIZE]
 [LIST]
-[*][B]GitHub Releases:[/B] [URL="https://github.com/Miustone/AROMA-Installer/releases"]https://github.com/Miustone/AROMA-Installer/releases[/URL]
+[*][B]GitHub Releases:[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer/releases"]https://github.com/Miustone/AROMA-Next-Installer/releases[/URL]
 [*][B]Packages included per release:[/B]
   [LIST]
   [*]`AROMA-Next-Installer.zip` — Universal demo & test ZIP (`arm64` + `arm32`)
@@ -80,7 +80,7 @@ python build.py --arch arm64 arm32
 
 [SIZE="4"][B][COLOR="#0099CC"]Links & Credits[/COLOR][/B][/SIZE]
 [LIST]
-[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Installer"]https://github.com/Miustone/AROMA-Installer[/URL]
+[*][B]Source & Releases (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer"]https://github.com/Miustone/AROMA-Next-Installer[/URL]
 [*][B]Support:[/B] [COLOR="#00AA55"]Miustone[/COLOR] (XDA & GitHub)
 [*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — [COLOR="#7F8C8D"]2013 amarullz | 2026 Miustone — Apache License 2.0[/COLOR]
 [/LIST]
