@@ -103,18 +103,7 @@ typedef struct {
   uint32_t                conn_prop_crtc;
   uint32_t                crtc_prop_active;
   uint32_t                crtc_prop_mode_id;
-  uint32_t                prim_plane_id;
-  uint32_t                saved_prim_fb_id;
-  uint32_t                prim_fb_id;
-  uint32_t                prim_crtc_id;
-  uint32_t                prim_src_x;
-  uint32_t                prim_src_y;
-  uint32_t                prim_src_w;
-  uint32_t                prim_src_h;
-  uint32_t                prim_crtc_x;
-  uint32_t                prim_crtc_y;
-  uint32_t                prim_crtc_w;
-  uint32_t                prim_crtc_h;
+  AROMA_DRM_PLANE_SAVED   prim_plane;
   AROMA_DRM_PLANE_SAVED   extra_planes[AROMA_DRM_MAX_EXTRA_PLANES];
   int                     extra_plane_count;
   unsigned char           r_shift;
@@ -191,6 +180,40 @@ static void ag_drm_push_prop(uint32_t * prop_ids, uint64_t * prop_vals, int * n_
   }
 }
 
+static void ag_drm_load_plane_props(int fd, uint32_t plane_id, AROMA_DRM_PLANE_SAVED * out) {
+  memset(out, 0, sizeof(*out));
+  out->plane_id     = plane_id;
+  out->prop_fb_id   = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &out->saved_fb_id);
+  out->prop_crtc_id = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &out->saved_crtc_id);
+  out->prop_src_x   = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_X", &out->saved_src_x);
+  out->prop_src_y   = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_Y", &out->saved_src_y);
+  out->prop_src_w   = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_W", &out->saved_src_w);
+  out->prop_src_h   = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "SRC_H", &out->saved_src_h);
+  out->prop_crtc_x  = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_X", &out->saved_crtc_x);
+  out->prop_crtc_y  = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_Y", &out->saved_crtc_y);
+  out->prop_crtc_w  = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_W", &out->saved_crtc_w);
+  out->prop_crtc_h  = ag_drm_find_prop(fd, plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_H", &out->saved_crtc_h);
+}
+
+static void ag_drm_push_saved_plane(uint32_t * prop_ids, uint64_t * prop_vals, int * n_props,
+                                    int max_props, const AROMA_DRM_PLANE_SAVED * pl,
+                                    uint64_t fb_id, uint32_t fallback_crtc_id,
+                                    unsigned char set_geom) {
+  ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_fb_id, fb_id);
+  if (set_geom) {
+    uint64_t crtc_val = pl->saved_crtc_id ? pl->saved_crtc_id : (uint64_t) fallback_crtc_id;
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_crtc_id, crtc_val);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_src_x, pl->saved_src_x);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_src_y, pl->saved_src_y);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_src_w, pl->saved_src_w);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_src_h, pl->saved_src_h);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_crtc_x, pl->saved_crtc_x);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_crtc_y, pl->saved_crtc_y);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_crtc_w, pl->saved_crtc_w);
+    ag_drm_push_prop(prop_ids, prop_vals, n_props, max_props, pl->prop_crtc_h, pl->saved_crtc_h);
+  }
+}
+
 static int ag_drm_atomic_commit_internal(uint32_t fb_id,
                                          unsigned char set_plane_geom,
                                          unsigned char include_crtc,
@@ -205,7 +228,7 @@ static int ag_drm_atomic_commit_internal(uint32_t fb_id,
   int n_objs  = 0;
   int n_props = 0;
 
-  if (ag_drm.prim_plane_id == 0 || ag_drm.prim_fb_id == 0) {
+  if (ag_drm.prim_plane.plane_id == 0 || ag_drm.prim_plane.prop_fb_id == 0) {
     errno = EINVAL;
     return -1;
   }
@@ -237,16 +260,8 @@ static int ag_drm_atomic_commit_internal(uint32_t fb_id,
       }
       int sp = n_props;
       if (restore_saved) {
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_fb_id, ep->saved_fb_id);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_crtc_id, ep->saved_crtc_id);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_src_x, ep->saved_src_x);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_src_y, ep->saved_src_y);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_src_w, ep->saved_src_w);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_src_h, ep->saved_src_h);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_crtc_x, ep->saved_crtc_x);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_crtc_y, ep->saved_crtc_y);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_crtc_w, ep->saved_crtc_w);
-        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_crtc_h, ep->saved_crtc_h);
+        ag_drm_push_saved_plane(prop_ids, prop_vals, &n_props, MAX_PROPS,
+                                ep, ep->saved_fb_id, ag_drm.crtc_id, 1);
       }
       else {
         ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ep->prop_fb_id, 0);
@@ -261,18 +276,26 @@ static int ag_drm_atomic_commit_internal(uint32_t fb_id,
   /* Primary plane properties */
   {
     int sp = n_props;
-    objs[n_objs] = ag_drm.prim_plane_id;
-    ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_fb_id, fb_id);
-    if (set_plane_geom) {
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_crtc_id, ag_drm.crtc_id);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_src_x, 0);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_src_y, 0);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_src_w, ((uint64_t) ag_drm.width) << 16);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_src_h, ((uint64_t) ag_drm.height) << 16);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_crtc_x, 0);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_crtc_y, 0);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_crtc_w, ag_drm.width);
-      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_crtc_h, ag_drm.height);
+    objs[n_objs] = ag_drm.prim_plane.plane_id;
+    if (restore_saved &&
+        ag_drm.prim_plane.saved_crtc_w != 0 &&
+        ag_drm.prim_plane.saved_crtc_h != 0) {
+      ag_drm_push_saved_plane(prop_ids, prop_vals, &n_props, MAX_PROPS,
+                              &ag_drm.prim_plane, fb_id, ag_drm.crtc_id, set_plane_geom);
+    }
+    else {
+      ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_fb_id, fb_id);
+      if (set_plane_geom) {
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_crtc_id, ag_drm.crtc_id);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_src_x, 0);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_src_y, 0);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_src_w, ((uint64_t) ag_drm.width) << 16);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_src_h, ((uint64_t) ag_drm.height) << 16);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_crtc_x, 0);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_crtc_y, 0);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_crtc_w, ag_drm.width);
+        ag_drm_push_prop(prop_ids, prop_vals, &n_props, MAX_PROPS, ag_drm.prim_plane.prop_crtc_h, ag_drm.height);
+      }
     }
     cnts[n_objs] = (uint32_t)(n_props - sp);
     n_objs++;
@@ -399,8 +422,7 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
   uint32_t active_prim_id = 0, active_prim_fb = 0;
   uint32_t active_any_id  = 0, active_any_fb  = 0;
   uint32_t poss_prim_id   = 0, poss_prim_fb   = 0;
-  ag_drm.prim_plane_id     = 0;
-  ag_drm.saved_prim_fb_id  = 0;
+  memset(&ag_drm.prim_plane, 0, sizeof(ag_drm.prim_plane));
   ag_drm.extra_plane_count = 0;
 
   /* Pass 1: find the plane already driving this CRTC so Qualcomm/SDE and
@@ -432,22 +454,31 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
     }
   }
 
+  uint32_t chosen_prim_id = 0;
+  uint32_t chosen_prim_fb = 0;
   if (active_prim_id != 0) {
-    ag_drm.prim_plane_id    = active_prim_id;
-    ag_drm.saved_prim_fb_id = active_prim_fb;
+    chosen_prim_id = active_prim_id;
+    chosen_prim_fb = active_prim_fb;
   }
   else if (active_any_id != 0) {
-    ag_drm.prim_plane_id    = active_any_id;
-    ag_drm.saved_prim_fb_id = active_any_fb;
+    chosen_prim_id = active_any_id;
+    chosen_prim_fb = active_any_fb;
   }
   else {
-    ag_drm.prim_plane_id    = poss_prim_id;
-    ag_drm.saved_prim_fb_id = poss_prim_fb;
+    chosen_prim_id = poss_prim_id;
+    chosen_prim_fb = poss_prim_fb;
+  }
+
+  if (chosen_prim_id != 0) {
+    ag_drm_load_plane_props(fd, chosen_prim_id, &ag_drm.prim_plane);
+    if (ag_drm.prim_plane.saved_fb_id == 0 && chosen_prim_fb != 0) {
+      ag_drm.prim_plane.saved_fb_id = chosen_prim_fb;
+    }
   }
 
   /* Pass 2: record any remaining active planes on this CRTC as overlays */
   for (i = 0; i < pres.count_planes; i++) {
-    if (plane_ids[i] == ag_drm.prim_plane_id) {
+    if (plane_ids[i] == ag_drm.prim_plane.plane_id) {
       continue;
     }
     struct drm_mode_get_plane p;
@@ -459,18 +490,10 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
     if (p.crtc_id == ag_drm.crtc_id && p.fb_id != 0 &&
         ag_drm.extra_plane_count < AROMA_DRM_MAX_EXTRA_PLANES) {
       AROMA_DRM_PLANE_SAVED * ep = &ag_drm.extra_planes[ag_drm.extra_plane_count];
-      memset(ep, 0, sizeof(*ep));
-      ep->plane_id     = p.plane_id;
-      ep->prop_fb_id   = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &ep->saved_fb_id);
-      ep->prop_crtc_id = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", &ep->saved_crtc_id);
-      ep->prop_src_x   = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "SRC_X", &ep->saved_src_x);
-      ep->prop_src_y   = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "SRC_Y", &ep->saved_src_y);
-      ep->prop_src_w   = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "SRC_W", &ep->saved_src_w);
-      ep->prop_src_h   = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "SRC_H", &ep->saved_src_h);
-      ep->prop_crtc_x  = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_X", &ep->saved_crtc_x);
-      ep->prop_crtc_y  = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_Y", &ep->saved_crtc_y);
-      ep->prop_crtc_w  = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_W", &ep->saved_crtc_w);
-      ep->prop_crtc_h  = ag_drm_find_prop(fd, p.plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_H", &ep->saved_crtc_h);
+      ag_drm_load_plane_props(fd, p.plane_id, ep);
+      if (ep->saved_fb_id == 0) {
+        ep->saved_fb_id = p.fb_id;
+      }
       if (ep->prop_fb_id && ep->prop_crtc_id) {
         ag_drm.extra_plane_count++;
       }
@@ -478,17 +501,17 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
   }
   free(plane_ids);
 
-  if (ag_drm.prim_plane_id == 0) {
+  if (ag_drm.prim_plane.plane_id == 0) {
     fprintf(stdout, "aroma/w: DRM no suitable plane found for crtc=%u (idx=%u)\n",
             ag_drm.crtc_id, ag_drm.crtc_idx);
     return 0;
   }
 
   /* Ensure dumb buffer format is actually supported by the selected plane */
-  uint32_t wanted_fmt = ag_drm_pick_plane_format(fd, ag_drm.prim_plane_id, ag_drm.pixel_format);
+  uint32_t wanted_fmt = ag_drm_pick_plane_format(fd, ag_drm.prim_plane.plane_id, ag_drm.pixel_format);
   if (wanted_fmt != 0 && wanted_fmt != ag_drm.pixel_format) {
     fprintf(stdout, "aroma/s: DRM switching buffer format 0x%08x -> 0x%08x for plane=%u\n",
-            ag_drm.pixel_format, wanted_fmt, ag_drm.prim_plane_id);
+            ag_drm.pixel_format, wanted_fmt, ag_drm.prim_plane.plane_id);
     ag_drm_destroy_bufs(fd);
     if (!ag_drm_alloc_buf(fd, 0, wanted_fmt)) {
       return 0;
@@ -497,17 +520,6 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
     ag_drm.front_idx = 0;
     *io_fb_id        = ag_drm.fb_ids[0];
   }
-
-  ag_drm.prim_fb_id   = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", NULL);
-  ag_drm.prim_crtc_id = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_ID", NULL);
-  ag_drm.prim_src_x   = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "SRC_X", NULL);
-  ag_drm.prim_src_y   = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "SRC_Y", NULL);
-  ag_drm.prim_src_w   = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "SRC_W", NULL);
-  ag_drm.prim_src_h   = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "SRC_H", NULL);
-  ag_drm.prim_crtc_x  = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_X", NULL);
-  ag_drm.prim_crtc_y  = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_Y", NULL);
-  ag_drm.prim_crtc_w  = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_W", NULL);
-  ag_drm.prim_crtc_h  = ag_drm_find_prop(fd, ag_drm.prim_plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_H", NULL);
 
   ag_drm.conn_prop_crtc    = ag_drm_find_prop(fd, ag_drm.conn_id, DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", NULL);
   ag_drm.crtc_prop_active  = ag_drm_find_prop(fd, ag_drm.crtc_id, DRM_MODE_OBJECT_CRTC, "ACTIVE", NULL);
@@ -535,7 +547,7 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
   unsigned char a;
   unsigned char ok = 0;
   for (a = 0; a < 4; a++) {
-    if (a == 3 && ag_drm.saved_prim_fb_id == 0) {
+    if (a == 3 && ag_drm.prim_plane.saved_fb_id == 0) {
       continue;
     }
     if (ag_drm_atomic_commit_internal(*io_fb_id, attempts[a].set_geom, attempts[a].inc_crtc,
@@ -548,14 +560,20 @@ static unsigned char ag_drm_setup_atomic(uint32_t * io_fb_id) {
             a, errno, strerror(errno));
   }
   if (!ok) {
-    fprintf(stdout, "aroma/w: DRM Atomic failed all attempts (plane=%u, saved_fb=%u, overlays=%d), falling back to SETCRTC\n",
-            ag_drm.prim_plane_id, ag_drm.saved_prim_fb_id, ag_drm.extra_plane_count);
+    fprintf(stdout, "aroma/w: DRM Atomic failed all attempts (plane=%u, saved_fb=%llu, overlays=%d), falling back to SETCRTC\n",
+            ag_drm.prim_plane.plane_id, (unsigned long long) ag_drm.prim_plane.saved_fb_id, ag_drm.extra_plane_count);
     return 0;
   }
 
   ag_drm.use_atomic = 1;
-  fprintf(stdout, "aroma/s: DRM: Atomic KMS active (amode=%u, plane=%u, saved_fb=%u, overlays=%d, doublebuf=%u)\n",
-          ag_drm.atomic_mode, ag_drm.prim_plane_id, ag_drm.saved_prim_fb_id, ag_drm.extra_plane_count, ag_drm.has_buf1);
+  fprintf(stdout, "aroma/s: DRM: Atomic KMS active (amode=%u, plane=%u, saved_fb=%llu, geom=%llu,%llu+%llux%llu, overlays=%d, doublebuf=%u)\n",
+          ag_drm.atomic_mode, ag_drm.prim_plane.plane_id,
+          (unsigned long long) ag_drm.prim_plane.saved_fb_id,
+          (unsigned long long) ag_drm.prim_plane.saved_crtc_x,
+          (unsigned long long) ag_drm.prim_plane.saved_crtc_y,
+          (unsigned long long) ag_drm.prim_plane.saved_crtc_w,
+          (unsigned long long) ag_drm.prim_plane.saved_crtc_h,
+          ag_drm.extra_plane_count, ag_drm.has_buf1);
   return 1;
 }
 
@@ -697,13 +715,18 @@ static void ag_drm_free_ctx(void) {
     /* Restore parent recovery's scanout FB & planes BEFORE RMFB, otherwise
      * RMFB unbinds the active plane + CRTC and breaks recovery's Atomic commits.
      */
-    if (ag_drm.use_atomic && ag_drm.saved_prim_fb_id != 0) {
+    if (ag_drm.use_atomic && ag_drm.prim_plane.saved_fb_id != 0) {
+      uint32_t saved_fb = (uint32_t) ag_drm.prim_plane.saved_fb_id;
       unsigned char s_geom  = (ag_drm.atomic_mode <= 2) ? 1 : 0;
       unsigned char s_crtc  = (ag_drm.atomic_mode == 0) ? 1 : 0;
       unsigned char s_extra = (ag_drm.atomic_mode <= 1) ? 1 : 0;
       uint32_t      s_flags = (ag_drm.atomic_mode == 0) ? DRM_MODE_ATOMIC_ALLOW_MODESET : 0;
-      if (ag_drm_atomic_commit_internal(ag_drm.saved_prim_fb_id, s_geom, s_crtc, s_extra, 1, s_flags) != 0) {
-        if (ag_drm_atomic_commit_internal(ag_drm.saved_prim_fb_id, 0, 0, 0, 1, 0) != 0) {
+      if (ag_drm_atomic_commit_internal(saved_fb, s_geom, s_crtc, s_extra, 1, s_flags) != 0) {
+        fprintf(stdout, "aroma/w: DRM restore atomic commit (amode=%u) failed (errno=%d: %s)\n",
+                ag_drm.atomic_mode, errno, strerror(errno));
+        if (ag_drm_atomic_commit_internal(saved_fb, 1, 0, 1, 1, 0) != 0 &&
+            ag_drm_atomic_commit_internal(saved_fb, 1, 1, 1, 1, DRM_MODE_ATOMIC_ALLOW_MODESET) != 0 &&
+            ag_drm_atomic_commit_internal(saved_fb, 0, 0, 0, 1, 0) != 0) {
           fprintf(stdout, "aroma/w: DRM restore atomic commit failed (errno=%d: %s)\n",
                   errno, strerror(errno));
         }
