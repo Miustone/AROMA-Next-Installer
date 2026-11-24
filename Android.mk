@@ -76,6 +76,7 @@ include $(CLEAR_VARS)
     libs/freetype/base/ftdebug.c \
     libs/freetype/base/ftglyph.c \
     libs/freetype/base/ftinit.c \
+    libs/freetype/base/ftmm.c \
     libs/freetype/base/ftstroke.c \
     libs/freetype/base/ftsynth.c \
     libs/freetype/base/ftsystem.c \
