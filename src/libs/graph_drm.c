@@ -1021,8 +1021,8 @@ unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned ch
       out_shifts[1] = ag_drm.g_shift;
       out_shifts[2] = ag_drm.b_shift;
       out_shifts[3] = ag_drm.a_shift;
-      fprintf(stdout, "aroma/s: DRM: Initialized via inherited fd=%d (fmt=0x%08x, %ux%u, pitch=%u, shifts=%u/%u/%u/%u)\n",
-              inh_fd, ag_drm.pixel_format, ag_drm.width, ag_drm.height, ag_drm.pitch,
+      fprintf(stdout, "aroma/s: DRM: Initialized via inherited fd=%d (fmt=0x%08x, %ux%u@%uHz, pitch=%u, shifts=%u/%u/%u/%u)\n",
+              inh_fd, ag_drm.pixel_format, ag_drm.width, ag_drm.height, ag_drm.mode.vrefresh, ag_drm.pitch,
               ag_drm.r_shift, ag_drm.g_shift, ag_drm.b_shift, ag_drm.a_shift);
       return 1;
     }
@@ -1048,14 +1048,36 @@ unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned ch
       out_shifts[1] = ag_drm.g_shift;
       out_shifts[2] = ag_drm.b_shift;
       out_shifts[3] = ag_drm.a_shift;
-      fprintf(stdout, "aroma/s: DRM: Initialized %s (fmt=0x%08x, %ux%u, pitch=%u, shifts=%u/%u/%u/%u)\n",
-              path, ag_drm.pixel_format, ag_drm.width, ag_drm.height, ag_drm.pitch,
+      fprintf(stdout, "aroma/s: DRM: Initialized %s (fmt=0x%08x, %ux%u@%uHz, pitch=%u, shifts=%u/%u/%u/%u)\n",
+              path, ag_drm.pixel_format, ag_drm.width, ag_drm.height, ag_drm.mode.vrefresh, ag_drm.pitch,
               ag_drm.r_shift, ag_drm.g_shift, ag_drm.b_shift, ag_drm.a_shift);
       return 1;
     }
     ag_drm_free_ctx();
   }
   return 0;
+}
+
+unsigned char * ag_drm_backbuf(void) {
+  int next_idx = ag_drm.has_buf1 ? (ag_drm.front_idx ^ 1) : 0;
+  if (ag_drm.maps[next_idx] != NULL) {
+    return ag_drm.maps[next_idx];
+  }
+  return ag_drm.maps[0];
+}
+
+int ag_drm_vrefresh(void) {
+  if (ag_drm.mode.vrefresh > 0) {
+    return (int) ag_drm.mode.vrefresh;
+  }
+  if (ag_drm.mode.htotal > 0 && ag_drm.mode.vtotal > 0 && ag_drm.mode.clock > 0) {
+    int hz = (int)(((uint64_t) ag_drm.mode.clock * 1000ULL) /
+                   ((uint64_t) ag_drm.mode.htotal * (uint64_t) ag_drm.mode.vtotal));
+    if (hz > 0) {
+      return hz;
+    }
+  }
+  return 60;
 }
 
 void ag_drm_flush(void) {
@@ -1066,9 +1088,6 @@ void ag_drm_flush(void) {
   }
 
   int next_idx = ag_drm.has_buf1 ? (ag_drm.front_idx ^ 1) : 0;
-  if (next_idx == 1 && ag_drm.maps[1] != NULL && ag_drm.maps[0] != NULL) {
-    memcpy(ag_drm.maps[1], ag_drm.maps[0], (size_t) ag_drm.size);
-  }
   ag_drm.front_idx = next_idx;
   uint32_t fb_id = ag_drm.fb_ids[next_idx];
 

@@ -14,6 +14,12 @@ Focus: Full modernization of all vendored C libraries (`zlib`, `libpng`, `FreeTy
   - **libpng:** Upgraded `1.2.46` (2011) → **`1.6.59`** (2026) with native ARM64 & ARM32 NEON C intrinsics (`libs/png/arm/`), official `pnglibconf.h`, and migrated `src/libs/aroma_png.c` (`apng_load` / `apng_loadfont`) to libpng 1.6 accessor APIs (`png_get_*`).
   - **FreeType:** Upgraded `2.4.10` (2012) → **`2.15.0`** (2026) with updated module configuration (`autofit`, `truetype`, `cff`, `psaux`, `psnames`, `pshinter`, `sfnt`, `smooth`, `raster`) and subpixel LCD filtering enabled.
   - Synchronized source lists in `Android.mk` and `build.py`.
+- **Smooth 60/90/120Hz+ Window Animations & Direct DRM Backbuffer Pipeline (`src/libs/graph_drm.c`, `src/libs/aroma_graph.c`, `src/controls/aroma_controls.c`):**
+  - Eliminated the slow uncached/write-combining DRM dumb-buffer read (`memcpy(maps[1], maps[0])`) on alternating frames and bypassed the redundant 18 MB intermediate `ag_bf32` copy by blitting RGB565 directly to the active DRM backbuffer (`ag_drm_backbuf()`) in a single ARM NEON pass.
+  - Replaced legacy 5-frame linear animations and upfront multi-canvas pre-allocation freezes with monotonic time-based cubic ease-out VSYNC-locked transitions (scaling smoothly to 60Hz, 90Hz, and 120Hz+ panels).
+  - Stopped the idle background refresh thread from competing with animations when neither the busy bar nor text caret is active; fixed height-clipping typo in `ag_draw_strecth` / `ag_draw_strecth_ex`.
+- **UI Polish (`src/controls/aroma_controls.c`):**
+  - Swapped button order in the **Select Theme** dialog so **Back** is on the left and **OK** is on the right, matching all other installer screens.
 - **Repository Housekeeping:**
   - Replaced legacy 2013 `README` file with a standard Apache 2.0 `LICENSE` file (auto-detected by GitHub) and updated license links in `README.md`.
   - Removed tracked `out/out_folder.txt` placeholder (`out/` is generated automatically by CI and `build.py`).

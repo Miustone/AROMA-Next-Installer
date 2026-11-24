@@ -23,14 +23,23 @@
 
 #include <signal.h>
 #include <fcntl.h>
+#include <time.h>
 #include <linux/fb.h>
 #include <sys/mman.h>
 #include <pthread.h>
 #include "../aroma.h"
 
 extern unsigned char ag_drm_init(int * out_w, int * out_h, int * out_pitch, unsigned char ** out_map, unsigned char * out_shifts);
+extern unsigned char * ag_drm_backbuf(void);
+extern int ag_drm_vrefresh(void);
 extern void ag_drm_flush(void);
 extern void ag_drm_close(void);
+
+static long long ag_now_us(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ((long long) ts.tv_sec * 1000000LL) + ((long long) ts.tv_nsec / 1000LL);
+}
 
 /*****************************[ GLOBAL VARIABLES ]*****************************/
 static int                             ag_fb   = -1;      //-- FrameBuffer Handler
@@ -42,6 +51,7 @@ static word              *             ag_b = NULL;       //-- FrameBuffer Cache
 static dword             *             ag_bf32 = NULL;
 static word              *             ag_bz = NULL;      //-- FrameBuffer Cache Memory
 static dword             *             ag_bz32 = NULL;
+static word              *             ag_prev16 = NULL;  //-- Previous Presented RGB565 Frame (for fast fades)
 static CANVAS                          ag_c;           //-- FrameBuffer Main Canvas
 static CANVAS                          ag_recovery;    //-- Saved Recovery Screen
 static struct fb_fix_screeninfo        ag_fbf;         //-- FrameBuffer Info
@@ -326,6 +336,7 @@ static byte ag_init_fbdev() {
   }
 
   ag_canvas(&ag_c, ag_fbv.xres, ag_fbv.yres);
+  ag_prev16 = (word *) calloc((size_t) ag_fbv.xres * (size_t) ag_fbv.yres, sizeof(word));
   ag_dp = (int) floor(min(ag_fbv.xres, ag_fbv.yres) / 160.0);
   if (ag_dp < 1) {
     ag_dp = 1;
@@ -459,6 +470,7 @@ static byte ag_init_drm() {
   colorspace_positions[3] = shifts[3];
 
   ag_canvas(&ag_c, w, h);
+  ag_prev16 = (word *) calloc((size_t) w * (size_t) h, sizeof(word));
   ag_dp = (int) floor(min(w, h) / 160.0);
   if (ag_dp < 1) {
     ag_dp = 1;
@@ -560,7 +572,7 @@ byte ag_draw_strecth(CANVAS * d,
   }
   
   if (sy + sh > s->h) {
-    sw = s->h - sy;
+    sh = s->h - sy;
   }
   
   int x_ratio = (int)((sw << 16) / dw) + 1;
@@ -618,7 +630,7 @@ byte ag_draw_strecth_ex(
   }
   
   if (sy + sh > s->h) {
-    sw = s->h - sy;
+    sh = s->h - sy;
   }
   
   int x_ratio = (int)((sw << 16) / dw) + 1;
@@ -709,37 +721,45 @@ void ag_close() {
     
     if (fadesz > 0) {
       CANVAS cbg;
+      CANVAS tmpb;
       ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, agw(), agh());
       ag_draw(&cbg, agc(), 0, 0);
-      int xc    = agw() / 2;
-      int yc    = agh() / 2;
-      int i;
-      CANVAS * tmpb = (CANVAS *) malloc(sizeof(CANVAS) * fadesz);
-      memset(tmpb, 0, sizeof(CANVAS)*fadesz);
-      
-      for (i = 1; i <= fadesz; i++) {
-        byte scale  = 0xff - ((i * 0xff) / fadesz);
+      int xc = agw() / 2;
+      int yc = agh() / 2;
+      long long t0 = ag_now_us();
+      const long long dur_us = 150000LL;
+      while (1) {
+        long long elapsed = ag_now_us() - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float u = (float) elapsed / (float) dur_us;
+        float inv = 1.0f - u;
+        float ease = inv * inv; /* smooth ease-in shrink */
+        byte scale = (byte) (ease * 255.0f);
+        if (scale < 1) {
+          scale = 1;
+        }
         int wtarget = (agw() * scale) >> 8;
         int htarget = (agh() * scale) >> 8;
-        ag_canvas(&tmpb[i - 1], agw(), agh());
-        ag_draw(&tmpb[i - 1], &ag_recovery, 0, 0);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        ag_draw(&tmpb, &ag_recovery, 0, 0);
         ag_draw_strecth_ex(
-          &tmpb[i - 1],
+          &tmpb,
           &cbg,
           xc - wtarget / 2, yc - htarget / 2, wtarget, htarget,
           0, 0, agw(), agh(), scale, 1
         );
-      }
-      
-      ag_ccanvas(&cbg);
-      
-      for (i = 0; i < fadesz; i++) {
-        ag_draw(NULL, &tmpb[i], 0, 0);
-        ag_ccanvas(&tmpb[i]);
+        ag_draw(NULL, &tmpb, 0, 0);
         ag_sync();
+        if (ag_display_backend != 2) {
+          usleep(8000);
+        }
       }
-      
-      free(tmpb);
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
     }
     
     ag_draw(&ag_c, &ag_recovery, 0, 0);
@@ -781,6 +801,10 @@ void ag_close() {
   }
   
   //-- Cleanup Canvas & Display Backend
+  if (ag_prev16 != NULL) {
+    free(ag_prev16);
+    ag_prev16 = NULL;
+  }
   ag_ccanvas(&ag_c);
   if (ag_display_backend == 2) {
     ag_drm_close();
@@ -806,7 +830,7 @@ long ag_lastbusy = 0;
 static void * ag_thread(void * cookie) {
   while (ag_isrun) {
     if (ag_isbusy != 2) {
-      if (!ag_refreshlock) {
+      if (!ag_refreshlock && (ag_isbusy != 0 || ag_caret[2] > 0)) {
         ag_caret[3] = (ag_caret[3]) ? 0 : 1;
         ag_refreshrate();
       }
@@ -935,11 +959,14 @@ void ag_busyprogress() {
           int yp = y * ag_fbv.xres;
           int xy  = yp + x;
           int dxy = (ag_fbf.line_length * y) + (x * agclp);
-          *((dword *) (ag_fbuf32 + dxy)) =
-            (alp << colorspace_positions[0]) |
-            (alp << colorspace_positions[1]) |
-            (alp << colorspace_positions[2]) |
-            (0xffu << colorspace_positions[3]);
+          byte * dst = ag_target_fb32();
+          if (dst != NULL) {
+            *((dword *) (dst + dxy)) =
+              (alp << colorspace_positions[0]) |
+              (alp << colorspace_positions[1]) |
+              (alp << colorspace_positions[2]) |
+              (0xffu << colorspace_positions[3]);
+          }
         }
       }
     }
@@ -975,7 +1002,50 @@ void ag_busyprogress() {
 #ifdef __ARM_NEON__
 #include "neon/blt_neon.c"
 #endif
+static inline byte * ag_target_fb32(void) {
+  if (ag_display_backend == 2) {
+    byte * back = ag_drm_backbuf();
+    if (back != NULL) {
+      return back;
+    }
+  }
+  return ag_fbuf32;
+}
+
+static void ag32canvas_to_fb(const word * src) {
+  byte * dst = ag_target_fb32();
+  if (dst == NULL || src == NULL) {
+    return;
+  }
+  int y;
+#ifdef __ARM_NEON__
+  for (y = 0; y < (int) ag_fbv.yres; y++) {
+    int yp = y * (int) ag_fbv.xres;
+    int yd = (int) (ag_fbf.line_length * y);
+    aBlt32_neon((int) ag_fbv.xres, (dword *) (dst + yd), src + yp, 1);
+  }
+#else
+  int x;
+  for (y = 0; y < (int) ag_fbv.yres; y++) {
+    int yp = y * (int) ag_fbv.xres;
+    int yd = (int) (ag_fbf.line_length * y);
+    for (x = 0; x < (int) ag_fbv.xres; x++) {
+      color c = src[yp + x];
+      *((dword *) (dst + yd + (x * agclp))) =
+        (ag_r(c) << colorspace_positions[0]) |
+        (ag_g(c) << colorspace_positions[1]) |
+        (ag_b(c) << colorspace_positions[2]) |
+        (0xffu << colorspace_positions[3]);
+    }
+  }
+#endif
+}
+
 void ag32fbufcopy(dword * bfbz) {
+  byte * dst = ag_target_fb32();
+  if (dst == NULL || bfbz == NULL) {
+    return;
+  }
   int x, y;
 #ifdef __ARM_NEON__
   
@@ -983,7 +1053,7 @@ void ag32fbufcopy(dword * bfbz) {
     int yp = y * ag_fbv.xres;
     int yd = (ag_fbf.line_length * y);
     aMemcpyColorPos_neon(
-      (dword *) (ag_fbuf32 + yd),
+      (dword *) (dst + yd),
       (dword *) bfbz + yp, ag_fbv.xres, 0);
   }
   
@@ -995,7 +1065,7 @@ void ag32fbufcopy(dword * bfbz) {
   
     for (x = 0; x < ag_fbv.xres; x++) {
       int xy = yp + x;
-      *((dword *) (ag_fbuf32 + yd + (x * agclp))) =
+      *((dword *) (dst + yd + (x * agclp))) =
         (ag_r32(bfbz[xy]) << colorspace_positions[0]) |
         (ag_g32(bfbz[xy]) << colorspace_positions[1]) |
         (ag_b32(bfbz[xy]) << colorspace_positions[2]) |
@@ -1035,10 +1105,11 @@ void ag_drawcaret() {
           
           if (xpos >= 0) {
             if (ag_32 == 1) {
-              if (xpos < (ag_fbf.smem_len - 4)) {
-                ag_fbuf32[xpos + (colorspace_positions[0] >> 3)]   = 255 - ag_fbuf32[xpos + (16 >> 3)];
-                ag_fbuf32[xpos + (colorspace_positions[1] >> 3)] = 255 - ag_fbuf32[xpos + (8 >> 3)];
-                ag_fbuf32[xpos + (colorspace_positions[2] >> 3)]  = 255 - ag_fbuf32[xpos + (0 >> 3)];
+              byte * dst = ag_target_fb32();
+              if (dst != NULL && xpos < (ag_fbf.smem_len - 4)) {
+                dst[xpos + (colorspace_positions[0] >> 3)] = 255 - dst[xpos + (colorspace_positions[0] >> 3)];
+                dst[xpos + (colorspace_positions[1] >> 3)] = 255 - dst[xpos + (colorspace_positions[1] >> 3)];
+                dst[xpos + (colorspace_positions[2] >> 3)] = 255 - dst[xpos + (colorspace_positions[2] >> 3)];
               }
             }
             else if (xpos < (ag_fbf.smem_len - 2)) {
@@ -1086,13 +1157,25 @@ void ag_setcaret(int x, int y, int h) {
   ag_caret[2] = h;
   ag_caret[3] = 1;
 }
+static void ag_flush_backend(void) {
+  if (ag_display_backend == 2) {
+    ag_drm_flush();
+  }
+  else if (ag_fb >= 0) {
+    fsync(ag_fb);
+    //-- Force Refresh Display
+    ag_fbv.yoffset   = 0;
+    ag_fbv.activate |= FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
+    ioctl(ag_fb, FBIOPUT_VSCREENINFO, &ag_fbv);
+  }
+}
+
 void ag_refreshrate() {
   //-- Copy Data
   if (ag_32 == 1) {
     if (ag_isbusy == 0) {
-      ag32fbufcopy(ag_bf32);
+      ag32canvas_to_fb(ag_c.data);
       ag_drawcaret();
-      //memcpy(ag_fbuf32,ag_bf32,ag_fbsz);
     }
     else if (ag_isbusy == 2) {
       ag32fbufcopy(ag_bz32);
@@ -1106,9 +1189,7 @@ void ag_refreshrate() {
   else {
     if (ag_isbusy == 0) {
       if (ag_16strd == 0) {
-        //-- Can Use memcpy
         memcpy(ag_fbuf, ag_b, ag_fbsz);
-        // ag16fbufcopy(ag_b);
       }
       else {
         ag16fbufcopy(ag_b);
@@ -1118,9 +1199,7 @@ void ag_refreshrate() {
     }
     else if (ag_isbusy == 2) {
       if (ag_16strd == 0) {
-        //-- Can Use memcpy
         memcpy(ag_fbuf, ag_bz, ag_fbsz);
-        // ag16fbufcopy(ag_bz);
       }
       else {
         ag16fbufcopy(ag_bz);
@@ -1135,16 +1214,7 @@ void ag_refreshrate() {
   }
   
   //-- Wait For Draw / Flush Display
-  if (ag_display_backend == 2) {
-    ag_drm_flush();
-  }
-  else if (ag_fb >= 0) {
-    fsync(ag_fb);
-    //-- Force Refresh Display
-    ag_fbv.yoffset   = 0;
-    ag_fbv.activate |= FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
-    ioctl(ag_fb, FBIOPUT_VSCREENINFO, &ag_fbv);
-  }
+  ag_flush_backend();
 }
 
 byte ag_sync_locked = 0;
@@ -1157,34 +1227,21 @@ void ag_sync() {
     ag_refreshlock = 1;
     
     if (ag_32 == 1) {
-#ifdef __ARM_NEON__
-      int y;
-      
-      for (y = 0; y < ag_fbv.yres; y++) {
-        int yp = y * ag_fbv.xres;
-        aBlt32_neon(ag_fbv.xres, (dword *) (ag_bf32 + yp), (word *) (ag_c.data + yp), 0);
+      ag32canvas_to_fb(ag_c.data);
+      ag_drawcaret();
+      ag_flush_backend();
+      if (ag_prev16 != NULL) {
+        memcpy(ag_prev16, ag_c.data, (size_t) ag_c.sz);
       }
-      
-#else
-      int x, y;
-      
-      for (y = 0; y < ag_fbv.yres; y++) {
-        int yp = y * ag_fbv.xres;
-      
-        for (x = 0; x < ag_fbv.xres; x++) {
-          int xy  = yp + x;
-          color c = ag_c.data[xy];
-          ag_bf32[xy] = ag_rgb32(ag_r(c), ag_g(c), ag_b(c));
-        }
-      }
-      
-#endif
     }
     else {
       memcpy(ag_b, ag_c.data, ag_fbsz);
+      if (ag_prev16 != NULL) {
+        memcpy(ag_prev16, ag_c.data, (size_t) ag_c.sz);
+      }
+      ag_refreshrate();
     }
     
-    ag_refreshrate();
     ag_refreshlock = 0;
   }
 }
@@ -1202,65 +1259,55 @@ static void * ag_sync_fade_thread(void * cookie) {
   ag_sync_locked = 1;
   ag_refreshlock = 1;
   
-  if (ag_32 == 0) {
-    int i, x, y;
-    
-    for (i = 0; (i < (frame / 2)) && ag_sync_locked; i++) {
-      byte perc = (255 / frame) * i;
-      byte ralpha = 255 - perc;
-      
-      for (y = 0; y < agh(); y++) {
-        int yp = y * agw();
-        byte er = 0;
-        byte eg = 0;
-        byte eb = 0;
-        
-        for (x = 0; x < agw(); x++) {
-          int xy = yp + x;
-          color * s = agxy(NULL, x, y);
-          color   d = ag_b[xy];
-          
-          if (s[0] != d) {
-            byte r = min(((byte) (((((int) ag_r(d)) * ralpha) + (((int) ag_r(s[0])) * perc)) >> 8)) + er, 255);
-            byte g = min(((byte) (((((int) ag_g(d)) * ralpha) + (((int) ag_g(s[0])) * perc)) >> 8)) + eg, 255);
-            byte b = min(((byte) (((((int) ag_b(d)) * ralpha) + (((int) ag_b(s[0])) * perc)) >> 8)) + eb, 255);
-            byte nr = ag_close_r(r);
-            byte ng = ag_close_g(g);
-            byte nb = ag_close_b(b);
-            ag_b[xy] = ag_rgb(nr, ng, nb);
-            er     = r - nr;
-            eg     = g - ng;
-            eb     = b - nb;
+  if (frame > 0 && ag_prev16 != NULL && ag_c.data != NULL) {
+    int total = agw() * agh();
+    word * blendbuf = (word *) malloc((size_t) total * sizeof(word));
+    if (blendbuf != NULL) {
+      long long t0 = ag_now_us();
+      const long long dur_us = 160000LL;
+      while (ag_sync_locked) {
+        long long elapsed = ag_now_us() - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float u = (float) elapsed / (float) dur_us;
+        float inv = 1.0f - u;
+        float ease = 1.0f - (inv * inv * inv);
+        byte perc = (byte) (ease * 255.0f);
+        if (perc == 0) perc = 1;
+        if (perc >= 254) break;
+        word na = (word) (perc + (perc >> 7));
+        word fa = (word) (256 - na);
+        const word * prev = ag_prev16;
+        const word * curr = ag_c.data;
+        int xy;
+        for (xy = 0; xy < total; xy++) {
+          word d = prev[xy];
+          word s = curr[xy];
+          if (s == d) {
+            blendbuf[xy] = s;
           }
           else {
-            er = 0;
-            eg = 0;
-            eb = 0;
+            blendbuf[xy] = (word) (
+              (((ag_r(d) * fa) + (ag_r(s) * na)) >> 11 << 11) |
+              (((ag_g(d) * fa) + (ag_g(s) * na)) >> 10 << 5) |
+              (((ag_b(d) * fa) + (ag_b(s) * na)) >> 11)
+            );
           }
         }
-      }
-      
-      ag_refreshrate();
-    }
-  }
-  else {
-    int i, x, y;
-    
-    for (i = 0; (i < (frame / 2)) && (ag_sync_locked); i++) {
-      int perc = (255 / frame) * i;
-      
-      for (y = 0; y < agh(); y++) {
-        int yp = y * agw();
-        
-        for (x = 0; x < agw(); x++) {
-          int xy = yp + x;
-          color * s = agxy(NULL, x, y);
-          dword   d = ag_bf32[xy];
-          ag_bf32[xy]  = ag_calculatealpha16to32(s[0], d, 255 - perc);
+        if (ag_32 == 1) {
+          ag32canvas_to_fb(blendbuf);
+          ag_flush_backend();
+        }
+        else {
+          memcpy(ag_b, blendbuf, ag_fbsz);
+          ag_refreshrate();
+        }
+        if (ag_display_backend != 2) {
+          usleep(8000);
         }
       }
-      
-      ag_refreshrate();
+      free(blendbuf);
     }
   }
   

@@ -21,7 +21,32 @@
  *
  */
 #include <sched.h>
+#include <time.h>
 #include "../aroma.h"
+
+static long long aw_now_us(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ((long long) ts.tv_sec * 1000000LL) + ((long long) ts.tv_nsec / 1000LL);
+}
+
+static inline float aw_ease_out_cubic(float t) {
+  if (t <= 0.0f) return 0.0f;
+  if (t >= 1.0f) return 1.0f;
+  float u = 1.0f - t;
+  return 1.0f - (u * u * u);
+}
+
+static inline void aw_anim_pace(long long frame_start_us) {
+  /* DRM Atomic KMS commits sync natively to panel VSYNC (60/90/120Hz+).
+   * On fbdev (which may not VSYNC-block), cap pacing at ~120Hz. */
+  if (ag_backend() != 2) {
+    long long dt = aw_now_us() - frame_start_us;
+    if (dt < 8000LL) {
+      usleep((useconds_t)(8000LL - dt));
+    }
+  }
+}
 
 /***************************[ GLOBAL VARIABLES ]**************************/
 static AC_CONFIG acfg_var;
@@ -420,184 +445,225 @@ void aw_show_ex2(AWINDOWP win, byte anitype, int x, int pos, int w, int h, ACONT
       ag_sync_fade(acfg_var.fadeframes);
     }
     else if (anitype == 1) {
-      //-- Bottom Top
+      //-- Bottom Top (Smooth time-based VSYNC slide)
       aw_redraw_ex(win, 0);
-      int drawh  = agh() - pos;
-      int anisz = floor(((float) drawh) / acfg()->fadeframes);
-      int i;
-      
-      for (i = 1; i <= acfg()->fadeframes; i++) {
-        ag_draw_ex(NULL, &win->c, 0, agh() - (anisz * i), 0, pos, agw(), drawh);
-        ag_sync();
+      int drawh = agh() - pos;
+      long long t0 = aw_now_us();
+      const long long dur_us = 180000LL;
+      int last_off = -1;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        int off = (int)(ease * (float) drawh);
+        if (off < 1) off = 1;
+        if (off >= drawh) break;
+        if (off != last_off) {
+          ag_draw_ex(NULL, &win->c, 0, agh() - off, 0, pos, agw(), drawh);
+          ag_sync();
+          last_off = off;
+        }
+        aw_anim_pace(f0);
       }
-      
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
     else if (anitype == 2) {
-      //-- Right Left
+      //-- Right Left (Smooth time-based VSYNC slide)
       aw_redraw_ex(win, 0);
-      int drawh  = agh() - pos;
-      int anisz = floor(((float) agw()) / acfg()->fadeframes);
-      int i;
+      int drawh = agh() - pos;
+      int sw = agw();
       CANVAS cbg;
       ag_canvas(&cbg, agw(), agh());
       ag_draw(&cbg, agc(), 0, 0);
-      
-      for (i = 1; i <= acfg()->fadeframes; i++) {
-        ag_draw_ex(NULL, &cbg, 0 - (anisz * i), pos, 0, pos, agw(), drawh);
-        ag_draw_ex(NULL, &win->c, agw() - (anisz * i), pos, 0, pos, agw(), drawh);
-        ag_sync();
+      long long t0 = aw_now_us();
+      const long long dur_us = 200000LL;
+      int last_off = -1;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        int off = (int)(ease * (float) sw);
+        if (off < 1) off = 1;
+        if (off >= sw) break;
+        if (off != last_off) {
+          ag_draw_ex(NULL, &cbg, -off, pos, 0, pos, sw, drawh);
+          ag_draw_ex(NULL, &win->c, sw - off, pos, 0, pos, sw, drawh);
+          ag_sync();
+          last_off = off;
+        }
+        aw_anim_pace(f0);
       }
-      
       ag_ccanvas(&cbg);
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
     else if (anitype == 3) {
-      //-- Left Right
+      //-- Left Right (Smooth time-based VSYNC slide)
       aw_redraw_ex(win, 0);
-      int drawh  = agh() - pos;
-      int anisz = floor(((float) agw()) / acfg()->fadeframes);
-      int i;
+      int drawh = agh() - pos;
+      int sw = agw();
       CANVAS cbg;
       ag_canvas(&cbg, agw(), agh());
       ag_draw(&cbg, agc(), 0, 0);
-      
-      for (i = 1; i <= acfg()->fadeframes; i++) {
-        ag_draw_ex(NULL, &cbg, (anisz * i), pos, 0, pos, agw(), drawh);
-        ag_draw_ex(NULL, &win->c, 0 - (agw() - (anisz * i)), pos, 0, pos, agw(), drawh);
-        ag_sync();
+      long long t0 = aw_now_us();
+      const long long dur_us = 200000LL;
+      int last_off = -1;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        int off = (int)(ease * (float) sw);
+        if (off < 1) off = 1;
+        if (off >= sw) break;
+        if (off != last_off) {
+          ag_draw_ex(NULL, &cbg, off, pos, 0, pos, sw, drawh);
+          ag_draw_ex(NULL, &win->c, -(sw - off), pos, 0, pos, sw, drawh);
+          ag_sync();
+          last_off = off;
+        }
+        aw_anim_pace(f0);
       }
-      
       ag_ccanvas(&cbg);
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
     else if (anitype == 5) {
-      //-- Scale
-      byte fadesz = acfg()->fadeframes;
+      //-- Dialog Scale + Fade (Single reused canvas, zero pre-render freeze)
       ag_sync();
       aw_redraw_ex(win, 0);
       CANVAS cbg;
+      CANVAS tmpb;
       ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, w, h);
       ag_draw(&cbg, agc(), 0, 0);
       int xc = w / 2;
       int yc = h / 2;
-      int i;
-      CANVAS * tmpb = (CANVAS *) malloc(sizeof(CANVAS) * fadesz);
-      memset(tmpb, 0, sizeof(CANVAS)*fadesz);
-      
-      for (i = 1; i <= fadesz; i++) {
-        /* Calculating Scale */
-        byte scale  = (i * 0xff) / fadesz;
-        scale = (scale * (0x200 - scale)) >> 8;
-        byte scale2 = ((scale * 0x80) >> 8) + 0x80;
-        int wtarget = (w * scale2) >> 8;
-        int htarget = (h * scale2) >> 8;
-        ag_canvas(&tmpb[i - 1], w, h);
-        ag_draw_ex(&tmpb[i - 1], &cbg, 0, 0, x, pos, w, h);
+      long long t0 = aw_now_us();
+      const long long dur_us = 160000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        float sc = 0.86f + (0.14f * ease);
+        int wtarget = (int)((float) w * sc);
+        int htarget = (int)((float) h * sc);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        byte alpha = (byte)(40.0f + (215.0f * ease));
+        ag_draw_ex(&tmpb, &cbg, 0, 0, x, pos, w, h);
         ag_draw_strecth_ex(
-          &tmpb[i - 1],
+          &tmpb,
           &win->c,
           xc - wtarget / 2, yc - htarget / 2, wtarget, htarget,
-          x, pos, w, h, scale, 1
+          x, pos, w, h, alpha, 1
         );
-      }
-      
-      ag_ccanvas(&cbg);
-      
-      for (i = 0; i < fadesz; i++) {
-        ag_draw(NULL, &tmpb[i], x, pos);
-        ag_ccanvas(&tmpb[i]);
+        ag_draw(NULL, &tmpb, x, pos);
         ag_sync();
+        aw_anim_pace(f0);
       }
-      
-      free(tmpb);
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
     else if (anitype == 6) {
-      //-- Stack Right to Left
-      int fadesz = acfg()->fadeframes;
+      //-- Stack Right to Left (Single reused canvas, time-based)
       ag_sync();
       aw_redraw_ex(win, 0);
       CANVAS cbg;
+      CANVAS tmpb;
       ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, w, h);
       ag_draw(&cbg, agc(), 0, 0);
-      int xc = w / 2;
       int yc = h / 2;
-      int i;
-      CANVAS * tmpb = (CANVAS *) malloc(sizeof(CANVAS) * fadesz);
-      memset(tmpb, 0, sizeof(CANVAS)*fadesz);
-      
-      for (i = 1; i <= fadesz; i++) {
-        byte scale  = (i * 0xff) / fadesz;
-        byte scale2 = ((scale * 0x80) >> 8) + 0x80;
-        int wtarget = (w * scale2) >> 8;
-        int htarget = (h * scale2) >> 8;
-        int xtarget = (w * scale) >> 8;
-        ag_canvas(&tmpb[i - 1], w, h);
+      long long t0 = aw_now_us();
+      const long long dur_us = 190000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        float sc = 0.85f + (0.15f * ease);
+        int wtarget = (int)((float) w * sc);
+        int htarget = (int)((float) h * sc);
+        int xtarget = (int)((float) w * ease);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        byte alpha = (byte)(ease * 255.0f);
         ag_draw_strecth_ex(
-          &tmpb[i - 1],
+          &tmpb,
           &win->c,
           w - wtarget, yc - htarget / 2, wtarget, htarget,
-          x, pos, w, h, scale, 0
+          x, pos, w, h, alpha, 0
         );
-        ag_draw_ex(&tmpb[i - 1], &cbg, 0, 0, x + xtarget, pos, w - xtarget, h);
-      }
-      
-      ag_ccanvas(&cbg);
-      
-      for (i = 0; i < fadesz; i++) {
-        ag_draw(NULL, &tmpb[i], x, pos);
-        ag_ccanvas(&tmpb[i]);
+        if (w - xtarget > 0) {
+          ag_draw_ex(&tmpb, &cbg, 0, 0, x + xtarget, pos, w - xtarget, h);
+        }
+        ag_draw(NULL, &tmpb, x, pos);
         ag_sync();
+        aw_anim_pace(f0);
       }
-      
-      free(tmpb);
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
     else if (anitype == 7) {
-      //-- Stack Right to Left
-      int fadesz = acfg()->fadeframes;
+      //-- Stack Left to Right (Single reused canvas, time-based)
       ag_sync();
       aw_redraw_ex(win, 0);
       CANVAS cbg;
+      CANVAS tmpb;
       ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, w, h);
       ag_draw(&cbg, agc(), 0, 0);
-      int xc = w / 2;
       int yc = h / 2;
-      int i;
-      CANVAS * tmpb = (CANVAS *) malloc(sizeof(CANVAS) * fadesz);
-      memset(tmpb, 0, sizeof(CANVAS)*fadesz);
-      
-      for (i = 1; i <= fadesz; i++) {
-        byte scale  = (i * 0xff) / fadesz;
-        byte scale2 = ((scale * 0x80) >> 8) + 0x80;
-        int wtarget = (w * scale2) >> 8;
-        int htarget = (h * scale2) >> 8;
-        int xtarget = (w * scale) >> 8;
-        ag_canvas(&tmpb[i - 1], w, h);
+      long long t0 = aw_now_us();
+      const long long dur_us = 190000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = 1.0f - aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        float sc = 0.85f + (0.15f * ease);
+        int wtarget = (int)((float) w * sc);
+        int htarget = (int)((float) h * sc);
+        int xtarget = (int)((float) w * ease);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        byte alpha = (byte)(ease * 255.0f);
         ag_draw_strecth_ex(
-          &tmpb[i - 1],
+          &tmpb,
           &cbg,
           w - wtarget, yc - htarget / 2, wtarget, htarget,
-          x, pos, w, h, scale, 0
+          x, pos, w, h, alpha, 0
         );
-        ag_draw_ex(&tmpb[i - 1], &win->c, 0, 0, x + xtarget, pos, w - xtarget, h);
-      }
-      
-      ag_ccanvas(&cbg);
-      
-      for (i = fadesz - 1; i >= 0; i--) {
-        ag_draw(NULL, &tmpb[i], x, pos);
-        ag_ccanvas(&tmpb[i]);
+        if (w - xtarget > 0) {
+          ag_draw_ex(&tmpb, &win->c, 0, 0, x + xtarget, pos, w - xtarget, h);
+        }
+        ag_draw(NULL, &tmpb, x, pos);
         ag_sync();
+        aw_anim_pace(f0);
       }
-      
-      free(tmpb);
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
       ag_draw(NULL, &win->c, 0, 0);
       ag_sync();
     }
@@ -957,42 +1023,44 @@ void aw_unmaskparent(AWINDOWP win, CANVAS * p, CANVAS * maskc, int x, int y, int
     int fadesz = acfg()->fadeframes;
     
     if (fadesz > 0) {
-      //-- Current Canvas
+      //-- Smooth time-based dialog dismiss (single reused canvas)
       CANVAS cbg;
+      CANVAS tmpb;
       ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, w, h);
       ag_draw(&cbg, agc(), 0, 0);
-      int xc    = w / 2;
-      int yc    = h / 2;
-      int i;
-      CANVAS * tmpb = (CANVAS *) malloc(sizeof(CANVAS) * fadesz);
-      memset(tmpb, 0, sizeof(CANVAS)*fadesz);
-      
-      for (i = 1; i <= fadesz; i++) {
-        /* Calculating Scale */
-        byte scale  = (i * 0xff) / fadesz;
-        scale = (scale * (0x200 - scale)) >> 8;
-        byte scale2 = ((scale * 0x80) >> 8) + 0x80;
-        int wtarget = (w * scale2) >> 8;
-        int htarget = (h * scale2) >> 8;
-        ag_canvas(&tmpb[i - 1], w, h);
-        ag_draw_ex(&tmpb[i - 1], maskc, 0, 0, x, y, w, h);
+      int xc = w / 2;
+      int yc = h / 2;
+      long long t0 = aw_now_us();
+      const long long dur_us = 130000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float u = (float) elapsed / (float) dur_us;
+        float inv = 1.0f - u;
+        float ease = inv * inv; /* smooth ease-in shrink */
+        float sc = 0.86f + (0.14f * ease);
+        int wtarget = (int)((float) w * sc);
+        int htarget = (int)((float) h * sc);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        byte alpha = (byte)(ease * 255.0f);
+        ag_draw_ex(&tmpb, maskc, 0, 0, x, y, w, h);
         ag_draw_strecth_ex(
-          &tmpb[i - 1],
+          &tmpb,
           &cbg,
           xc - wtarget / 2, yc - htarget / 2, wtarget, htarget,
-          x, y, w, h, scale, 1
+          x, y, w, h, alpha, 1
         );
-      }
-      
-      ag_ccanvas(&cbg);
-      
-      for (i = fadesz - 1; i >= 0; i--) {
-        ag_draw(NULL, &tmpb[i], x, y);
-        ag_ccanvas(&tmpb[i]);
+        ag_draw(NULL, &tmpb, x, y);
         ag_sync();
+        aw_anim_pace(f0);
       }
-      
-      free(tmpb);
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
     }
     
     ag_ccanvas(maskc);
@@ -2026,8 +2094,8 @@ static byte aw_theme_dialog(AWINDOWP parent) {
     byte sel = (strcmp(acfg_var.themename, avail_ids[i]) == 0) ? 1 : 0;
     acopt_add(opt1, (char *) avail_titles[i], (char *) avail_descs[i], sel);
   }
-  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
-  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
+  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
+  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
   aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
 
   byte applied = 0;
