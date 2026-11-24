@@ -185,6 +185,7 @@ color ag_dodither(int x, int y, dword col) {
 
 /****************************[ DECLARED FUNCTIONS ]*****************************/
 static void * ag_thread(void * cookie);
+static inline byte * ag_target_fb32(void);
 void ag_refreshrate();
 
 /*******************[ CALCULATING ALPHA COLOR WITH NEON ]***********************/
