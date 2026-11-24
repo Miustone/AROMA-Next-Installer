@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Ahmad Amarullah ( http://amarullz.com/ )
+ * Copyright (C) 2026 Miustone (AROMA-Next-Installer)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +18,16 @@
 /*
  * Descriptions:
  * -------------
- * Minimalist & Fast UTF8 Decoder Header
+ * Minimalist, RFC 3629-Compliant Fast UTF-8 Decoder Header
  *
  */
- 
+
 #ifndef MINUTF8_H
 #define MINUTF8_H
 
-int             utf8_len(const char *s);
-void            utf8_dec_ex(int * d, int dl, const char * s);
-int *           utf8_dec(const char *s);
-int             utf8c(const char * src, const char ** ss,int * move);
+int   utf8_len(const char * s);
+void  utf8_dec_ex(int * d, int dl, const char * s);
+int * utf8_dec(const char * s);
+int   utf8c(const char * src, const char ** ss, int * move);
 
-#endif
+#endif /* MINUTF8_H */

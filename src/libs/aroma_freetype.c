@@ -193,7 +193,7 @@ byte aft_cacheglyph(AFTFACEP f, long id) {
     return 0;
   }
   
-  if (f->cache_n < id) {
+  if (id < 0 || id >= f->cache_n) {
     return 0;
   }
   
@@ -507,7 +507,7 @@ int aft_fontwidth_lock(int c, byte isbig, AFTGLYPHP * ch, byte * onlock) {
     return 0;
   }
   
-  if (uc > f->cache_n) {
+  if (uc < 0 || uc >= f->cache_n) {
     return 0;
   }
   

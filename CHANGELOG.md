@@ -12,7 +12,8 @@ Focus: Full modernization of all vendored C libraries (`zlib`, `libpng`, `FreeTy
 - **Vendored Core Libraries (`include/` & `libs/`):**
   - **zlib:** Upgraded `1.2.5.2-motley` (2011) → **`1.4`** (2026), replacing legacy 32-bit ARM assembly with clean C11 sources.
   - **libpng:** Upgraded `1.2.46` (2011) → **`1.6.59`** (2026) with native ARM64 & ARM32 NEON C intrinsics (`libs/png/arm/`), official `pnglibconf.h`, and migrated `src/libs/aroma_png.c` (`apng_load` / `apng_loadfont`) to libpng 1.6 accessor APIs (`png_get_*`).
-  - **FreeType:** Upgraded `2.4.10` (2012) → **`2.15.0`** (2026) with updated module configuration (`autofit`, `truetype`, `cff`, `psaux`, `psnames`, `pshinter`, `sfnt`, `smooth`, `raster`) and subpixel LCD filtering enabled.
+  - **FreeType:** Upgraded `2.4.10` (2012) → **`2.15.0`** (2026) with updated module configuration (`autofit`, `truetype`, `cff`, `psaux`, `psnames`, `pshinter`, `sfnt`, `smooth`, `raster`), subpixel LCD filtering enabled, and fixed off-by-one glyph-cache bounds checks in `src/libs/aroma_freetype.c`.
+  - **minutf8:** Rewrote `libs/minutf8/minutf8.c` / `include/minutf8.h` as a clean RFC 3629-compliant UTF-8 decoder (full 1–4 byte `U+0000..U+10FFFF` Unicode range, safe `U+FFFD` recovery on malformed bytes instead of truncating remaining text, and fixed an out-of-bounds write in `utf8_dec_ex()`).
   - Synchronized source lists in `Android.mk` and `build.py`.
 - **Smooth 60/90/120Hz+ Window Animations & Direct DRM Backbuffer Pipeline (`src/libs/graph_drm.c`, `src/libs/aroma_graph.c`, `src/controls/aroma_controls.c`):**
   - Eliminated the slow uncached/write-combining DRM dumb-buffer read (`memcpy(maps[1], maps[0])`) on alternating frames and bypassed the redundant 18 MB intermediate `ag_bf32` copy by blitting RGB565 directly to the active DRM backbuffer (`ag_drm_backbuf()`) in a single ARM NEON pass.
