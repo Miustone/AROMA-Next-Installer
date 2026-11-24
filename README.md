@@ -8,7 +8,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/Miustone/AROMA-Next-Installer?include_prereleases&label=Release&color=0099CC)](https://github.com/Miustone/AROMA-Next-Installer/releases)
 [![GitHub Downloads](https://img.shields.io/github/downloads/Miustone/AROMA-Next-Installer/total?label=Downloads&color=00AA55)](https://github.com/Miustone/AROMA-Next-Installer/releases)
 [![Architectures](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-222222)](#downloads)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](README)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
 [Screenshots](#screenshots) • [Highlights](#highlights) • [Downloads](#downloads) • [Systemless Modding](#systemless-first-modding--optional-pre-rw) • [Building](#building-from-source) • [Changelog](CHANGELOG.md)
 
@@ -202,7 +202,7 @@ Outputs static binaries to `out/bin/` and flashable ZIPs to `dist/AROMA-Next-Ins
 
 ## License & Credits
 
-Licensed under the **Apache License 2.0** (see [README](README)). See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+Licensed under the **Apache License 2.0** (see [LICENSE](LICENSE)). See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 - **2013** Ahmad Amarullah (`amarullz`) — Original AROMA Installer ([amarullz/AROMA-Installer](https://github.com/amarullz/AROMA-Installer))
 - **2026** Miustone (`AROMA-Next-Installer`) — Support: Miustone (XDA & GitHub: [Miustone/AROMA-Next-Installer](https://github.com/Miustone/AROMA-Next-Installer))
