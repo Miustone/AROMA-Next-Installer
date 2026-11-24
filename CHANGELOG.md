@@ -4,6 +4,22 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
+## [V26.11-RC2] — 2026-11-24
+
+Focus: AERA Recovery / Qualcomm `msm_drm` release promotion, visual README showcase, and legacy repository cleanup.
+
+### Changed & Added
+- **Documentation (`README.md`):**
+  - Redesigned `README.md` with a centered hero header, live GitHub Actions / Release / Download badges, and a directly visible 7-step clickable screenshot gallery (using fast `screenshots/thumbs/` previews linked to full-resolution PNGs).
+  - Highlighted **AERA Recovery** support (Qualcomm `msm_drm` Dual-LM Source-Split Atomic KMS & High-FD `OUTFD >= 10` pipe compatibility, introduced in `V26.11-RC2-PRE2`) alongside Pixel 7 Pro / OrangeFox R12.0.
+
+### Removed
+- **Legacy 2013 Windows Build Tooling:**
+  - Removed obsolete root batch scripts (`clean.bat`, `deploy.bat`, `make.bat`, `makeall.bat`, `push.bat`) and the `tools/` directory (`7z.*`, `AStyle.exe`, `beauty.bat`, `android_building.sh`), which were unused by GitHub Actions / `build.py` and incompatible with the modern multi-arch `update-binary` dispatcher.
+  - Removed the dead legacy `aroma_installer.zip` target from `Android.mk`.
+
+---
+
 ## [V26.11-RC2-PRE2] — 2026-11-20 *(Pre-Release)*
 
 Focus: Qualcomm `msm_drm` / Dual-LM Source-Split support (AERA Recovery on OnePlus 15), high-FD pipe compatibility, and CI/repo polish.

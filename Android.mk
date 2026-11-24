@@ -174,22 +174,5 @@ include $(CLEAR_VARS)
   endif
 
 include $(BUILD_EXECUTABLE)
-    
-    
-include $(CLEAR_VARS)
-LOCAL_MODULE        := aroma_installer.zip
-LOCAL_MODULE_TAGS   := eng
-ifeq ($(MAKECMDGOALS),aroma_installer.zip)
-  $(info ==========================================================================)
-  $(info )
-  $(info MAKING AROMA Installer ZIP)
-  OUTPUT_SH := $(shell $(AROMA_INSTALLER_LOCALPATH)/tools/android_building.sh)
-  ifeq ($(OUTPUT_SH),0)
-    $(info Please Compile AROMA Installer First, by running: make -j4 aroma_installer)
-  else
-    $(info AROMA ZIP is On $(AROMA_INSTALLER_LOCALPATH)/out/aroma.zip)
-  endif
-  $(info )
-  $(info ==========================================================================)
-endif
+
 
