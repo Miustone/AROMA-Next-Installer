@@ -4,9 +4,9 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
-## [V26.11-RC3-PRE1] — 2026-11-24 *(Pre-Release)*
+## [V26.11-RC3] — 2026-11-25
 
-Focus: Full modernization of all vendored C libraries (`zlib`, `libpng`, `FreeType`) from 2011/2012 baselines to 2026 upstream releases, plus repository licensing & layout cleanup.
+Focus: Full modernization of all vendored C libraries (`zlib`, `libpng`, `FreeType`, `minutf8`), buttery-smooth 60/90/120Hz+ VSYNC-locked animations via direct DRM backbuffer NEON blitting, Theme dialog UI polish, and repository cleanup.
 
 ### Changed & Upgraded
 - **Vendored Core Libraries (`include/` & `libs/`):**
