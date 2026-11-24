@@ -23,25 +23,24 @@ include $(CLEAR_VARS)
   ## LOCAL PATH COPY
   AROMA_INSTALLER_LOCALPATH := $(LOCAL_PATH)
   
-  ## ZLIB SOURCE FILES
+  ## ZLIB SOURCE FILES (zlib 1.4)
   LOCAL_SRC_FILES := 	\
     libs/zlib/adler32.c \
+    libs/zlib/compress.c \
     libs/zlib/crc32.c \
+    libs/zlib/deflate.c \
     libs/zlib/infback.c \
     libs/zlib/inffast.c \
     libs/zlib/inflate.c \
     libs/zlib/inftrees.c \
+    libs/zlib/trees.c \
+    libs/zlib/uncompr.c \
     libs/zlib/zutil.c
-  ## ZLIB NEON SOURCE
-  ifeq ($(AROMA_ARM_NEON),true)
-    LOCAL_SRC_FILES += libs/zlib/inflate_fast_copy_neon.s
-  endif
   
-  ## PNG SOURCE FILES
+  ## PNG SOURCE FILES (libpng 1.6.59 + ARM NEON intrinsics)
   LOCAL_SRC_FILES += \
     libs/png/png.c \
     libs/png/pngerror.c \
-    libs/png/pnggccrd.c \
     libs/png/pngget.c \
     libs/png/pngmem.c \
     libs/png/pngpread.c \
@@ -51,11 +50,13 @@ include $(CLEAR_VARS)
     libs/png/pngrutil.c \
     libs/png/pngset.c \
     libs/png/pngtrans.c \
-    libs/png/pngvcrd.c
-  ## PNG NEON SOURCE
-  ifeq ($(AROMA_ARM_NEON),true)
-    LOCAL_SRC_FILES += libs/png/png_read_filter_row_neon.s
-  endif
+    libs/png/pngwio.c \
+    libs/png/pngwrite.c \
+    libs/png/pngwtran.c \
+    libs/png/pngwutil.c \
+    libs/png/arm/arm_init.c \
+    libs/png/arm/filter_neon_intrinsics.c \
+    libs/png/arm/palette_neon_intrinsics.c
     
   ## MINUTF8 & MINZIP SOURCE FILES
   LOCAL_SRC_FILES += \
@@ -66,28 +67,26 @@ include $(CLEAR_VARS)
     libs/minzip/SysUtil.c \
     libs/minzip/Zip.c
   
-  ## FREETYPE SOURCE FILES
+  ## FREETYPE SOURCE FILES (FreeType 2.15.0)
   LOCAL_SRC_FILES += \
     libs/freetype/autofit/autofit.c \
-    libs/freetype/base/basepic.c \
-    libs/freetype/base/ftapi.c \
     libs/freetype/base/ftbase.c \
     libs/freetype/base/ftbbox.c \
     libs/freetype/base/ftbitmap.c \
+    libs/freetype/base/ftdebug.c \
     libs/freetype/base/ftglyph.c \
     libs/freetype/base/ftinit.c \
-    libs/freetype/base/ftpic.c \
     libs/freetype/base/ftstroke.c \
     libs/freetype/base/ftsynth.c \
     libs/freetype/base/ftsystem.c \
     libs/freetype/cff/cff.c \
+    libs/freetype/psaux/psaux.c \
     libs/freetype/pshinter/pshinter.c \
     libs/freetype/psnames/psnames.c \
     libs/freetype/raster/raster.c \
     libs/freetype/sfnt/sfnt.c \
     libs/freetype/smooth/smooth.c \
-    libs/freetype/truetype/truetype.c \
-    libs/freetype/base/ftlcdfil.c
+    libs/freetype/truetype/truetype.c
    
   ## EDIFY PARSER SOURCE FILES
   LOCAL_SRC_FILES += \

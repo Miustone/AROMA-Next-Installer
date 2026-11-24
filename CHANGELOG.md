@@ -4,6 +4,22 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
+## [V26.11-RC3-PRE1] — 2026-11-24 *(Pre-Release)*
+
+Focus: Full modernization of all vendored C libraries (`zlib`, `libpng`, `FreeType`) from 2011/2012 baselines to 2026 upstream releases, plus repository licensing & layout cleanup.
+
+### Changed & Upgraded
+- **Vendored Core Libraries (`include/` & `libs/`):**
+  - **zlib:** Upgraded `1.2.5.2-motley` (2011) → **`1.4`** (2026), replacing legacy 32-bit ARM assembly with clean C11 sources.
+  - **libpng:** Upgraded `1.2.46` (2011) → **`1.6.59`** (2026) with native ARM64 & ARM32 NEON C intrinsics (`libs/png/arm/`), official `pnglibconf.h`, and migrated `src/libs/aroma_png.c` (`apng_load` / `apng_loadfont`) to libpng 1.6 accessor APIs (`png_get_*`).
+  - **FreeType:** Upgraded `2.4.10` (2012) → **`2.15.0`** (2026) with updated module configuration (`autofit`, `truetype`, `cff`, `psaux`, `psnames`, `pshinter`, `sfnt`, `smooth`, `raster`) and subpixel LCD filtering enabled.
+  - Synchronized source lists in `Android.mk` and `build.py`.
+- **Repository Housekeeping:**
+  - Replaced legacy 2013 `README` file with a standard Apache 2.0 `LICENSE` file (auto-detected by GitHub) and updated license links in `README.md`.
+  - Removed tracked `out/out_folder.txt` placeholder (`out/` is generated automatically by CI and `build.py`).
+
+---
+
 ## [V26.11-RC2] — 2026-11-24
 
 Focus: AERA Recovery / Qualcomm `msm_drm` release promotion, visual README showcase, and legacy repository cleanup.
