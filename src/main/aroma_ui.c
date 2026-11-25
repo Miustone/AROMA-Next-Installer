@@ -290,6 +290,8 @@ void aui_set_user_font(const char * id, const char * ttf_file) {
   aui_isbgredraw = 1;
 }
 
+byte aroma_theme_update();
+
 void aui_sync_theme_and_font(void) {
   if (aroma_theme_new_request) {
     aroma_theme_update();
