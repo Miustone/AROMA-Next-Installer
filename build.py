@@ -104,6 +104,7 @@ CORE_SRCS = [
     # main
     "src/main/aroma_ui.c",
     "src/main/aroma_installer.c",
+    "src/main/aroma_filemanager.c",
     "src/main/aroma.c",
 ]
 
@@ -195,10 +196,9 @@ def compile_target(zig: str, arch: str, cfg: dict) -> Path:
     return out_bin
 
 
-def build_zip(out_zip: Path, include_magisk_template: bool, bins: dict[str, Path]) -> None:
+def build_zip(out_zip: Path, overlay_dir: Path | None, strip_legacy_updater: bool, bins: dict[str, Path]) -> None:
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     assets_dir = ROOT / "assets"
-    magisk_dir = ROOT / "magisk-template"
 
     entries: dict[str, tuple[bytes, int]] = {}
 
@@ -207,7 +207,10 @@ def build_zip(out_zip: Path, include_magisk_template: bool, bins: dict[str, Path
             rel = p.relative_to(assets_dir).as_posix()
             if rel in ("META-INF/CERT.RSA", "META-INF/CERT.SF", "META-INF/MANIFEST.MF"):
                 continue
-            if include_magisk_template and rel == "META-INF/com/google/android/update-binary-installer":
+            if strip_legacy_updater and rel in (
+                "META-INF/com/google/android/update-binary-installer",
+                "META-INF/com/google/android/updater-script",
+            ):
                 continue
             mode = 0o755 if rel.endswith((".sh", "update-binary", "update-binary-installer", "sleep")) else 0o644
             entries[rel] = (p.read_bytes(), mode)
@@ -216,10 +219,10 @@ def build_zip(out_zip: Path, include_magisk_template: bool, bins: dict[str, Path
         arc = f"META-INF/com/google/android/bin/{bin_path.name}"
         entries[arc] = (bin_path.read_bytes(), 0o755)
 
-    if include_magisk_template and magisk_dir.exists():
-        for p in sorted(magisk_dir.rglob("*")):
+    if overlay_dir is not None and overlay_dir.exists():
+        for p in sorted(overlay_dir.rglob("*")):
             if p.is_file():
-                rel = p.relative_to(magisk_dir).as_posix()
+                rel = p.relative_to(overlay_dir).as_posix()
                 mode = 0o755 if rel.endswith((".sh", "magisk-installer")) else 0o644
                 entries[rel] = (p.read_bytes(), mode)
 
@@ -246,8 +249,9 @@ def main() -> None:
         built[a] = compile_target(zig, a, TARGETS[a])
 
     if not args.no_zip:
-        build_zip(ROOT / "dist" / "AROMA-Next-Installer.zip", False, built)
-        build_zip(ROOT / "dist" / "AROMA-Next-Magisk-Template.zip", True, built)
+        build_zip(ROOT / "dist" / "AROMA-Next-Installer.zip", None, False, built)
+        build_zip(ROOT / "dist" / "AROMA-Next-Magisk-Template.zip", ROOT / "magisk-template", True, built)
+        build_zip(ROOT / "dist" / "AROMA-Next-Filemanager.zip", ROOT / "filemanager-template", True, built)
 
 
 if __name__ == "__main__":

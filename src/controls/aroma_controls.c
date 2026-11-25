@@ -2128,17 +2128,154 @@ static byte aw_theme_dialog(AWINDOWP parent) {
   return applied;
 }
 
+static byte aw_font_dialog(AWINDOWP parent) {
+  static const struct {
+    const char * id;
+    const char * file;
+    const char * title;
+    const char * desc;
+  } known_fonts[] = {
+    { "googlesans",      "GoogleSans-Regular.ttf",      "Google Sans",       "Modern Sans by Google (Default)" },
+    { "roboto",          "Roboto-Regular.ttf",          "Roboto",            "Classic Android System Font" },
+    { "inter",           "Inter-Regular.ttf",           "Inter",             "Clean High-Legibility UI Font" },
+    { "plusjakartasans", "PlusJakartaSans-Regular.ttf", "Plus Jakarta Sans", "Geometric Modern Display Sans" },
+    { "outfit",          "Outfit-Regular.ttf",          "Outfit",            "Minimalist Geometric Sans" },
+    { "ubuntu",          "Ubuntu-Regular.ttf",          "Ubuntu",            "Humanist Sans by Canonical" },
+    { "jetbrainsmono",   "JetBrainsMono-Regular.ttf",   "JetBrains Mono",    "Developer Monospace Font" }
+  };
+
+  const char * avail_ids[8];
+  const char * avail_files[8];
+  const char * avail_titles[8];
+  const char * avail_descs[8];
+  int avail_cnt = 0;
+  int i;
+  for (i = 0; i < (int)(sizeof(known_fonts) / sizeof(known_fonts[0])); i++) {
+    if (aui_font_exists(known_fonts[i].file)) {
+      avail_ids[avail_cnt]    = known_fonts[i].id;
+      avail_files[avail_cnt]  = known_fonts[i].file;
+      avail_titles[avail_cnt] = known_fonts[i].title;
+      avail_descs[avail_cnt]  = known_fonts[i].desc;
+      avail_cnt++;
+    }
+  }
+  if (avail_cnt == 0) {
+    return 0;
+  }
+
+  CANVAS * tmpc = aw_muteparent(parent);
+  on_dialog_window = 1;
+  CANVAS * maskc = aw_maskparent();
+
+  char title[32];
+  snprintf(title, sizeof(title), "Select Font");
+  int pad  = agdp() * 4;
+  int winW = agw() - (pad * 2);
+  int btnH = agdp() * 20;
+  int titW = ag_txtwidth(title, 1);
+  int titH = ag_fontheight(1) + (pad * 2);
+
+  PNGCANVASP winp = atheme("img.dialog");
+  PNGCANVASP titp = atheme("img.dialog.titlebar");
+  APNG9 winv, titv;
+  int vtitY = -1;
+  int vpadB = pad;
+  int listX = pad * 2;
+  int listW = winW - (pad * 2);
+  int tit_id = atheme_id("img.dialog.titlebar");
+  int dlg_id = atheme_id("img.dialog");
+
+  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
+    int tmptitH = titH - (pad * 2);
+    titH  = tmptitH + (titv.t + titv.b);
+    vtitY = titv.t;
+  }
+  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
+    listW = winW - (winv.l + winv.r);
+    listX = pad + winv.l;
+    vpadB = winv.b;
+  }
+
+  int listH = (agh() * 55) / 100;
+  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
+  int winX  = pad;
+  int winY  = (agh() / 2) - (winH / 2);
+  int titX  = (agw() / 2) - (titW / 2);
+  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
+  int listY = winY + titH + pad;
+  int btnW  = (listW / 2) - (pad / 2);
+  int btnY  = listY + listH + pad;
+  int btnX  = listX;
+  int btnX2 = listX + (listW / 2) + (pad / 2);
+
+  CANVAS alertbg;
+  ag_canvas(&alertbg, agw(), agh());
+  ag_draw(&alertbg, agc(), 0, 0);
+
+  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  }
+  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  }
+  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+
+  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
+
+  AWINDOWP hWin = aw(&alertbg);
+  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
+  const char * cur_font = aui_get_user_font();
+  for (i = 0; i < avail_cnt; i++) {
+    byte sel = (cur_font != NULL && strcmp(cur_font, avail_ids[i]) == 0) ? 1 : 0;
+    acopt_add(opt1, (char *) avail_titles[i], (char *) avail_descs[i], sel);
+  }
+  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
+  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
+  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+
+  byte applied = 0;
+  byte ondispatch = 1;
+  while (ondispatch) {
+    dword msg = aw_dispatch(hWin);
+    switch (aw_gm(msg)) {
+      case 6: {
+        int selidx = acopt_getselectedindex(opt1, 0);
+        if (selidx != -1) {
+          int pick = acopt_getgroupid(opt1, selidx);
+          if (pick >= 0 && pick < avail_cnt) {
+            aui_set_user_font(avail_ids[pick], avail_files[pick]);
+            applied = 1;
+          }
+        }
+        ondispatch = 0;
+      }
+      break;
+      case 5:
+        ondispatch = 0;
+        break;
+    }
+  }
+
+  aw_destroy(hWin);
+  ag_ccanvas(&alertbg);
+  on_dialog_window = 0;
+  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
+  return applied;
+}
+
 byte aw_showmenu(AWINDOWP parent) {
   CANVAS * tmpc = aw_muteparent(parent);
   //-- Set Mask
   on_dialog_window = 2;
   ag_rectopa(agc(),   0, 0, agw(), agh(), 0x0000, 180);
-  //ag_sync();
-  //ag_sync_fade(acfg_var.fadeframes);
-  int btnH  = agdp() * 20;
+  byte in_fm = afm_is_active();
+  int item_cnt = in_fm ? 5 : 6;
+  int btnH  = agdp() * 19;
   int pad   = agdp() * 2;
   int vpad  = agdp() * 1;
-  int winH  = ((btnH + vpad) * 4) + pad;
+  int winH  = ((btnH + vpad) * item_cnt) + pad;
   int winW  = agw();
   int winX  = 0;
   int winY  = agh() - winH;
@@ -2154,10 +2291,15 @@ byte aw_showmenu(AWINDOWP parent) {
   ag_roundgrad_ex(&alertbg, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
   //-- Create Window
   AWINDOWP hWin   = aw(&alertbg);
-  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_about, 0, 11);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 1), btnW, btnH, "Select Theme", 0, 15);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 2), btnW, btnH, acfg_var.text_quit, 0, 14);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * 3), btnW, btnH, acfg_var.text_back, 0, 5);
+  int row = 0;
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_about, 0, 11);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Theme", 0, 15);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Font", 0, 16);
+  if (!in_fm) {
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "File Manager", 0, 17);
+  }
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_quit, 0, 14);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
   /* aw_show(hWin); */
   aw_show_ex(hWin, 1, winY - 1, NULL);
   byte ondispatch = 1;
@@ -2195,6 +2337,16 @@ byte aw_showmenu(AWINDOWP parent) {
         res = 5;
         ondispatch = 0;
         break;
+
+      case 16:
+        res = 6;
+        ondispatch = 0;
+        break;
+
+      case 17:
+        res = 7;
+        ondispatch = 0;
+        break;
     }
   }
   
@@ -2223,6 +2375,15 @@ byte aw_showmenu(AWINDOWP parent) {
     if (aw_theme_dialog(parent)) {
       return 3;
     }
+  }
+  else if (res == 6) {
+    if (aw_font_dialog(parent)) {
+      return 3;
+    }
+  }
+  else if (res == 7) {
+    afm_run(parent, NULL);
+    return 3;
   }
   
   return 0;

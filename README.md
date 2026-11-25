@@ -88,7 +88,8 @@
 - **Broad Custom Recovery Support (incl. AERA Recovery):** Works across **TWRP**, **OrangeFox**, **PitchBlack**, and **AERA Recovery** — including high file descriptor (`OUTFD >= 10`) pipe handling and full primary/overlay plane restoration added in **[`V26.11-RC2-PRE2`](CHANGELOG.md#v2611-rc2-pre2--2026-11-20-pre-release)** *(2026-11-20 Pre-Release)*.
 - **Zero-Freeze Recovery Safety (`EXIT 77`):** Cleanly pauses/resumes ancestor recovery processes and restores original scanout planes before exit. If a recovery holds an unshared display lock, AROMA-Next exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) and automatically runs the non-GUI fallback instead of hanging.
 - **High-Hz OLED Touch & Hardware Keys:** Scans up to 64 input devices (`/dev/input/event0..63`), supports Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`), includes LED vibrator haptic fallback, and suppresses accidental key actions during `Vol-Down + Power` screenshots (with shutter flash feedback).
-- **Live Theme Switcher & OLED Default Theme:** Ships with Miustone's crisp **Black & White** default theme and lets users switch themes live via **3-Dot Menu → Select Theme** (*Black & White, ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic*) without restarting or losing selections.
+- **Live Theme & Font Switcher + Google Sans Default:** Ships with Miustone's crisp **Black & White** OLED theme and official open-source **Google Sans** (SIL OFL) as defaults — open **3-Dot Menu → Select Theme / Select Font** at any step to switch themes (*Black & White, ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic*) or modern fonts (*Google Sans, Roboto, Inter, Plus Jakarta Sans, Outfit, Ubuntu, JetBrains Mono*) live without losing selections.
+- **Integrated AROMA-Next File Manager & Root Module Manager:** Built right into the shared engine (**3-Dot Menu → File Manager** or standalone **`AROMA-Next-Filemanager.zip`**) to manage Magisk / KernelSU / APatch modules (`/data/adb/modules`: enable/disable, remove, edit `module.prop` / `system.prop`), browse & edit `/sdcard` files (copy, move, delete, rename, `chmod`, built-in touch keyboard & line editor), and inspect/remount RW system partitions safely.
 - **Flash Anywhere (Recovery or Root App):** Runs the full Touch GUI inside custom recoveries (`BOOTMODE=false`) and automatically falls back to headless module installation when flashed inside the **Magisk**, **KernelSU**, or **APatch** app (`BOOTMODE=true`).
 
 ---
@@ -101,6 +102,7 @@ Prebuilt flashable ZIPs and standalone static ELF binaries are built automatical
 | :--- | :--- |
 | **`AROMA-Next-Installer.zip`** | Universal recovery demo & test ZIP (`arm64-v8a` + `armeabi-v7a` Touch GUI) |
 | **`AROMA-Next-Magisk-Template.zip`** | Ready-to-use Magisk / KernelSU / APatch module template with Recovery Touch GUI, App-mode fallback, `aroma-env-check.sh`, and `aroma-mod-lib.sh` |
+| **`AROMA-Next-Filemanager.zip`** | Standalone flashable **AROMA-Next File Manager & Root Module Manager** (also accessible from the 3-Dot Menu inside every installer ZIP) |
 | **`aroma_installer-arm64`** / **`aroma_installer-arm32`** | Standalone static ELF binaries for custom integration |
 
 ### Supported & Verified Recoveries / Devices

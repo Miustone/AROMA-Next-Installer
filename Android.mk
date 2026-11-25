@@ -125,6 +125,7 @@ include $(CLEAR_VARS)
   LOCAL_SRC_FILES += \
     src/main/aroma_ui.c \
     src/main/aroma_installer.c \
+    src/main/aroma_filemanager.c \
     src/main/aroma.c
   
   ## MODULE SETTINGS

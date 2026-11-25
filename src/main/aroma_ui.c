@@ -220,6 +220,86 @@ char aroma_theme_request[64] = {0};
 byte aroma_theme_new_request = 1;
 static char aroma_user_theme[64] = {0};
 static byte aroma_has_user_theme = 0;
+static char aroma_user_font[64] = "googlesans";
+static char aroma_user_font_file[96] = "GoogleSans-Regular.ttf";
+static byte aroma_has_user_font = 0;
+
+byte aui_font_exists(const char * ttf_file) {
+  if (ttf_file == NULL || ttf_file[0] == '\0') {
+    return 0;
+  }
+  char fpath[256];
+  AZMEM mem;
+  snprintf(fpath, sizeof(fpath), "%s/ttf/%s", AROMA_DIR, ttf_file);
+  if (az_readmem(&mem, fpath, 0)) {
+    free(mem.data);
+    return 1;
+  }
+  return 0;
+}
+
+const char * aui_get_user_font(void) {
+  return aroma_user_font;
+}
+
+static void aui_detect_font_id(const char * spec) {
+  if (spec == NULL || spec[0] == '\0') return;
+  if (strstr(spec, "GoogleSans") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "googlesans");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "GoogleSans-Regular.ttf");
+  }
+  else if (strstr(spec, "Inter") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "inter");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "Inter-Regular.ttf");
+  }
+  else if (strstr(spec, "PlusJakartaSans") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "plusjakartasans");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "PlusJakartaSans-Regular.ttf");
+  }
+  else if (strstr(spec, "Outfit") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "outfit");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "Outfit-Regular.ttf");
+  }
+  else if (strstr(spec, "Ubuntu") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "ubuntu");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "Ubuntu-Regular.ttf");
+  }
+  else if (strstr(spec, "JetBrainsMono") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "jetbrainsmono");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "JetBrainsMono-Regular.ttf");
+  }
+  else if (strstr(spec, "Roboto") != NULL) {
+    snprintf(aroma_user_font, sizeof(aroma_user_font), "roboto");
+    snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "Roboto-Regular.ttf");
+  }
+}
+
+void aui_set_user_font(const char * id, const char * ttf_file) {
+  if (id == NULL || ttf_file == NULL || ttf_file[0] == '\0') {
+    return;
+  }
+  aroma_has_user_font = 1;
+  snprintf(aroma_user_font, sizeof(aroma_user_font), "%s", id);
+  snprintf(aroma_user_font_file, sizeof(aroma_user_font_file), "%s", ttf_file);
+  char spec[256];
+  snprintf(spec, sizeof(spec), "ttf/%s;ttf/DroidSansFallback.ttf;", ttf_file);
+  int sm_sz = (af_req_small.size > 0) ? af_req_small.size : 12;
+  int bg_sz = (af_req_big.size > 0) ? af_req_big.size : 14;
+  request_font_change(0, sm_sz, spec, 1);
+  request_font_change(1, bg_sz, spec, 1);
+  aui_isbgredraw = 1;
+}
+
+void aui_sync_theme_and_font(void) {
+  if (aroma_theme_new_request) {
+    aroma_theme_update();
+  }
+  if (af_request_font) {
+    apply_font_change_request(0);
+    apply_font_change_request(1);
+    af_request_font = 0;
+  }
+}
 
 byte aui_theme_exists(const char * id) {
   if (id == NULL || id[0] == '\0' || strcmp(id, "generic") == 0) {
@@ -679,7 +759,17 @@ Value * AROMA_FONT(const char * name, State * state, int argc, Expr * argv[]) {
   }
   */
   int size = atoi(args[2]);
-  request_font_change((args[0][0] == '0') ? 0 : 1, size, args[1], (strcmp(name, "fontresload") == 0) ? 1 : 0);
+  byte isbig = (args[0][0] == '0') ? 0 : 1;
+  byte isres = (strcmp(name, "fontresload") == 0) ? 1 : 0;
+  if (aroma_has_user_font) {
+    char spec[256];
+    snprintf(spec, sizeof(spec), "ttf/%s;ttf/DroidSansFallback.ttf;", aroma_user_font_file);
+    request_font_change(isbig, size, spec, 1);
+  }
+  else {
+    aui_detect_font_id(args[1]);
+    request_font_change(isbig, size, args[1], isres);
+  }
   //-- Release Arguments
   _FREEARGS();
   aui_isbgredraw = 1;
@@ -3755,6 +3845,30 @@ Value * AROMA_EVAL(const char * name, State * state, int argc, Expr * argv[]) {
   return StringValue(result);
 }
 
+//*
+//* filemanager
+//*
+Value * AROMA_FILEMANAGER(const char * name, State * state, int argc, Expr * argv[]) {
+  if (argc > 1) {
+    return ErrorAbort(state, "%s() expects 0 or 1 args (optional start_path), got %d", name, argc);
+  }
+  aui_ensure_ready();
+  char * start_path = NULL;
+  if (argc == 1) {
+    _INITARGS();
+    if (args[0] != NULL && args[0][0] != '\0') {
+      start_path = strdup(args[0]);
+    }
+    _FREEARGS();
+  }
+  afm_run(NULL, start_path);
+  if (start_path != NULL) {
+    free(start_path);
+  }
+  aui_isbgredraw = 1;
+  return StringValue(strdup("1"));
+}
+
 /************************************[ AROMA EDIFY REGISTER ]************************************/
 
 //*
@@ -3818,6 +3932,7 @@ void RegisterAroma() {
   RegisterFunction("menubox",       AROMA_MENUBOX);       //-- MENUBOX
   //-- INSTALL UI
   RegisterFunction("install",       AROMA_INSTALL);       //-- START INSTALLATION PROCCESS
+  RegisterFunction("filemanager",   AROMA_FILEMANAGER);   //-- INTEGRATED FILE & MODULE MANAGER
   //-- DIALOG UI FUNCTIONS
   RegisterFunction("alert",         AROMA_ALERT);         //-- ALERT DIALOG
   RegisterFunction("textdialog",    AROMA_TEXTDIALOG);    //-- TEXT DIALOG
