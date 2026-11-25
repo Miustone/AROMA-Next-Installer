@@ -31,12 +31,16 @@ theme("blacknwhite");
 #-- Step 1: Welcome
 viewbox(
     "AROMA-Next-Installer",
-    "Welcome to <b>AROMA-Next-Installer</b> (64-bit DRM/KMS NextGen Engine).\n\n" +
-    "<b>What you can do right here:</b>\n" +
-    "• Tap the <b>3-dot menu</b> at the bottom to switch <b>Themes</b> or <b>Fonts</b> live\n" +
-    "• Launch the built-in <b>AROMA-Next-Filemanager</b> & Root Module Manager\n" +
-    "• Customize this <b>aroma-config</b> & <b>updater-script</b> for your own flashable ZIP\n\n" +
-    "<i>Tip: Flash AROMA-Next-Demo.zip if you want the full interactive showcase of all controls.</i>",
+    "Welcome to <b>AROMA-Next-Installer</b>\n" +
+    "64-bit DRM/KMS NextGen Engine  •  V26.11\n\n\n" +
+    "<b>What you can do right here:</b>\n\n" +
+    "• <b>Live Themes & Fonts</b>\n" +
+    "  Tap the 3-dot menu below anytime to switch Themes or any of the 7 bundled Fonts on the fly.\n\n" +
+    "• <b>AROMA-Next-Filemanager</b>\n" +
+    "  Manage Root Modules (/data/adb/modules), Internal Storage, and System Partitions directly from Recovery.\n\n" +
+    "• <b>Clean Base Template</b>\n" +
+    "  Customize aroma-config and updater-script to build your own modern flashable ROM, Kernel, or Mod.\n\n\n" +
+    "<i>Tip: Flash AROMA-Next-Demo.zip if you want to explore the full interactive showcase of all controls.</i>",
     "@welcome"
 );
 

@@ -130,7 +130,7 @@ TARGETS = {
 }
 
 BUILD_VERSION = datetime.datetime.now().strftime("%y.%m")
-BUILD_NUM = datetime.datetime.now().strftime("%d.%H")
+BUILD_NUM = datetime.datetime.now().strftime("%Y.%m.%d")
 
 COMMON_CFLAGS = [
     "-O2",

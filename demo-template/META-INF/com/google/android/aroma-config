@@ -34,12 +34,16 @@ theme("blacknwhite");
 #-- Step 1: Welcome Showcase
 viewbox(
     "AROMA-Next-Demo",
-    "Welcome to the <b>AROMA-Next-Installer Full Feature Showcase</b>!\n\n" +
-    "<b>Engine Highlights (V26.11):</b>\n" +
-    "• 64-bit DRM/KMS + NEON direct rendering (60-120Hz smooth animations)\n" +
-    "• FreeType 2.15.0 + RFC 3629 UTF-8 + 7 modern SIL OFL fonts\n" +
-    "• Live <b>Select Theme</b>, <b>Select Font</b> & <b>Filemanager</b> in the 3-dot menu\n\n" +
-    "Tap <b>Next</b> to explore every feature step by step.",
+    "Welcome to the <b>AROMA-Next-Installer Full Feature Showcase</b>\n" +
+    "64-bit DRM/KMS NextGen Engine  •  V26.11\n\n\n" +
+    "<b>Engine Highlights:</b>\n\n" +
+    "• <b>60-120Hz+ Direct DRM/NEON Rendering</b>\n" +
+    "  Silky-smooth VSYNC-locked window and dialog transitions.\n\n" +
+    "• <b>Modern Open-Source Typography</b>\n" +
+    "  FreeType 2.15.0, strict RFC 3629 UTF-8, and 7 bundled SIL OFL fonts (Google Sans default).\n\n" +
+    "• <b>Built-in Filemanager & Live Controls</b>\n" +
+    "  Open the 3-dot menu anytime for Select Theme, Select Font, and AROMA-Next-Filemanager.\n\n\n" +
+    "<i>Tap Next to explore every feature step by step.</i>",
     "@welcome"
 );
 

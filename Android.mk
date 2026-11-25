@@ -17,7 +17,7 @@ include $(CLEAR_VARS)
   ##
   AROMA_NAME    := AROMA-Next-Installer
   AROMA_VERSION := $(shell date +%y.%m)
-  AROMA_BUILD   := $(shell date +%d.%H)
+  AROMA_BUILD   := $(shell date +%Y.%m.%d)
   AROMA_CN      := NextGen
 
   ## LOCAL PATH COPY

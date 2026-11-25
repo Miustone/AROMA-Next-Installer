@@ -83,7 +83,7 @@
 #define AROMA_VERSION     "26.11"
 #endif
 #ifndef AROMA_BUILD
-#define AROMA_BUILD       "19.01"
+#define AROMA_BUILD       "2026.11.25"
 #endif
 #ifndef AROMA_BUILD_CN
 #define AROMA_BUILD_CN    "NextGen"
