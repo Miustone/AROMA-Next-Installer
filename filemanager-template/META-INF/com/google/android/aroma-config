@@ -1,9 +1,9 @@
 ###
-# AROMA-Next File Manager & Root Module Manager
+# AROMA-Next-Filemanager & Root Module Manager
 # Standalone flashable configuration sharing the AROMA-Next engine, themes & fonts.
 ###
 
-ini_set("rom_name",    "AROMA-Next File Manager");
+ini_set("rom_name",    "AROMA-Next-Filemanager");
 ini_set("rom_version", "26.11");
 ini_set("rom_author",  "Miustone");
 ini_set("rom_device",  "Universal arm64/arm32");

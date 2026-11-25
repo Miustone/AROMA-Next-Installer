@@ -293,13 +293,23 @@ void aui_set_user_font(const char * id, const char * ttf_file) {
 byte aroma_theme_update();
 
 void aui_sync_theme_and_font(void) {
+  byte theme_changed = 0;
   if (aroma_theme_new_request) {
     aroma_theme_update();
+    theme_changed = 1;
   }
   if (af_request_font) {
     apply_font_change_request(0);
     apply_font_change_request(1);
     af_request_font = 0;
+  }
+  if (theme_changed || pico_menu == NULL || pico_back == NULL || pico_next == NULL) {
+    byte prev = aui_isbgredraw;
+    aui_isbgredraw = 1;
+    aui_back_icon();
+    aui_next_icon();
+    aui_menu_icon();
+    aui_isbgredraw = prev;
   }
 }
 

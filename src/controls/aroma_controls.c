@@ -2296,7 +2296,7 @@ byte aw_showmenu(AWINDOWP parent) {
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Theme", 0, 15);
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Font", 0, 16);
   if (!in_fm) {
-    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "File Manager", 0, 17);
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Filemanager", 0, 17);
   }
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_quit, 0, 14);
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);

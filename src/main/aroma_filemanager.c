@@ -1375,10 +1375,24 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     int pad   = agdp() * 2;
     int capH  = ag_fontheight(1) + (pad * 2);
     int barH  = agdp() * 19;
+    int indH  = agdp() * 3;
     int subH  = ag_fontheight(0) + (pad * 2);
     int navH  = agdp() * 24;
-    int listY = capH + barH + subH + pad;
+    int tbY   = capH + (pad / 2);
+    int indY  = tbY + barH + (agdp() > 1 ? agdp() : 1);
+    int subY  = indY + indH + (pad / 2);
+    int listY = subY + subH;
     int listH = agh() - listY - navH;
+
+    int active_tab = 2; /* 0 = Modules, 1 = Storage, 2 = System */
+    if (view_mode == AFM_VIEW_MODULES) {
+      active_tab = 0;
+    }
+    else if (strncmp(cur_path, "/sdcard", 7) == 0 ||
+             strncmp(cur_path, "/storage", 8) == 0 ||
+             strncmp(cur_path, "/data/media", 11) == 0) {
+      active_tab = 1;
+    }
 
     CANVAS bg;
     ag_canvas(&bg, agw(), agh());
@@ -1399,7 +1413,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
 
     if (view_mode == AFM_VIEW_MODULES) {
       byte rw = afm_mount_info("/data/adb/modules", mp, sizeof(mp), fs, sizeof(fs));
-      snprintf(title, sizeof(title), "AROMA-Next File Manager");
+      snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
       if (afm_dir_exists("/data/adb/modules")) {
         snprintf(sub, sizeof(sub), "Modules • /data/adb/modules [%s]", rw ? "RW" : "RO");
       }
@@ -1409,7 +1423,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     }
     else {
       byte rw = afm_mount_info(cur_path, mp, sizeof(mp), fs, sizeof(fs));
-      snprintf(title, sizeof(title), "AROMA-Next File Manager");
+      snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
       if (afm_clip_mode != AFM_CLIP_NONE) {
         snprintf(sub, sizeof(sub), "%s [%s] • %s: %s",
                  cur_path, rw ? "RW" : "RO",
@@ -1425,20 +1439,25 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     ag_textf(&bg, titW, (agw() - titW) / 2 + 1, pad + 1, title, acfg()->titlebg_g, 1);
     ag_text(&bg, titW, (agw() - titW) / 2, pad, title, acfg()->titlefg, 1);
 
+    /* Active tab underline indicator (clearly visible for Modules / Storage / System) */
+    int tbW = (agw() - (pad * 5)) / 4;
+    int actX = pad + active_tab * (tbW + pad);
+    color ind_col = (acfg()->selectbg != acfg()->winbg) ? acfg()->selectbg : acfg()->titlefg;
+    color ind_col_g = (acfg()->selectbg_g != acfg()->winbg) ? acfg()->selectbg_g : ind_col;
+    ag_roundgrad(&bg, actX, indY, tbW, indH, ind_col, ind_col_g, agdp());
+
     /* Status / path bar */
-    int subY = capH + barH + pad;
     ag_rect(&bg, 0, subY, agw(), subH, acfg()->controlbg);
     ag_text(&bg, agw() - (pad * 2), pad, subY + pad, sub, acfg()->controlfg, 0);
 
     AWINDOWP hWin = aw(&bg);
 
     /* Quick-Access Top Bar: Modules | Storage | System | Tools */
-    int tbY = capH + (pad / 2);
-    int tbW = (agw() - (pad * 5)) / 4;
-    acbutton(hWin, pad,                 tbY, tbW, barH, (view_mode == AFM_VIEW_MODULES) ? "[Modules]" : "Modules", 0, 21);
-    acbutton(hWin, pad * 2 + tbW,       tbY, tbW, barH, "Storage", 0, 22);
-    acbutton(hWin, pad * 3 + tbW * 2,   tbY, tbW, barH, "System",  0, 23);
-    acbutton(hWin, pad * 4 + tbW * 3,   tbY, tbW, barH, "Tools",   0, 24);
+    ACONTROLP btn_mod = acbutton(hWin, pad,               tbY, tbW, barH, (active_tab == 0) ? "<b>Modules</b>" : "Modules", 0, 21);
+    ACONTROLP btn_sto = acbutton(hWin, pad * 2 + tbW,     tbY, tbW, barH, (active_tab == 1) ? "<b>Storage</b>" : "Storage", 0, 22);
+    ACONTROLP btn_sys = acbutton(hWin, pad * 3 + tbW * 2, tbY, tbW, barH, (active_tab == 2) ? "<b>System</b>"  : "System",  0, 23);
+    acbutton(hWin, pad * 4 + tbW * 3, tbY, tbW, barH, "Tools", 0, 24);
+    ACONTROLP active_tab_btn = (active_tab == 0) ? btn_mod : (active_tab == 1) ? btn_sto : btn_sys;
 
     ACONTROLP menu = acmenu(hWin, 0, listY, agw(), listH, 10);
     int mod_cnt = 0;
@@ -1507,17 +1526,17 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
       }
     }
 
-    /* Bottom Navigation Bar: Back | 3-Dot Menu | Exit */
-    int navY  = agh() - navH + pad;
-    int navBH = navH - (pad * 2);
-    int midW  = navBH + (pad * 4);
-    int sideW = (agw() - midW - (pad * 4)) / 2;
-    acbutton(hWin, pad, navY, sideW, navBH,
-             (view_mode == AFM_VIEW_FILES && strcmp(cur_path, "/") != 0) ? "Up" : acfg()->text_back, 0, 5);
-    acbutton(hWin, pad * 2 + sideW, navY, midW, navBH, "...", 0, 200);
-    acbutton(hWin, pad * 3 + sideW + midW, navY, sideW, navBH, "Exit", 0, 4);
+    /* Bottom Navigation Bar: 1:1 matched to AROMA-Next-Installer (Back/Up | Vertical 3-Dot Menu | Exit) */
+    int nPad    = agdp() * 2;
+    int nHeight = navH;
+    int nWidth  = (agw() - (nPad * 2) - nHeight) / 2;
+    int nY      = agh() - navH;
+    imgbtn(hWin, nPad, nY, nWidth, nHeight, aui_back_icon(),
+           (view_mode == AFM_VIEW_FILES && strcmp(cur_path, "/") != 0) ? "Up" : acfg()->text_back, 4, 5);
+    imgbtn(hWin, nPad + nWidth, nY, nHeight, nHeight, aui_menu_icon(), NULL, 4, 200);
+    imgbtn(hWin, nPad + nWidth + nHeight, nY, nWidth, nHeight, aui_next_icon(), "Exit", 5, 4);
 
-    aw_show_ex(hWin, first_draw ? 5 : 4, 0, NULL);
+    aw_show_ex(hWin, first_draw ? 5 : 4, 0, active_tab_btn);
     first_draw = 0;
 
     dword msg = aw_dispatch(hWin);
@@ -1582,7 +1601,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
       tdescs[tn] = "Rescan current view";
       tcodes[tn++] = 8;
 
-      int tpick = afm_action_sheet(hWin, "File Manager Tools", titems, tdescs, tn);
+      int tpick = afm_action_sheet(hWin, "Filemanager Tools", titems, tdescs, tn);
       if (tpick >= 0 && tpick < tn) {
         switch (tcodes[tpick]) {
           case 1: {

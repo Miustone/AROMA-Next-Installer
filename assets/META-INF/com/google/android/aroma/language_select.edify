@@ -27,8 +27,8 @@ selectbox(
     "Russian",            "Добро пожаловать в установщик",                               0,      #-- selected.0 = 6
   	"Italian",            "Benvenuti Installer",                                         0,      #-- selected.0 = 7
   	"Germany",            "Willkommen bei Installer",									                   0, 		 #-- selected.0 = 8
-  	"Hebrew",             "ברוכים הבאים להתקנה",										                          0		 #-- selected.0 = 9
-  	"Japanese",            "インストーラへようこそ",                               0,      #-- selected.0 = 10
+  	"Hebrew",             "ברוכים הבאים להתקנה",										                          0,		 #-- selected.0 = 9
+  	"Japanese",            "インストーラへようこそ",                               0      #-- selected.0 = 10
   #--------[ Initial Value = 0: Unselected, 1: Selected, 2: Group Item, 3: Not Visible ]---------#
 );
 
