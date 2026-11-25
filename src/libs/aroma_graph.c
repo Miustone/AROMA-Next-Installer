@@ -622,7 +622,7 @@ byte ag_draw_strecth_ex(
     return 0;
   }
   
-  if ((sx >= s->w) || (sy >= s->h)) {
+  if ((sx < 0) || (sy < 0) || (sx >= s->w) || (sy >= s->h)) {
     return 0;
   }
   
@@ -634,28 +634,39 @@ byte ag_draw_strecth_ex(
     sh = s->h - sy;
   }
   
+  int i_start = (dy < 0) ? -dy : 0;
+  int i_end   = (dy + dh > d->h) ? (d->h - dy) : dh;
+  int j_start = (dx < 0) ? -dx : 0;
+  int j_end   = (dx + dw > d->w) ? (d->w - dx) : dw;
+  if (i_start >= i_end || j_start >= j_end) {
+    return 0;
+  }
+  
   int x_ratio = (int)((sw << 16) / dw) + 1;
   int y_ratio = (int)((sh << 16) / dh) + 1;
   int x2, y2;
   int i, j;
   
-  for (i = 0; i < dh; i++) {
-    word * t = d->data + (i + dy) * d->w + dx;
+  for (i = i_start; i < i_end; i++) {
+    word * t = d->data + (i + dy) * d->w + (dx + j_start);
     y2       = ((i * y_ratio) >> 16);
+    if (y2 >= sh) y2 = sh - 1;
     word * p = s->data + (y2 + sy) * s->w + sx;
-    int rat = 0;
+    int rat = j_start * x_ratio;
     
     if (withdest) {
-      for (j = 0; j < dw; j++) {
-        x2   = (rat >> 16);
+      for (j = j_start; j < j_end; j++) {
+        x2 = (rat >> 16);
+        if (x2 >= sw) x2 = sw - 1;
         *t = ag_calculatealpha(*t, p[x2], alpha);
-        *t++;
+        t++;
         rat += x_ratio;
       }
     }
     else {
-      for (j = 0; j < dw; j++) {
-        x2   = (rat >> 16);
+      for (j = j_start; j < j_end; j++) {
+        x2 = (rat >> 16);
+        if (x2 >= sw) x2 = sw - 1;
         *t++ = aAlphaB(p[x2], alpha);
         rat += x_ratio;
       }

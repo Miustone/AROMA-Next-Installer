@@ -2342,9 +2342,9 @@ static byte aw_transition_dialog(AWINDOWP parent) {
     const char * title;
     const char * desc;
   } styles[] = {
-    { "slide", "Slide",          "Classic smooth horizontal slide (Default)" },
+    { "fade",  "Fade",           "Ultra-clean 60-120Hz smooth crossfade (Default)" },
+    { "slide", "Slide",          "Classic smooth horizontal slide" },
     { "stack", "Stack",          "Depth card stack with scale & overlay" },
-    { "fade",  "Fade",           "Ultra-clean 60-120Hz smooth crossfade" },
     { "zoom",  "Zoom",           "Modern Material-style zoom & fade transition" },
     { "none",  "None (Instant)", "Disable animations for instant screen switching" }
   };

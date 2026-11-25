@@ -38,7 +38,7 @@ static  byte    aui_isbgredraw    = 0;  //-- Is Background Need Redrawed
 static  int     aui_minY          = 0;  //-- Most Top Allowable UI Draw Position (Y)
 static  CANVAS  aui_bg;                 //-- Saved CANVAS for background
 static  CANVAS  aui_win_bg;             //-- Current drawed CANVAS for windows background
-static byte     transition_style  = 0;
+static byte     transition_style  = 8; /* Default: Fade */
 static byte     aroma_has_user_transition = 0;
 
 static byte aui_map_transition(byte base_dir) {
