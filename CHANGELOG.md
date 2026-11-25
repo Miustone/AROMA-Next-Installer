@@ -4,7 +4,7 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
-## [Unreleased — V26.11-RC4 WIP]
+## [V26.11-RC4] — 2026-11-25
 
 Focus: Modern open-source typography (**Google Sans** default + live Font Switcher), integrated **AROMA-Next-Filemanager & Root Module Manager**, modern HiDPI splash screen with nostalgia animation, and clean separation of **Base Installer** vs. **Demo ZIP**.
 
