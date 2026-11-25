@@ -138,7 +138,26 @@ if prop("font.prop", "selected.0") == "7" then
     fontresload("1", "ttf/JetBrainsMono-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
 endif;
 
-#-- Step 5: UTF-8 Multilanguage Showcase
+#-- Step 5: Transition Showcase (5 smooth 60-120Hz VSYNC transitions)
+selectbox(
+    "Transition Showcase",
+    "Pick your preferred window transition style (also live via 3-dot menu -> Themes -> Transitions):",
+    "@personalize",
+    "transition.prop",
+    "Fade",           "Ultra-clean 60-120Hz smooth crossfade (Default)",    1,
+    "Slide",          "Classic smooth horizontal slide",                    0,
+    "Stack",          "Depth card stack with scale & overlay",              0,
+    "Zoom",           "Modern Material-style zoom & fade transition",       0,
+    "None (Instant)", "Disable animations for instant screen switching",    0
+);
+
+if prop("transition.prop", "selected.0") == "1" then ini_set("transition", "fade");  endif;
+if prop("transition.prop", "selected.0") == "2" then ini_set("transition", "slide"); endif;
+if prop("transition.prop", "selected.0") == "3" then ini_set("transition", "stack"); endif;
+if prop("transition.prop", "selected.0") == "4" then ini_set("transition", "zoom");  endif;
+if prop("transition.prop", "selected.0") == "5" then ini_set("transition", "none");  endif;
+
+#-- Step 6: UTF-8 Multilanguage Showcase
 include("language_select.edify");
 
 viewbox(

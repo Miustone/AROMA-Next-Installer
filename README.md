@@ -2,28 +2,28 @@
 
 # AROMA-Next-Installer
 
-**Classic Touch-GUI Android Installer — Rebuilt for Modern `arm64-v8a` & `armeabi-v7a` Devices, Custom Recoveries, and Systemless-First Magisk / KernelSU / APatch Modules**
+**Classic Touch-GUI Android Installer & Integrated Filemanager — Rebuilt for Modern `arm64-v8a` & `armeabi-v7a` Devices, Custom Recoveries, and Systemless-First Magisk / KernelSU / APatch Modules**
 
 [![Build & Release](https://github.com/Miustone/AROMA-Next-Installer/actions/workflows/build.yml/badge.svg)](https://github.com/Miustone/AROMA-Next-Installer/actions/workflows/build.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/Miustone/AROMA-Next-Installer?include_prereleases&label=Release&color=0099CC)](https://github.com/Miustone/AROMA-Next-Installer/releases)
 [![GitHub Downloads](https://img.shields.io/github/downloads/Miustone/AROMA-Next-Installer/total?label=Downloads&color=00AA55)](https://github.com/Miustone/AROMA-Next-Installer/releases)
-[![Architectures](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-222222)](#downloads)
+[![Architectures](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-222222)](#downloads--which-zip-should-i-use)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
-[Screenshots](#screenshots) • [Highlights](#highlights) • [Downloads](#downloads) • [Systemless Modding](#systemless-first-modding--optional-pre-rw) • [Building](#building-from-source) • [Changelog](CHANGELOG.md)
+[Screenshots](#screenshots) • [Highlights](#highlights) • [Downloads & ZIP Guide](#downloads--which-zip-should-i-use) • [Filemanager](#aroma-next-filemanager--root-module-manager) • [Systemless Modding](#systemless-first-modding--optional-pre-rw) • [Building](#building-from-source) • [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-**AROMA-Next-Installer** is a modern `arm64-v8a` + `armeabi-v7a` revival of Ahmad Amarullah's **AROMA Installer** (Apache 2.0). Built from the ground up for contemporary Android smartphones (Android 10–16+), modern custom recoveries (**TWRP**, **OrangeFox**, **AERA Recovery**, **PitchBlack**), and safe **Systemless-First** module packaging (**Magisk**, **KernelSU**, **APatch**).
+**AROMA-Next-Installer** is a modern `arm64-v8a` + `armeabi-v7a` revival of Ahmad Amarullah's **AROMA Installer** (Apache 2.0). Rebuilt for contemporary Android smartphones (Android 10–16+), modern custom recoveries (**TWRP**, **OrangeFox**, **AERA Recovery**, **PitchBlack**), and safe **Systemless-First** module packaging (**Magisk**, **KernelSU**, **APatch**) — now shipping with **Google Sans** typography, **60–120Hz+ smooth Transitions**, and a fully integrated **AROMA-Next-Filemanager & Root Module Manager**.
 
 ---
 
 ## Screenshots
 
 <p align="center">
-  <em>Captured on Google Pixel 7 Pro • OrangeFox R12.0 • Black &amp; White Default Theme — Click any screenshot for full resolution</em>
+  <em>Captured on Google Pixel 7 Pro • OrangeFox R12.0 • Black &amp; White Theme + Google Sans Default — Click any screenshot for full QHD+ resolution</em>
 </p>
 
 <div align="center">
@@ -31,49 +31,61 @@
     <tr>
       <td align="center">
         <a href="screenshots/01-welcome.png">
-          <img src="screenshots/thumbs/01-welcome.png" width="195" alt="Welcome & Root Detection">
+          <img src="screenshots/thumbs/01-welcome.png" width="215" alt="Welcome & Engine Highlights">
         </a><br>
-        <sub><b>1. Welcome &amp; Root Detection</b></sub>
+        <sub><b>1. Welcome &amp; Engine Highlights</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/02-theme-switcher.png">
-          <img src="screenshots/thumbs/02-theme-switcher.png" width="195" alt="Live Theme Switcher">
+        <a href="screenshots/02-3dot-menu.png">
+          <img src="screenshots/thumbs/02-3dot-menu.png" width="215" alt="Streamlined 3-Dot Menu">
         </a><br>
-        <sub><b>2. Live Theme Switcher</b></sub>
+        <sub><b>2. Streamlined 3-Dot Menu</b></sub>
       </td>
       <td align="center">
         <a href="screenshots/03-about-dialog.png">
-          <img src="screenshots/thumbs/03-about-dialog.png" width="195" alt="About Dialog">
+          <img src="screenshots/thumbs/03-about-dialog.png" width="215" alt="About Dialog">
         </a><br>
-        <sub><b>3. About Dialog</b></sub>
-      </td>
-      <td align="center">
-        <a href="screenshots/04-installation-mode.png">
-          <img src="screenshots/thumbs/04-installation-mode.png" width="195" alt="Select Installation Mode">
-        </a><br>
-        <sub><b>4. Installation Mode</b></sub>
+        <sub><b>3. About Dialog (V26.11)</b></sub>
       </td>
     </tr>
-  </table>
-  <table>
     <tr>
       <td align="center">
-        <a href="screenshots/05-customize-modifications.png">
-          <img src="screenshots/thumbs/05-customize-modifications.png" width="195" alt="Customize Modifications">
+        <a href="screenshots/04-themes-submenu.png">
+          <img src="screenshots/thumbs/04-themes-submenu.png" width="215" alt="Themes Hub Submenu">
         </a><br>
-        <sub><b>5. Customize Modifications</b></sub>
+        <sub><b>4. Themes Submenu</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/06-ready-to-install.png">
-          <img src="screenshots/thumbs/06-ready-to-install.png" width="195" alt="Ready to Install">
+        <a href="screenshots/05-select-theme.png">
+          <img src="screenshots/thumbs/05-select-theme.png" width="215" alt="Live Theme Switcher">
         </a><br>
-        <sub><b>6. Ready to Install</b></sub>
+        <sub><b>5. Live Theme Switcher</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/07-installing-progress.png">
-          <img src="screenshots/thumbs/07-installing-progress.png" width="195" alt="Live Install Progress">
+        <a href="screenshots/06-select-font.png">
+          <img src="screenshots/thumbs/06-select-font.png" width="215" alt="Live Font Switcher">
         </a><br>
-        <sub><b>7. Live Install Progress</b></sub>
+        <sub><b>6. Live Font Switcher (7 Fonts)</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <a href="screenshots/07-transitions.png">
+          <img src="screenshots/thumbs/07-transitions.png" width="215" alt="60-120Hz Transitions">
+        </a><br>
+        <sub><b>7. Smooth Transitions (Fade Default)</b></sub>
+      </td>
+      <td align="center">
+        <a href="screenshots/08-demo-hub.png">
+          <img src="screenshots/thumbs/08-demo-hub.png" width="215" alt="Interactive Demo Hub">
+        </a><br>
+        <sub><b>8. Interactive Demo Hub</b></sub>
+      </td>
+      <td align="center">
+        <a href="screenshots/09-multilanguage-utf8.png">
+          <img src="screenshots/thumbs/09-multilanguage-utf8.png" width="215" alt="UTF-8 & Multilanguage">
+        </a><br>
+        <sub><b>9. Full UTF-8 &amp; Multilanguage</b></sub>
       </td>
     </tr>
   </table>
@@ -83,27 +95,28 @@
 
 ## Highlights
 
-- **Modern Display Backends (`DRM/KMS` + `fbdev`) & Smooth 60–120Hz+ Animations:** Pure Linux kernel ioctl **Atomic KMS** ping-pong double-buffered engine (zero `libdrm.so` dependency) with direct single-pass ARM NEON RGB565→RGBA backbuffer blitting, VSYNC-locked time-based cubic ease-out transitions, Exynos/Google Tensor panels (`RGBA8888`), **Qualcomm `msm_drm` Dual-LM Source-Split (AERA Recovery)**, legacy `SETCRTC` + `DIRTYFB`, and `fbdev` fallback.
-- **Modernized 2026 Core Libraries:** Upgraded all vendored libraries from 2011/2012 baselines to **`zlib 1.4`**, **`libpng 1.6.59`** (with ARM64/ARM32 NEON C intrinsics), **`FreeType 2.15.0`** (with Subpixel LCD filtering & Variable Fonts), and a rewritten RFC 3629-compliant **`minutf8`** UTF-8 decoder.
-- **Broad Custom Recovery Support (incl. AERA Recovery):** Works across **TWRP**, **OrangeFox**, **PitchBlack**, and **AERA Recovery** — including high file descriptor (`OUTFD >= 10`) pipe handling and full primary/overlay plane restoration added in **[`V26.11-RC2-PRE2`](CHANGELOG.md#v2611-rc2-pre2--2026-11-20-pre-release)** *(2026-11-20 Pre-Release)*.
-- **Zero-Freeze Recovery Safety (`EXIT 77`):** Cleanly pauses/resumes ancestor recovery processes and restores original scanout planes before exit. If a recovery holds an unshared display lock, AROMA-Next exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) and automatically runs the non-GUI fallback instead of hanging.
-- **High-Hz OLED Touch & Hardware Keys:** Scans up to 64 input devices (`/dev/input/event0..63`), supports Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`), includes LED vibrator haptic fallback, and suppresses accidental key actions during `Vol-Down + Power` screenshots (with shutter flash feedback).
-- **Live Theme & Font Switcher + Google Sans Default:** Ships with Miustone's crisp **Black & White** OLED theme and official open-source **Google Sans** (SIL OFL) as defaults — open **3-Dot Menu → Select Theme / Select Font** at any step to switch themes (*Black & White, ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic*) or modern fonts (*Google Sans, Roboto, Inter, Plus Jakarta Sans, Outfit, Ubuntu, JetBrains Mono*) live without losing selections.
-- **Integrated AROMA-Next File Manager & Root Module Manager:** Built right into the shared engine (**3-Dot Menu → File Manager** or standalone **`AROMA-Next-Filemanager.zip`**) to manage Magisk / KernelSU / APatch modules (`/data/adb/modules`: enable/disable, remove, edit `module.prop` / `system.prop`), browse & edit `/sdcard` files (copy, move, delete, rename, `chmod`, built-in touch keyboard & line editor), and inspect/remount RW system partitions safely.
+- **Modern Display Engine (`DRM/KMS` + `fbdev`) & Smooth 60–120Hz+ Transitions:** Pure Linux kernel ioctl **Atomic KMS** ping-pong double-buffered engine (zero `libdrm.so` dependency) with single-pass ARM NEON RGB565→RGBA backbuffer blitting, VSYNC-locked time-based cubic ease-out transitions (**`Fade` Default**, **`Slide`**, **`Stack`**, **`Zoom`**, and **`None`**), Exynos/Google Tensor panels (`RGBA8888`), **Qualcomm `msm_drm` Dual-LM Source-Split (AERA Recovery)**, legacy `SETCRTC` + `DIRTYFB`, and `fbdev` fallback.
+- **Google Sans Default + 7 Bundled Open-Source Fonts:** Ships with official open-source **Google Sans** (SIL OFL) as the default typeface across every ZIP, paired with **Roboto**, **Inter**, **Plus Jakarta Sans**, **Outfit**, **Ubuntu**, **JetBrains Mono**, and `DroidSansFallback.ttf` for full Latin, Cyrillic, Hebrew, and CJK UTF-8 rendering.
+- **Streamlined 3-Dot Menu & Dedicated `Themes` Hub:** Clean top-to-bottom menu (**`About` → `Themes` → `Filemanager` → `Exit` → `Back`**). Tap **`Themes`** at any screen to switch **Themes** (*Black & White, ICS, MIUI 4, MIUI, Touchwiz, Franzyroy, Generic*), **Fonts** (*7 modern fonts*), or **Transitions** (*Fade, Slide, Stack, Zoom, None*) live without restarting or losing selections.
+- **Integrated `AROMA-Next-Filemanager` & Root Module Manager:** Built directly into the shared AROMA-Next binary (zero duplicate engine code) — launchable from **3-Dot Menu → `Filemanager`** inside any installer OR standalone via **`AROMA-Next-Filemanager.zip`**.
+- **Modern HiDPI Splash & Nostalgia Animation:** Crisp 920×360 HiDPI **AROMA-Next-Installer** Google Sans splash screen featuring the classic AROMA echo-pulse nostalgia animation with automatic proportional HiDPI scaling.
+- **Modernized 2026 Core Libraries:** Upgraded all vendored C libraries from 2011/2012 baselines to **`zlib 1.4`**, **`libpng 1.6.59`** (ARM64/ARM32 NEON intrinsics), **`FreeType 2.15.0`** (Subpixel LCD filtering & Variable Fonts), and a rewritten RFC 3629-compliant **`minutf8`** UTF-8 decoder.
+- **Zero-Freeze Recovery Safety (`EXIT 77`) & High-Hz OLED Touch:** Scans `/dev/input/event0..63`, supports Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`), suppresses accidental key clicks during `Vol-Down + Power` screenshots (with shutter flash), cleanly pauses/resumes ancestor recovery processes, and exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) if a recovery holds an unshared display lock.
 - **Flash Anywhere (Recovery or Root App):** Runs the full Touch GUI inside custom recoveries (`BOOTMODE=false`) and automatically falls back to headless module installation when flashed inside the **Magisk**, **KernelSU**, or **APatch** app (`BOOTMODE=true`).
 
 ---
 
-## Downloads
+## Downloads — Which ZIP Should I Use?
 
-Prebuilt flashable ZIPs and standalone static ELF binaries are built automatically via GitHub Actions and published on the [**Releases**](https://github.com/Miustone/AROMA-Next-Installer/releases) page:
+Every GitHub Release on the [**Releases**](https://github.com/Miustone/AROMA-Next-Installer/releases) page ships **4 purpose-built flashable ZIPs** plus standalone static ELF binaries, all sharing the exact same `arm64-v8a` + `armeabi-v7a` engine:
 
-| Package | Description |
-| :--- | :--- |
-| **`AROMA-Next-Installer.zip`** | Universal recovery demo & test ZIP (`arm64-v8a` + `armeabi-v7a` Touch GUI) |
-| **`AROMA-Next-Magisk-Template.zip`** | Ready-to-use Magisk / KernelSU / APatch module template with Recovery Touch GUI, App-mode fallback, `aroma-env-check.sh`, and `aroma-mod-lib.sh` |
-| **`AROMA-Next-Filemanager.zip`** | Standalone flashable **AROMA-Next File Manager & Root Module Manager** (also accessible from the 3-Dot Menu inside every installer ZIP) |
-| **`aroma_installer-arm64`** / **`aroma_installer-arm32`** | Standalone static ELF binaries for custom integration |
+| Package | Best For | What's Inside |
+| :--- | :--- | :--- |
+| **`AROMA-Next-Installer.zip`** | **ROM / Kernel / Mod Developers** (Clean Base Template) | Minimal, clutter-free starter installer with the modern HiDPI nostalgia splash, Google Sans + Black & White defaults, clean Welcome screen, quick Filemanager entry, and a safe sample `updater-script`. Ready to customize without legacy 2013 demo clutter. |
+| **`AROMA-Next-Magisk-Template.zip`** | **Magisk / KernelSU / APatch Module Authors** | Ready-to-use **Systemless-First** (+ optional Pre-RW) dual-mode module template with Recovery Touch GUI, automatic App-mode fallback (`BOOTMODE=true`), `aroma-env-check.sh`, and the `aroma-mod-lib.sh` helper API. |
+| **`AROMA-Next-Filemanager.zip`** | **End Users & Power Users** (Recovery Tool) | Standalone flashable **AROMA-Next-Filemanager & Root Module Manager** — boots directly into the file & module manager (also accessible from the 3-Dot Menu inside every other AROMA-Next ZIP). |
+| **`AROMA-Next-Demo.zip`** | **Testers & Explorers** (Full Feature Showcase) | Interactive showcase of **every** AROMA-Next V26.11 feature on demand: Splash + Nostalgia Animation, all 7 Themes, all 7 Fonts, all 5 Transitions, Multilanguage UTF-8 test, Checkboxes, Forms, Menubox, modern V26.11 Changelog, Apache 2.0 License, Filemanager launch, and simulated install progress. |
+| **`aroma_installer-arm64`** / **`aroma_installer-arm32`** | **Custom Integrations** | Standalone static musl/NDK ELF binaries (`arm64-v8a` & `armeabi-v7a`). |
 
 ### Supported & Verified Recoveries / Devices
 
@@ -115,6 +128,23 @@ Prebuilt flashable ZIPs and standalone static ELF binaries are built automatical
 > **AERA Recovery Support (`V26.11-RC2-PRE2` — 2026-11-20 Pre-Release):** Includes Qualcomm `msm_drm` Dual-LM Source-Split Atomic KMS plane prioritization, pixel-format validation, full primary + overlay plane restoration on exit, and `/proc/self/fd/$OUTFD` high-FD pipe compatibility.
 >
 > Have you tested AROMA-Next on another device or recovery? Feedback and `/tmp/recovery.log` reports are always welcome via GitHub Issues!
+
+---
+
+## AROMA-Next-Filemanager & Root Module Manager
+
+Integrated directly into the shared C engine (`src/main/aroma_filemanager.c`) with 4 unified **inline top tabs** (**`Modules` | `Storage` | `System` | `Tools`**) and a 1:1 matched installer bottom navigation bar:
+
+- **Root Module Manager (`Modules` → `/data/adb/modules`):**
+  - Lists all installed **Magisk**, **KernelSU**, and **APatch** modules with metadata (`module.prop`) and live status (`ACTIVE`, `DISABLED`, `REMOVE PENDING`, `UPDATE PENDING`).
+  - One-tap **Enable / Disable**, **Mark for Removal on Reboot**, **Delete Module Now**, **Browse Module Files**, **Edit `module.prop`**, and **Edit `system.prop`**.
+- **Internal Storage (`Storage` → `/sdcard` / `/data/media/0`):**
+  - Recursive **Copy**, **Cut / Move**, **Paste**, **Delete**, **Rename**, **New Folder**, **New Text File**, **`chmod`** (presets & custom octal), **Properties**, and hidden `.dotfiles` toggle.
+- **System Partitions (`System`):**
+  - Inline browser for `/`, `/system`, `/system_root`, `/vendor`, `/product`, `/system_ext`, `/odm`, `/data`, `/cache`, `/persist`, `/metadata`, and `/tmp` with live `/proc/mounts` **`[RW]` / `[RO]`** + filesystem detection and a safe **`Remount Partition RW`** helper.
+- **Built-in Touch Keyboard & Text Line Editor:**
+  - Full on-screen QWERTY keyboard (lowercase, uppercase, symbols, UTF-8 backspace) and built-in **Text Viewer & Line Editor** (up to 256 KB with automatic binary file protection).
+- **Edify Integration:** Any custom `aroma-config` can launch the file manager directly via `filemanager();` or `filemanager("/data/adb/modules");`.
 
 ---
 
@@ -166,11 +196,11 @@ aroma_mod_patch_file "system/etc/hosts" "s/old_entry/new_entry/"
 <summary><b>Why Legacy AROMA Broke &amp; Under-the-Hood Improvements (Click to expand)</b></summary>
 
 1. **64-bit (`arm64-v8a`) & C11 Cleanliness:**
-   - Fixed 64-bit pointer truncation (`uintptr_t` in `src/libs/aroma_memory.c`, `intptr_t` casts in `src/libs/aroma_graph.c` and `libs/minzip/Zip.c`), `sizeof(AARRAY_ITEM)` allocation & `NULL`-key checks in `src/libs/aroma_array.c`, `0755` permissions in `src/libs/aroma_zip.c`, `fabs()` in `src/libs/aroma_libs.c`, ARM64 NEON blitter alpha init in `src/libs/neon/blt_neon.c`, and C11 inline linkage in `libs/minzip/inline_magic.h`.
+   - Fixed 64-bit pointer truncation (`uintptr_t` in `src/libs/aroma_memory.c`, `intptr_t` casts in `src/libs/aroma_graph.c` and `libs/minzip/Zip.c`), `sizeof(AARRAY_ITEM)` allocation & `NULL`-key checks in `src/libs/aroma_array.c`, `0755` permissions in `src/libs/aroma_zip.c`, `fabs()` in `src/libs/aroma_libs.c`, ARM64 NEON blitter alpha init in `src/libs/neon/blt_neon.c`, destination bounds clipping in `ag_draw_strecth_ex`, and C11 inline linkage in `libs/minzip/inline_magic.h`.
    - Updated `Android.mk` + added `Application.mk` (`APP_PLATFORM := android-35`) for Android NDK r27c (`arm64-v8a` + `armeabi-v7a`).
 
 2. **Dual Display Engine (`fbdev` + Pure-ioctl `DRM/KMS` + Atomic KMS):**
-   - Added `src/libs/graph_drm.c`: pure Linux kernel ioctl DRM/KMS dumb-buffer backend (`/dev/dri/card0..3`) with **inherited DRM master FD detection** (`/proc/self/fd`), **Atomic KMS** double-buffering & overlay plane management (`DRM_IOCTL_MODE_ATOMIC`), **Qualcomm `msm_drm` Dual-LM Source-Split** plane selection & full property restoration before `RMFB` (prevents `-EINVAL` black screen / UI freezes on return to recovery), Exynos/Google Tensor byte-order handling (`RGBA8888`), legacy `SETCRTC` + `DIRTYFB` fallback, and zero external `libdrm.so` dependency.
+   - Added `src/libs/graph_drm.c`: pure Linux kernel ioctl DRM/KMS dumb-buffer backend (`/dev/dri/card0..3`) with **inherited DRM master FD detection** (`/proc/self/fd`), **Atomic KMS** double-buffering & overlay plane management (`DRM_IOCTL_MODE_ATOMIC`), direct single-pass ARM NEON backbuffer blitting, **Qualcomm `msm_drm` Dual-LM Source-Split** plane selection & full property restoration before `RMFB`, Exynos/Google Tensor byte-order handling (`RGBA8888`), legacy `SETCRTC` + `DIRTYFB` fallback, and zero external `libdrm.so` dependency.
    - Enhanced `fbdev` in `src/libs/aroma_graph.c`: tries `/dev/graphics/fb0` and `/dev/fb0`, validates `mmap != MAP_FAILED`, and reads real `red/green/blue/transp` channel offsets from `FBIOGET_VSCREENINFO`.
    - **Anti-Freeze Recovery Safety (`EXIT 77`):** If neither `fbdev` nor DRM master can be acquired, AROMA-Next immediately resumes the parent recovery (`SIGCONT`) and exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) so the dispatcher runs the non-GUI fallback instead of hanging recovery.
    - **Process Hierarchy Pause (`src/main/aroma.c`):** Walks ancestor PIDs up to `recovery`/`twrp` so both shell dispatchers (`update-binary`) and the recovery compositor stay paused during Touch GUI execution and resume cleanly in reverse order.
@@ -188,7 +218,7 @@ aroma_mod_patch_file "system/etc/hosts" "s/old_entry/new_entry/"
 ## Building from Source
 
 ### Option 1: GitHub Actions (Automatic Releases)
-Push to `main`/`master` (updates the `latest` pre-release) or push a tag `v*` / `V*` (creates a versioned GitHub Release; tags containing `-PRE` or `-TEST` are automatically marked as pre-releases) using [`.github/workflows/build.yml`](.github/workflows/build.yml) with Android NDK r27c.
+Push to `main`/`master` or push a tag `v*` / `V*` (creates a versioned GitHub Release; tags containing `-PRE` or `-TEST` are automatically marked as pre-releases) using [`.github/workflows/build.yml`](.github/workflows/build.yml) with Android NDK r27c.
 
 ### Option 2: Local Android NDK
 ```sh
@@ -199,7 +229,7 @@ ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Appl
 ```sh
 python build.py --arch arm64 arm32
 ```
-Outputs static binaries to `out/bin/` and flashable ZIPs to `dist/AROMA-Next-Installer.zip` and `dist/AROMA-Next-Magisk-Template.zip`.
+Outputs static binaries to `out/bin/` and all 4 flashable ZIPs to `dist/` (`AROMA-Next-Installer.zip`, `AROMA-Next-Magisk-Template.zip`, `AROMA-Next-Filemanager.zip`, and `AROMA-Next-Demo.zip`).
 
 ---
 
