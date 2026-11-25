@@ -1,0 +1,212 @@
+###
+# AROMA-Next-Installer — Full Interactive Feature Showcase (AROMA-Next-Demo.zip)
+# Copyright (C) 2026 Miustone | Based on AROMA Installer (C) 2011-2013 amarullz
+#
+# Demonstrates the complete AROMA-Next feature set:
+#   Splash & Nostalgia Animation, Live Themes & 7 OFL Fonts, Multilanguage UTF-8,
+#   All UI Controls (Checkbox, Selectbox, Form, Menubox, Viewbox, Textbox, Alert/Confirm),
+#   Integrated AROMA-Next-Filemanager & Root Module Manager, and Install Progress.
+###
+
+ini_set("rom_name",    "AROMA-Next Demo");
+ini_set("rom_version", "26.11");
+ini_set("rom_author",  "Miustone");
+ini_set("rom_device",  "Universal arm64/arm32");
+ini_set("rom_date",    "2026");
+
+#-- Static HiDPI Splash + Classic AROMA Nostalgia Echo Animation
+splash(1200, "sample");
+anisplash(
+    4,
+    "splash/a1", 450,
+    "splash/a2", 30,
+    "splash/a3", 30,
+    "splash/a4", 30,
+    "splash/a5", 30,
+    "splash/a6", 30
+);
+
+#-- Default Font (Google Sans) & Default Theme (Black & White)
+fontresload("0", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+fontresload("1", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+theme("blacknwhite");
+
+#-- Step 1: Welcome Showcase
+viewbox(
+    "AROMA-Next-Demo",
+    "Welcome to the <b>AROMA-Next-Installer Full Feature Showcase</b>!\n\n" +
+    "<b>Engine Highlights (V26.11):</b>\n" +
+    "• 64-bit DRM/KMS + NEON direct rendering (60-120Hz smooth animations)\n" +
+    "• FreeType 2.15.0 + RFC 3629 UTF-8 + 7 modern SIL OFL fonts\n" +
+    "• Live <b>Select Theme</b>, <b>Select Font</b> & <b>Filemanager</b> in the 3-dot menu\n\n" +
+    "Tap <b>Next</b> to explore every feature step by step.",
+    "@welcome"
+);
+
+#-- Step 2: Interactive Demo Menu (pick specific showcases or full walkthrough)
+menubox(
+    "Demo Hub",
+    "Choose the full guided tour or jump straight to a specific feature:",
+    "@apps",
+    "demo_hub.prop",
+    "Full Guided Showcase",        "Walk through Themes, Fonts, Languages, Controls & Install", "@install",
+    "Open AROMA-Next-Filemanager", "Test the integrated Filemanager & Root Module Manager",     "@default",
+    "Changelog (V26.11)",          "Read the modern AROMA-Next-Installer changelog",            "@update",
+    "Apache 2.0 License",          "View the open-source license & bundled fonts",              "@license"
+);
+
+if prop("demo_hub.prop", "selected") == "2" then
+    filemanager();
+endif;
+
+if prop("demo_hub.prop", "selected") == "3" then
+    textbox("Changelog", "AROMA-Next-Installer V26.11 Release Notes", "@update", resread("changelog.txt"));
+endif;
+
+if prop("demo_hub.prop", "selected") == "4" then
+    textbox("Open-Source License", "Apache License 2.0 & Font Licenses", "@license", resread("license.txt"));
+endif;
+
+#-- Step 3: Theme Showcase
+selectbox(
+    "Theme Showcase",
+    "Pick a theme to preview (you can also switch themes live anytime via the 3-dot menu):",
+    "@personalize",
+    "theme.prop",
+    "Black & White", "Modern monochrome theme by Miustone (Default)",  1,
+    "ICS Theme",     "Classic Ice Cream Sandwich theme",               0,
+    "MIUI Theme",    "Classic MIUI theme",                             0,
+    "MIUI 4 Theme",  "Classic MIUI 4 / ICS theme",                     0,
+    "TouchWiz",      "Classic TouchWiz theme",                         0,
+    "Franzyroy",     "Classic Franzyroy theme",                        0,
+    "Generic",       "Unthemed minimal AROMA fallback",                0
+);
+
+if prop("theme.prop", "selected.0") == "1" then theme("blacknwhite"); endif;
+if prop("theme.prop", "selected.0") == "2" then theme("ics");         endif;
+if prop("theme.prop", "selected.0") == "3" then theme("miui");        endif;
+if prop("theme.prop", "selected.0") == "4" then theme("miui4");       endif;
+if prop("theme.prop", "selected.0") == "5" then theme("touchwiz");    endif;
+if prop("theme.prop", "selected.0") == "6" then theme("franzyroy");   endif;
+if prop("theme.prop", "selected.0") == "7" then theme("");            endif;
+
+#-- Step 4: Modern Font Showcase (7 bundled OFL fonts)
+selectbox(
+    "Font Showcase",
+    "Pick any bundled modern font (also available live via 3-dot menu -> Select Font):",
+    "@personalize",
+    "font.prop",
+    "Google Sans",       "Official Android geometric sans-serif (Default)", 1,
+    "Roboto",            "Classic Android system sans-serif",               0,
+    "Inter",             "Clean high-legibility modern UI typeface",        0,
+    "Plus Jakarta Sans", "Contemporary rounded geometric sans",             0,
+    "Outfit",            "Crisp modern minimalist sans-serif",              0,
+    "Ubuntu",            "Distinctive humanist sans-serif",                 0,
+    "JetBrains Mono",    "Developer monospace typeface",                    0
+);
+
+if prop("font.prop", "selected.0") == "1" then
+    fontresload("0", "ttf/GoogleSans-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/GoogleSans-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "2" then
+    fontresload("0", "ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "3" then
+    fontresload("0", "ttf/Inter-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/Inter-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "4" then
+    fontresload("0", "ttf/PlusJakartaSans-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/PlusJakartaSans-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "5" then
+    fontresload("0", "ttf/Outfit-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/Outfit-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "6" then
+    fontresload("0", "ttf/Ubuntu-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/Ubuntu-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+if prop("font.prop", "selected.0") == "7" then
+    fontresload("0", "ttf/JetBrainsMono-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
+    fontresload("1", "ttf/JetBrainsMono-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
+endif;
+
+#-- Step 5: UTF-8 Multilanguage Showcase
+include("language_select.edify");
+
+viewbox(
+    "UTF-8 & Multilanguage Test",
+    "FreeType 2.15.0 + RFC 3629 minutf8 rendering test:\n\n" +
+    "• English / Deutsch: ÄÖÜ äöüß — Butterweiche 120Hz Animationen!\n" +
+    "• Français / Español: Éàèùç ñ ¿¡\n" +
+    "• Русский: Добро пожаловать в AROMA-Next\n" +
+    "• 日本語 / 中文: インストーラへようこそ / 欢迎使用\n" +
+    "• עברית: ברוכים הבאים להתקנה",
+    "@info"
+);
+
+loadlang("langs/en.lang");
+
+#-- Step 6: Grouped Checkbox Showcase
+checkbox(
+    "Checkbox Control Showcase",
+    "Select any combination of example components:",
+    "@apps",
+    "checkbox_demo.prop",
+    "Core Features",      "",                                                 2,
+    "64-bit DRM Engine",  "Direct backbuffer NEON blitting (60-120Hz)",       1,
+    "Filemanager Module", "Integrated file & /data/adb/modules manager",      1,
+    "Optional Extras",    "",                                                 2,
+    "Extended Font Pack", "Google Sans, Inter, Outfit, Ubuntu, JetBrains",    1,
+    "Classic Themes",     "Black & White, ICS, MIUI, TouchWiz, Franzyroy",    0
+);
+
+#-- Step 7: Mixed Form (Checkbox + Radio Group) Showcase
+include("custombox_test.edify");
+
+#-- Step 8: Changelog & License Textbox Showcase
+textbox(
+    "Changelog (V26.11)",
+    "Modern AROMA-Next-Installer Changelog",
+    "@update",
+    resread("changelog.txt")
+);
+
+#-- Step 9: Interactive Confirm + Integrated Filemanager Trigger
+if confirm(
+    "Try AROMA-Next-Filemanager?",
+    "Would you like to open the integrated <b>AROMA-Next-Filemanager</b> now before the simulated install?",
+    "@info",
+    "Open Filemanager",
+    "Skip"
+) == "yes" then
+    filemanager();
+endif;
+
+#-- Step 10: Simulated Installation Progress
+ini_set("text_next", "Run Demo Install");
+viewbox(
+    "Ready for Demo Install",
+    "This runs the safe sample updater-script (no system files are modified).\n\n" +
+    "Press <b>Run Demo Install</b> to test the progress bar and live log view.",
+    "@install"
+);
+
+ini_set("text_next", "Next >");
+install(
+    "Demo Installation",
+    "Demonstrating progress bar & live log output...",
+    "@install",
+    "Demo installation completed safely."
+);
+
+ini_set("text_next", "Finish");
+viewbox(
+    "Demo Complete",
+    "You have completed the <b>AROMA-Next-Installer V26.11</b> Full Feature Showcase!\n\n" +
+    "Press <b>Finish</b> to return to Recovery.",
+    "@info"
+);

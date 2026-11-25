@@ -252,6 +252,7 @@ def main() -> None:
         build_zip(ROOT / "dist" / "AROMA-Next-Installer.zip", None, False, built)
         build_zip(ROOT / "dist" / "AROMA-Next-Magisk-Template.zip", ROOT / "magisk-template", True, built)
         build_zip(ROOT / "dist" / "AROMA-Next-Filemanager.zip", ROOT / "filemanager-template", True, built)
+        build_zip(ROOT / "dist" / "AROMA-Next-Demo.zip", ROOT / "demo-template", False, built)
 
 
 if __name__ == "__main__":

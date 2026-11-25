@@ -7,6 +7,16 @@ ini_set("rom_version", "26.11");
 ini_set("rom_author",  "Miustone");
 ini_set("rom_device",  "Universal arm64/arm32");
 
+anisplash(
+    2,
+    "splash/a1", 400,
+    "splash/a2", 30,
+    "splash/a3", 30,
+    "splash/a4", 30,
+    "splash/a5", 30,
+    "splash/a6", 30
+);
+
 fontresload("0", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
 fontresload("1", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
 

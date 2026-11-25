@@ -6,20 +6,23 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ## [Unreleased — V26.11-RC4 WIP]
 
-Focus: Modern open-source typography (**Google Sans** default + live Font Switcher) and integrated **AROMA-Next File Manager & Root Module Manager**.
+Focus: Modern open-source typography (**Google Sans** default + live Font Switcher), integrated **AROMA-Next-Filemanager & Root Module Manager**, modern HiDPI splash screen with nostalgia animation, and clean separation of **Base Installer** vs. **Demo ZIP**.
 
-### Added
+### Added & Changed
 - **Google Sans Default & Live Font Switcher (`src/controls/aroma_controls.c`, `src/main/aroma_ui.c`, `assets/.../ttf/`):**
-  - Set official SIL OFL **Google Sans** (`GoogleSans-Regular.ttf` v14.000) as the new default font across installer, Magisk template, and File Manager configs.
+  - Set official SIL OFL **Google Sans** (`GoogleSans-Regular.ttf` v14.000) as the new default font across installer, Magisk template, Filemanager, and Demo configs.
   - Bundled 7 open-source modern fonts: **Google Sans**, **Roboto**, **Inter**, **Plus Jakarta Sans**, **Outfit**, **Ubuntu**, and **JetBrains Mono** (all paired with `DroidSansFallback.ttf` for full Unicode/CJK coverage).
   - Added **Select Font** right next to **Select Theme** in the 3-Dot Menu for instant live font switching without restarting or losing selections.
-- **Integrated AROMA-Next File Manager & Root Module Manager (`src/main/aroma_filemanager.c`, `filemanager-template/`):**
+- **Integrated AROMA-Next-Filemanager & Root Module Manager (`src/main/aroma_filemanager.c`, `filemanager-template/`):**
   - Built directly into the shared AROMA-Next engine (reusing 64-bit DRM/KMS, 60–120Hz animations, Touch, Themes, and Fonts with zero duplicated C code).
-  - Accessible both directly from the **3-Dot Menu → File Manager** inside any installer AND as a standalone flashable **`AROMA-Next-Filemanager.zip`** via the new `filemanager()` Edify command.
+  - Accessible both directly from the **3-Dot Menu → Filemanager** inside any installer AND as a standalone flashable **`AROMA-Next-Filemanager.zip`** via the new `filemanager()` Edify command.
+  - Unified inline **Modules / Storage / System / Tools** top bar with crisp active tab highlight (accent bar + bold + focus) and 1:1 matched installer bottom navigation bar (including vertical 3-dot icon).
   - **Root Module Manager (`/data/adb/modules`):** Inspect installed Magisk / KernelSU / APatch modules (`module.prop` metadata + live `ACTIVE` / `DISABLED` / `REMOVE PENDING` / `UPDATE PENDING` status), toggle enable/disable, mark for removal, delete immediately, browse module files, or edit `module.prop` / `system.prop`.
-  - **Full Storage & System File Browser:** Browse `/sdcard`, `/data`, `/`, and system partitions (`/system`, `/vendor`, `/product`, `/system_ext`, `/odm`) with live `/proc/mounts` `[RW]` / `[RO]` detection, safe `Remount Partition RW` helper, recursive Copy / Cut / Paste / Delete, Rename, `chmod`, Properties, built-in **Touch QWERTY Keyboard**, and built-in **Text Viewer & Line Editor**.
-- **CI & Build Packaging (`.github/workflows/build.yml`, `build.py`, `Android.mk`):**
-  - Added `src/main/aroma_filemanager.c` and automatic packaging of **`AROMA-Next-Filemanager.zip`** alongside `AROMA-Next-Installer.zip` and `AROMA-Next-Magisk-Template.zip`.
+  - **Full Storage & System File Browser:** Browse `/sdcard`, `/data`, `/`, and system partitions (`/system`, `/vendor`, `/product`, `/system_ext`, `/odm`) inline with live `/proc/mounts` `[RW]` / `[RO]` detection, safe `Remount Partition RW` helper, recursive Copy / Cut / Paste / Delete, Rename, `chmod`, Properties, built-in **Touch QWERTY Keyboard**, and built-in **Text Viewer & Line Editor**.
+- **Modern HiDPI Splash Screen & Clean Release Packaging (`assets/.../splash/`, `demo-template/`, `build.py`):**
+  - Redesigned `sample.png` and `splash/a1..a6.png` at 920×360 HiDPI with modern **AROMA-Next-Installer** Google Sans branding and the iconic AROMA nostalgia echo animation + automatic proportional HiDPI scaling in `AROMA_SPLASH` / `AROMA_ANISPLASH`.
+  - Replaced legacy 2013 demo clutter in `AROMA-Next-Installer.zip` with a sleek, minimal Base Installer template + updated `changelog.txt`, `license.txt` (Apache 2.0), and safe modern `updater-script`.
+  - Added separate **`AROMA-Next-Demo.zip`** (`demo-template/`) showcasing every AROMA-Next V26.11 feature (Themes, 7 Fonts, UTF-8 Multilanguage, Checkboxes, Forms, Menubox, Filemanager, and simulated install) on demand.
 
 ---
 

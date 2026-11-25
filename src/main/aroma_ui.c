@@ -1662,6 +1662,30 @@ Value * AROMA_INI_SET(const char * name, State * state, int argc, Expr * argv[])
   return StringValue(strdup(""));
 }
 
+static void aui_draw_splash_png(CANVAS * dst, PNGCANVAS * p) {
+  if (p == NULL || p->w <= 0 || p->h <= 0) return;
+  int maxW = (agw() * 9) / 10;
+  int maxH = (agh() * 8) / 10;
+  if (p->w <= maxW && p->h <= maxH) {
+    apng_draw(dst, p, (agw() - p->w) / 2, (agh() - p->h) / 2);
+  }
+  else {
+    int dw = p->w;
+    int dh = p->h;
+    if (dw > maxW) {
+      dh = (dh * maxW) / dw;
+      dw = maxW;
+    }
+    if (dh > maxH) {
+      dw = (dw * maxH) / dh;
+      dh = maxH;
+    }
+    if (dw < 1) dw = 1;
+    if (dh < 1) dh = 1;
+    apng_stretch(dst, p, (agw() - dw) / 2, (agh() - dh) / 2, dw, dh, 0, 0, p->w, p->h);
+  }
+}
+
 //*
 //* anisplash
 //*
@@ -1727,7 +1751,7 @@ Value * AROMA_ANISPLASH(const char * name, State * state, int argc, Expr * argv[
       //-- Draw Frame
       if (au[frame]) {
         PNGCANVAS * p = &ap[frame];
-        apng_draw(NULL, p, (agw() / 2) - (p->w / 2), (agh() / 2) - (p->h / 2));
+        aui_draw_splash_png(NULL, p);
       }
       
       //-- Wait The Fade Transition
@@ -1798,7 +1822,7 @@ Value * AROMA_SPLASH(const char * name, State * state, int argc, Expr * argv[]) 
   PNGCANVAS ap;
   
   if (apng_load(&ap, args[1])) {
-    apng_draw(&splashbg, &ap, (agw() / 2) - (ap.w / 2), (agh() / 2) - (ap.h / 2));
+    aui_draw_splash_png(&splashbg, &ap);
     apng_close(&ap);
   }
   

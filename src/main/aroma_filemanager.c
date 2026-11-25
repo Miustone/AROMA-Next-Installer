@@ -45,6 +45,8 @@
 
 #define AFM_VIEW_MODULES  0
 #define AFM_VIEW_FILES    1
+#define AFM_VIEW_SYSTEM   2
+#define AFM_VIEW_TOOLS    3
 
 #define AFM_CLIP_NONE     0
 #define AFM_CLIP_COPY     1
@@ -1302,35 +1304,6 @@ static byte afm_handle_item_actions(AWINDOWP parent, const char * cur_dir,
   return 0;
 }
 
-static void afm_system_partition_picker(AWINDOWP parent, char * out_path, size_t out_sz, byte * out_picked) {
-  static const char * candidates[] = {
-    "/", "/system", "/system_root", "/vendor", "/product",
-    "/system_ext", "/odm", "/data", "/data/adb", "/cache", "/tmp", NULL
-  };
-  const char * items[12];
-  const char * descs[12];
-  char desc_bufs[12][128];
-  int cnt = 0;
-  int i;
-
-  for (i = 0; candidates[i] != NULL && cnt < 12; i++) {
-    if (!afm_dir_exists(candidates[i])) continue;
-    char mp[256], fs[64];
-    byte rw = afm_mount_info(candidates[i], mp, sizeof(mp), fs, sizeof(fs));
-    items[cnt] = candidates[i];
-    snprintf(desc_bufs[cnt], sizeof(desc_bufs[cnt]), "[%s] %s (mount: %s)",
-             rw ? "RW" : "RO", fs, mp);
-    descs[cnt] = desc_bufs[cnt];
-    cnt++;
-  }
-
-  int pick = afm_action_sheet(parent, "System & Root Partitions", items, descs, cnt);
-  if (pick >= 0 && pick < cnt) {
-    snprintf(out_path, out_sz, "%s", items[pick]);
-    *out_picked = 1;
-  }
-}
-
 /**************************[ MAIN FILE MANAGER LOOP ]**************************/
 
 byte afm_run(AWINDOWP parent, const char * start_path) {
@@ -1341,6 +1314,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
   aui_sync_theme_and_font();
 
   byte view_mode = AFM_VIEW_MODULES;
+  byte prev_view_mode = AFM_VIEW_MODULES;
   char cur_path[AFM_PATH_MAX];
   afm_detect_storage_path(cur_path, sizeof(cur_path));
 
@@ -1384,9 +1358,15 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     int listY = subY + subH;
     int listH = agh() - listY - navH;
 
-    int active_tab = 2; /* 0 = Modules, 1 = Storage, 2 = System */
+    int active_tab = 2; /* 0 = Modules, 1 = Storage, 2 = System, 3 = Tools */
     if (view_mode == AFM_VIEW_MODULES) {
       active_tab = 0;
+    }
+    else if (view_mode == AFM_VIEW_TOOLS) {
+      active_tab = 3;
+    }
+    else if (view_mode == AFM_VIEW_SYSTEM) {
+      active_tab = 2;
     }
     else if (strncmp(cur_path, "/sdcard", 7) == 0 ||
              strncmp(cur_path, "/storage", 8) == 0 ||
@@ -1410,10 +1390,10 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     char title[128];
     char sub[320];
     char mp[256], fs[64];
+    snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
 
     if (view_mode == AFM_VIEW_MODULES) {
       byte rw = afm_mount_info("/data/adb/modules", mp, sizeof(mp), fs, sizeof(fs));
-      snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
       if (afm_dir_exists("/data/adb/modules")) {
         snprintf(sub, sizeof(sub), "Modules • /data/adb/modules [%s]", rw ? "RW" : "RO");
       }
@@ -1421,9 +1401,20 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
         snprintf(sub, sizeof(sub), "Modules • /data/adb/modules not found (or /data encrypted)");
       }
     }
+    else if (view_mode == AFM_VIEW_SYSTEM) {
+      snprintf(sub, sizeof(sub), "System & Root Partitions • Tap a partition to browse");
+    }
+    else if (view_mode == AFM_VIEW_TOOLS) {
+      if (prev_view_mode == AFM_VIEW_FILES) {
+        byte rw = afm_mount_info(cur_path, mp, sizeof(mp), fs, sizeof(fs));
+        snprintf(sub, sizeof(sub), "Tools • %s [%s • %s]", cur_path, rw ? "RW" : "RO", fs);
+      }
+      else {
+        snprintf(sub, sizeof(sub), "Tools • Quick Actions & Partition Controls");
+      }
+    }
     else {
       byte rw = afm_mount_info(cur_path, mp, sizeof(mp), fs, sizeof(fs));
-      snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
       if (afm_clip_mode != AFM_CLIP_NONE) {
         snprintf(sub, sizeof(sub), "%s [%s] • %s: %s",
                  cur_path, rw ? "RW" : "RO",
@@ -1439,7 +1430,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     ag_textf(&bg, titW, (agw() - titW) / 2 + 1, pad + 1, title, acfg()->titlebg_g, 1);
     ag_text(&bg, titW, (agw() - titW) / 2, pad, title, acfg()->titlefg, 1);
 
-    /* Active tab underline indicator (clearly visible for Modules / Storage / System) */
+    /* Active tab underline indicator (uniformly shown for Modules / Storage / System / Tools) */
     int tbW = (agw() - (pad * 5)) / 4;
     int actX = pad + active_tab * (tbW + pad);
     color ind_col = (acfg()->selectbg != acfg()->winbg) ? acfg()->selectbg : acfg()->titlefg;
@@ -1456,12 +1447,18 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     ACONTROLP btn_mod = acbutton(hWin, pad,               tbY, tbW, barH, (active_tab == 0) ? "<b>Modules</b>" : "Modules", 0, 21);
     ACONTROLP btn_sto = acbutton(hWin, pad * 2 + tbW,     tbY, tbW, barH, (active_tab == 1) ? "<b>Storage</b>" : "Storage", 0, 22);
     ACONTROLP btn_sys = acbutton(hWin, pad * 3 + tbW * 2, tbY, tbW, barH, (active_tab == 2) ? "<b>System</b>"  : "System",  0, 23);
-    acbutton(hWin, pad * 4 + tbW * 3, tbY, tbW, barH, "Tools", 0, 24);
-    ACONTROLP active_tab_btn = (active_tab == 0) ? btn_mod : (active_tab == 1) ? btn_sto : btn_sys;
+    ACONTROLP btn_tls = acbutton(hWin, pad * 4 + tbW * 3, tbY, tbW, barH, (active_tab == 3) ? "<b>Tools</b>"   : "Tools",   0, 24);
+    ACONTROLP active_tab_btn = (active_tab == 0) ? btn_mod :
+                               (active_tab == 1) ? btn_sto :
+                               (active_tab == 2) ? btn_sys : btn_tls;
 
     ACONTROLP menu = acmenu(hWin, 0, listY, agw(), listH, 10);
     int mod_cnt = 0;
     int ent_cnt = 0;
+    const char * sys_paths[16];
+    int sys_cnt = 0;
+    int tool_codes[10];
+    int tool_cnt = 0;
     int i;
 
     if (view_mode == AFM_VIEW_MODULES) {
@@ -1493,6 +1490,60 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
           acmenu_add(menu, mtitle, mdesc, (char *) micon);
         }
       }
+    }
+    else if (view_mode == AFM_VIEW_SYSTEM) {
+      static const char * candidates[] = {
+        "/", "/system", "/system_root", "/vendor", "/product",
+        "/system_ext", "/odm", "/data", "/data/adb", "/cache",
+        "/persist", "/metadata", "/tmp", NULL
+      };
+      for (i = 0; candidates[i] != NULL && sys_cnt < 16; i++) {
+        if (!afm_dir_exists(candidates[i])) continue;
+        char pmp[256], pfs[64], pdesc[256];
+        byte prw = afm_mount_info(candidates[i], pmp, sizeof(pmp), pfs, sizeof(pfs));
+        snprintf(pdesc, sizeof(pdesc), "[%s] %s • mount: %s", prw ? "RW" : "RO", pfs, pmp);
+        sys_paths[sys_cnt++] = candidates[i];
+        acmenu_add(menu, (char *) candidates[i], pdesc, "");
+      }
+    }
+    else if (view_mode == AFM_VIEW_TOOLS) {
+      byte from_files = (prev_view_mode == AFM_VIEW_FILES) ? 1 : 0;
+      if (from_files) {
+        ent_cnt = afm_scan_dir(cur_path, entries, AFM_MAX_ENTRIES);
+      }
+      if (from_files && afm_clip_mode != AFM_CLIP_NONE) {
+        acmenu_add(menu,
+                   (afm_clip_mode == AFM_CLIP_COPY) ? "Paste Here (Copy)" : "Paste Here (Move)",
+                   afm_clip_path, "");
+        tool_codes[tool_cnt++] = 1;
+      }
+      if (from_files) {
+        acmenu_add(menu, "New Folder", "Create a new directory in current folder", "");
+        tool_codes[tool_cnt++] = 2;
+
+        acmenu_add(menu, "New Text File", "Create and open a new file in text editor", "");
+        tool_codes[tool_cnt++] = 3;
+
+        if (ent_cnt > 0) {
+          acmenu_add(menu, "Folder / Item Actions...",
+                     "Copy, Move, Rename, Chmod or Delete any folder/file here", "");
+          tool_codes[tool_cnt++] = 4;
+        }
+      }
+      acmenu_add(menu,
+                 afm_show_hidden ? "Hide Hidden Files (.dotfiles)" : "Show Hidden Files (.dotfiles)",
+                 "Toggle visibility of hidden entries", "");
+      tool_codes[tool_cnt++] = 5;
+
+      acmenu_add(menu, "Remount Partition RW",
+                 "Try remounting current mountpoint read-write (if supported)", "");
+      tool_codes[tool_cnt++] = 6;
+
+      acmenu_add(menu, "Go to Path...", "Enter any custom directory path", "");
+      tool_codes[tool_cnt++] = 7;
+
+      acmenu_add(menu, "Refresh", "Rescan current view", "");
+      tool_codes[tool_cnt++] = 8;
     }
     else {
       ent_cnt = afm_scan_dir(cur_path, entries, AFM_MAX_ENTRIES);
@@ -1550,144 +1601,15 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
       afm_detect_storage_path(cur_path, sizeof(cur_path));
     }
     else if (m == 23) {
-      byte picked = 0;
-      char chosen[AFM_PATH_MAX];
-      afm_system_partition_picker(hWin, chosen, sizeof(chosen), &picked);
-      if (picked) {
-        view_mode = AFM_VIEW_FILES;
-        snprintf(cur_path, sizeof(cur_path), "%s", chosen);
-      }
+      view_mode = AFM_VIEW_SYSTEM;
     }
     else if (m == 24) {
-      /* Context Tools Sheet */
-      const char * titems[9];
-      const char * tdescs[9];
-      int tcodes[9];
-      int tn = 0;
-
-      if (view_mode == AFM_VIEW_FILES && afm_clip_mode != AFM_CLIP_NONE) {
-        titems[tn] = (afm_clip_mode == AFM_CLIP_COPY) ? "Paste Here (Copy)" : "Paste Here (Move)";
-        tdescs[tn] = afm_clip_path;
-        tcodes[tn++] = 1;
+      if (view_mode == AFM_VIEW_TOOLS) {
+        view_mode = prev_view_mode;
       }
-      if (view_mode == AFM_VIEW_FILES) {
-        titems[tn] = "New Folder";
-        tdescs[tn] = "Create a new directory here";
-        tcodes[tn++] = 2;
-
-        titems[tn] = "New Text File";
-        tdescs[tn] = "Create and open a new file in text editor";
-        tcodes[tn++] = 3;
-
-        if (ent_cnt > 0) {
-          titems[tn] = "Folder / Item Actions...";
-          tdescs[tn] = "Copy, Move, Rename, Chmod or Delete any folder/file here";
-          tcodes[tn++] = 4;
-        }
-      }
-      titems[tn] = afm_show_hidden ? "Hide Hidden Files (.dotfiles)" : "Show Hidden Files (.dotfiles)";
-      tdescs[tn] = "Toggle visibility of hidden entries";
-      tcodes[tn++] = 5;
-
-      titems[tn] = "Remount Partition RW";
-      tdescs[tn] = "Try remounting current mountpoint read-write (if supported)";
-      tcodes[tn++] = 6;
-
-      titems[tn] = "Go to Path...";
-      tdescs[tn] = "Enter any custom directory path";
-      tcodes[tn++] = 7;
-
-      titems[tn] = "Refresh";
-      tdescs[tn] = "Rescan current view";
-      tcodes[tn++] = 8;
-
-      int tpick = afm_action_sheet(hWin, "Filemanager Tools", titems, tdescs, tn);
-      if (tpick >= 0 && tpick < tn) {
-        switch (tcodes[tpick]) {
-          case 1: {
-            char dst[AFM_PATH_MAX];
-            afm_join_path(dst, sizeof(dst), cur_path, afm_clip_name);
-            byte ok = (afm_clip_mode == AFM_CLIP_COPY)
-                      ? afm_copy_recursive(afm_clip_path, dst)
-                      : afm_move_item(afm_clip_path, dst);
-            if (!ok) {
-              char err[256];
-              snprintf(err, sizeof(err), "Paste failed:\n%s\n(%s)", dst, strerror(errno));
-              aw_alert(hWin, "Paste Failed", err, "@alert", NULL);
-            }
-            else if (afm_clip_mode == AFM_CLIP_CUT) {
-              afm_clip_mode = AFM_CLIP_NONE;
-              afm_clip_path[0] = '\0';
-            }
-          } break;
-          case 2: {
-            char dname[256];
-            if (afm_input_dialog(hWin, "New Folder Name", "", dname, sizeof(dname))) {
-              if (dname[0] != '\0' && strchr(dname, '/') == NULL) {
-                char dst[AFM_PATH_MAX];
-                afm_join_path(dst, sizeof(dst), cur_path, dname);
-                if (mkdir(dst, 0755) != 0) {
-                  char err[256];
-                  snprintf(err, sizeof(err), "Cannot create folder:\n%s", strerror(errno));
-                  aw_alert(hWin, "Error", err, "@alert", NULL);
-                }
-              }
-            }
-          } break;
-          case 3: {
-            char fname[256];
-            if (afm_input_dialog(hWin, "New File Name", "", fname, sizeof(fname))) {
-              if (fname[0] != '\0' && strchr(fname, '/') == NULL) {
-                char dst[AFM_PATH_MAX];
-                afm_join_path(dst, sizeof(dst), cur_path, fname);
-                afm_text_editor(hWin, dst);
-              }
-            }
-          } break;
-          case 4: {
-            const char * nlist[128];
-            const char * dlist[128];
-            int mapidx[128];
-            int ncnt = 0;
-            for (i = 0; i < ent_cnt && ncnt < 128; i++) {
-              if (entries[i].is_parent) continue;
-              nlist[ncnt] = entries[i].name;
-              dlist[ncnt] = entries[i].is_dir ? "Folder" : "File";
-              mapidx[ncnt] = i;
-              ncnt++;
-            }
-            int ipick = afm_action_sheet(hWin, "Select Item for Action", nlist, dlist, ncnt);
-            if (ipick >= 0 && ipick < ncnt) {
-              char nav[AFM_PATH_MAX] = "";
-              if (afm_handle_item_actions(hWin, cur_path, &entries[mapidx[ipick]], nav, sizeof(nav)) == 2) {
-                snprintf(cur_path, sizeof(cur_path), "%s", nav);
-              }
-            }
-          } break;
-          case 5:
-            afm_show_hidden = afm_show_hidden ? 0 : 1;
-            break;
-          case 6: {
-            const char * target = (view_mode == AFM_VIEW_MODULES) ? "/data/adb/modules" : cur_path;
-            char rmsg[384];
-            byte rok = afm_try_remount_rw(target, rmsg, sizeof(rmsg));
-            aw_alert(hWin, rok ? "Remount RW" : "Read-Only Partition", rmsg, rok ? "@info" : "@alert", NULL);
-          } break;
-          case 7: {
-            char target[AFM_PATH_MAX];
-            if (afm_input_dialog(hWin, "Go to Directory Path", cur_path, target, sizeof(target))) {
-              if (afm_dir_exists(target)) {
-                view_mode = AFM_VIEW_FILES;
-                snprintf(cur_path, sizeof(cur_path), "%s", target);
-              }
-              else {
-                aw_alert(hWin, "Path Not Found", "Directory does not exist or is not accessible.", "@alert", NULL);
-              }
-            }
-          } break;
-          case 8:
-            break;
-        }
+      else {
+        prev_view_mode = view_mode;
+        view_mode = AFM_VIEW_TOOLS;
       }
     }
     else if (m == 10) {
@@ -1747,6 +1669,112 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
           }
         }
       }
+      else if (view_mode == AFM_VIEW_SYSTEM) {
+        if (sel >= 0 && sel < sys_cnt) {
+          snprintf(cur_path, sizeof(cur_path), "%s", sys_paths[sel]);
+          view_mode = AFM_VIEW_FILES;
+        }
+      }
+      else if (view_mode == AFM_VIEW_TOOLS) {
+        if (sel >= 0 && sel < tool_cnt) {
+          switch (tool_codes[sel]) {
+            case 1: {
+              char dst[AFM_PATH_MAX];
+              afm_join_path(dst, sizeof(dst), cur_path, afm_clip_name);
+              byte ok = (afm_clip_mode == AFM_CLIP_COPY)
+                        ? afm_copy_recursive(afm_clip_path, dst)
+                        : afm_move_item(afm_clip_path, dst);
+              if (!ok) {
+                char err[256];
+                snprintf(err, sizeof(err), "Paste failed:\n%s\n(%s)", dst, strerror(errno));
+                aw_alert(hWin, "Paste Failed", err, "@alert", NULL);
+              }
+              else if (afm_clip_mode == AFM_CLIP_CUT) {
+                afm_clip_mode = AFM_CLIP_NONE;
+                afm_clip_path[0] = '\0';
+              }
+              view_mode = prev_view_mode;
+            } break;
+            case 2: {
+              char dname[256];
+              if (afm_input_dialog(hWin, "New Folder Name", "", dname, sizeof(dname))) {
+                if (dname[0] != '\0' && strchr(dname, '/') == NULL) {
+                  char dst[AFM_PATH_MAX];
+                  afm_join_path(dst, sizeof(dst), cur_path, dname);
+                  if (mkdir(dst, 0755) != 0) {
+                    char err[256];
+                    snprintf(err, sizeof(err), "Cannot create folder:\n%s", strerror(errno));
+                    aw_alert(hWin, "Error", err, "@alert", NULL);
+                  }
+                }
+              }
+              view_mode = prev_view_mode;
+            } break;
+            case 3: {
+              char fname[256];
+              if (afm_input_dialog(hWin, "New File Name", "", fname, sizeof(fname))) {
+                if (fname[0] != '\0' && strchr(fname, '/') == NULL) {
+                  char dst[AFM_PATH_MAX];
+                  afm_join_path(dst, sizeof(dst), cur_path, fname);
+                  afm_text_editor(hWin, dst);
+                }
+              }
+              view_mode = prev_view_mode;
+            } break;
+            case 4: {
+              const char * nlist[128];
+              const char * dlist[128];
+              int mapidx[128];
+              int ncnt = 0;
+              for (i = 0; i < ent_cnt && ncnt < 128; i++) {
+                if (entries[i].is_parent) continue;
+                nlist[ncnt] = entries[i].name;
+                dlist[ncnt] = entries[i].is_dir ? "Folder" : "File";
+                mapidx[ncnt] = i;
+                ncnt++;
+              }
+              int ipick = afm_action_sheet(hWin, "Select Item for Action", nlist, dlist, ncnt);
+              if (ipick >= 0 && ipick < ncnt) {
+                char nav[AFM_PATH_MAX] = "";
+                if (afm_handle_item_actions(hWin, cur_path, &entries[mapidx[ipick]], nav, sizeof(nav)) == 2) {
+                  snprintf(cur_path, sizeof(cur_path), "%s", nav);
+                }
+              }
+              view_mode = prev_view_mode;
+            } break;
+            case 5:
+              afm_show_hidden = afm_show_hidden ? 0 : 1;
+              view_mode = prev_view_mode;
+              break;
+            case 6: {
+              const char * target = (prev_view_mode == AFM_VIEW_MODULES) ? "/data/adb/modules" : cur_path;
+              char rmsg[384];
+              byte rok = afm_try_remount_rw(target, rmsg, sizeof(rmsg));
+              aw_alert(hWin, rok ? "Remount RW" : "Read-Only Partition", rmsg, rok ? "@info" : "@alert", NULL);
+              view_mode = prev_view_mode;
+            } break;
+            case 7: {
+              char target[AFM_PATH_MAX];
+              if (afm_input_dialog(hWin, "Go to Directory Path", cur_path, target, sizeof(target))) {
+                if (afm_dir_exists(target)) {
+                  view_mode = AFM_VIEW_FILES;
+                  snprintf(cur_path, sizeof(cur_path), "%s", target);
+                }
+                else {
+                  aw_alert(hWin, "Path Not Found", "Directory does not exist or is not accessible.", "@alert", NULL);
+                  view_mode = prev_view_mode;
+                }
+              }
+              else {
+                view_mode = prev_view_mode;
+              }
+            } break;
+            case 8:
+              view_mode = prev_view_mode;
+              break;
+          }
+        }
+      }
       else {
         if (sel >= 0 && sel < ent_cnt) {
           AFM_ENTRY * e = &entries[sel];
@@ -1763,10 +1791,16 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
       }
     }
     else if (m == 5) {
-      if (view_mode == AFM_VIEW_FILES && strcmp(cur_path, "/") != 0) {
+      if (view_mode == AFM_VIEW_TOOLS) {
+        view_mode = prev_view_mode;
+      }
+      else if (view_mode == AFM_VIEW_FILES && strcmp(cur_path, "/") != 0) {
         char up[AFM_PATH_MAX];
         afm_parent_path(cur_path, up, sizeof(up));
         snprintf(cur_path, sizeof(cur_path), "%s", up);
+      }
+      else if (view_mode == AFM_VIEW_FILES && strcmp(cur_path, "/") == 0) {
+        view_mode = AFM_VIEW_SYSTEM;
       }
       else {
         running = 0;
