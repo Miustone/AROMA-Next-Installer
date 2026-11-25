@@ -817,6 +817,8 @@ void aui_set_user_theme(const char * id);
 byte aui_font_exists(const char * ttf_file);
 const char * aui_get_user_font(void);
 void aui_set_user_font(const char * id, const char * ttf_file);
+const char * aui_get_user_transition(void);
+void aui_set_user_transition(const char * style);
 void aui_sync_theme_and_font(void);
 byte afm_is_active(void);
 byte afm_run(AWINDOWP parent, const char * start_path);

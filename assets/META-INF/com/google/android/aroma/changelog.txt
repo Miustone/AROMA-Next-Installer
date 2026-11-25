@@ -6,7 +6,9 @@ V26.11-RC4 (NextGen)
 - New default font: Google Sans (official Android static TTF, SIL OFL)
 - 7 bundled modern open-source fonts: Google Sans, Roboto, Inter,
   Plus Jakarta Sans, Outfit, Ubuntu, JetBrains Mono + CJK fallback
-- Live "Select Font" dialog in the 3-dot menu right next to "Select Theme"
+- Streamlined 3-dot menu (About, Themes, Filemanager, Exit, Back) with
+  dedicated Themes submenu for Select Theme, Select Font & Transitions
+- 5 smooth 60-120Hz VSYNC Transitions: Slide, Stack, Fade, Zoom & None
 - Integrated AROMA-Next-Filemanager & Root Module Manager:
   * Accessible from the 3-dot menu inside any installer AND as standalone
     AROMA-Next-Filemanager.zip

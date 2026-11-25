@@ -39,6 +39,38 @@ static  int     aui_minY          = 0;  //-- Most Top Allowable UI Draw Position
 static  CANVAS  aui_bg;                 //-- Saved CANVAS for background
 static  CANVAS  aui_win_bg;             //-- Current drawed CANVAS for windows background
 static byte     transition_style  = 0;
+static byte     aroma_has_user_transition = 0;
+
+static byte aui_map_transition(byte base_dir) {
+  if (transition_style == 12) {
+    return 4; /* None / Instant */
+  }
+  if (base_dir == 2 || base_dir == 3) {
+    if (transition_style == 4)  return (base_dir == 2) ? 6 : 7; /* Stack */
+    if (transition_style == 8)  return 0;                       /* Fade */
+    if (transition_style == 10) return (base_dir == 2) ? 8 : 9; /* Zoom */
+    return base_dir;                                            /* Slide */
+  }
+  return base_dir;
+}
+
+const char * aui_get_user_transition(void) {
+  if (transition_style == 4)  return "stack";
+  if (transition_style == 8)  return "fade";
+  if (transition_style == 10) return "zoom";
+  if (transition_style == 12) return "none";
+  return "slide";
+}
+
+void aui_set_user_transition(const char * style) {
+  if (style == NULL) return;
+  aroma_has_user_transition = 1;
+  if (strcmp(style, "stack") == 0)      transition_style = 4;
+  else if (strcmp(style, "fade") == 0)  transition_style = 8;
+  else if (strcmp(style, "zoom") == 0)  transition_style = 10;
+  else if (strcmp(style, "none") == 0)  transition_style = 12;
+  else                                  transition_style = 0;
+}
 PNGCANVAS * pico_back = NULL;
 PNGCANVAS * pico_next = NULL;
 PNGCANVAS * pico_menu = NULL;
@@ -144,7 +176,7 @@ static  int     aparse_last_back_view = 0;
   if (aparse_last_back_view==0) { if (!aparse_is_back_request) { is_back_request = 5; }} \
   aparse_last_back_view = func_pos; \
   aparse_is_back_request = 0; \
-  if (is_back_request!=5) is_back_request+=transition_style;
+  is_back_request = aui_map_transition(is_back_request);
 
 #define _FINISHBACK() \
   if (func_pos==-4){ \
@@ -1432,12 +1464,7 @@ Value * AROMA_INI_GET(const char * name, State * state, int argc, Expr * argv[])
     snprintf(retval, 128, "%i", acfg()->roundsz);
   }
   else if (strcmp(args[0], "transition") == 0) {
-    if (transition_style == 4) {
-      snprintf(retval, 128, "stack");
-    }
-    else {
-      snprintf(retval, 128, "slide");
-    }
+    snprintf(retval, 128, "%s", aui_get_user_transition());
   }
   else if (strcmp(args[0], "button_roundsize") == 0) {
     snprintf(retval, 128, "%i", acfg()->btnroundsz);
@@ -1562,11 +1589,12 @@ Value * AROMA_INI_SET(const char * name, State * state, int argc, Expr * argv[])
     set_vibrate_rate(acfg()->vibrate);
   }
   else if (strcmp(args[0], "transition") == 0) {
-    if (strcmp(args[1], "slide") == 0) {
-      transition_style = 0;
-    }
-    else if (strcmp(args[1], "stack") == 0) {
-      transition_style = 4;
+    if (!aroma_has_user_transition) {
+      if (strcmp(args[1], "slide") == 0)      transition_style = 0;
+      else if (strcmp(args[1], "stack") == 0) transition_style = 4;
+      else if (strcmp(args[1], "fade") == 0)  transition_style = 8;
+      else if (strcmp(args[1], "zoom") == 0)  transition_style = 10;
+      else if (strcmp(args[1], "none") == 0)  transition_style = 12;
     }
   }
   else if (strcmp(args[0], "icon_next") == 0) {

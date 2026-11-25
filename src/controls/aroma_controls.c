@@ -438,11 +438,40 @@ void aw_show_ex2(AWINDOWP win, byte anitype, int x, int pos, int w, int h, ACONT
     }
   }
   
-  if (acfg()->fadeframes > 0) {
+  if (acfg()->fadeframes > 0 && strcmp(aui_get_user_transition(), "none") != 0) {
     if (anitype == 0) {
-      //-- Fade
-      aw_redraw(win);
-      ag_sync_fade(acfg_var.fadeframes);
+      //-- Smooth 60-120Hz VSYNC Crossfade
+      aw_redraw_ex(win, 0);
+      CANVAS cbg;
+      CANVAS tmpb;
+      ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, agw(), agh());
+      ag_draw(&cbg, agc(), 0, 0);
+      long long t0 = aw_now_us();
+      const long long dur_us = 170000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        byte alpha = (byte)(20.0f + (235.0f * ease));
+        ag_draw(&tmpb, &cbg, 0, 0);
+        ag_draw_strecth_ex(
+          &tmpb,
+          &win->c,
+          0, 0, agw(), agh(),
+          0, 0, agw(), agh(), alpha, 1
+        );
+        ag_draw(NULL, &tmpb, 0, 0);
+        ag_sync();
+        aw_anim_pace(f0);
+      }
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
+      ag_draw(NULL, &win->c, 0, 0);
+      ag_sync();
     }
     else if (anitype == 1) {
       //-- Bottom Top (Smooth time-based VSYNC slide)
@@ -658,6 +687,48 @@ void aw_show_ex2(AWINDOWP win, byte anitype, int x, int pos, int w, int h, ACONT
         if (w - xtarget > 0) {
           ag_draw_ex(&tmpb, &win->c, 0, 0, x + xtarget, pos, w - xtarget, h);
         }
+        ag_draw(NULL, &tmpb, x, pos);
+        ag_sync();
+        aw_anim_pace(f0);
+      }
+      ag_ccanvas(&tmpb);
+      ag_ccanvas(&cbg);
+      ag_draw(NULL, &win->c, 0, 0);
+      ag_sync();
+    }
+    else if (anitype == 8 || anitype == 9) {
+      //-- Material Zoom + Fade (8 = Zoom In Forward, 9 = Zoom Out Back)
+      ag_sync();
+      aw_redraw_ex(win, 0);
+      CANVAS cbg;
+      CANVAS tmpb;
+      ag_canvas(&cbg, agw(), agh());
+      ag_canvas(&tmpb, w, h);
+      ag_draw(&cbg, agc(), 0, 0);
+      int xc = w / 2;
+      int yc = h / 2;
+      long long t0 = aw_now_us();
+      const long long dur_us = 180000LL;
+      while (1) {
+        long long f0 = aw_now_us();
+        long long elapsed = f0 - t0;
+        if (elapsed >= dur_us) {
+          break;
+        }
+        float ease = aw_ease_out_cubic((float) elapsed / (float) dur_us);
+        float sc = (anitype == 8) ? (0.90f + (0.10f * ease)) : (1.08f - (0.08f * ease));
+        int wtarget = (int)((float) w * sc);
+        int htarget = (int)((float) h * sc);
+        if (wtarget < 2) wtarget = 2;
+        if (htarget < 2) htarget = 2;
+        byte alpha = (byte)(30.0f + (225.0f * ease));
+        ag_draw_ex(&tmpb, &cbg, 0, 0, x, pos, w, h);
+        ag_draw_strecth_ex(
+          &tmpb,
+          &win->c,
+          xc - wtarget / 2, yc - htarget / 2, wtarget, htarget,
+          x, pos, w, h, alpha, 1
+        );
         ag_draw(NULL, &tmpb, x, pos);
         ag_sync();
         aw_anim_pace(f0);
@@ -1020,7 +1091,7 @@ void aw_unmaskparent(AWINDOWP win, CANVAS * p, CANVAS * maskc, int x, int y, int
       wincanvas = &win->c;
     }
     
-    int fadesz = acfg()->fadeframes;
+    int fadesz = (strcmp(aui_get_user_transition(), "none") == 0) ? 0 : acfg()->fadeframes;
     
     if (fadesz > 0) {
       //-- Smooth time-based dialog dismiss (single reused canvas)
@@ -2265,13 +2336,191 @@ static byte aw_font_dialog(AWINDOWP parent) {
   return applied;
 }
 
+static byte aw_transition_dialog(AWINDOWP parent) {
+  static const struct {
+    const char * id;
+    const char * title;
+    const char * desc;
+  } styles[] = {
+    { "slide", "Slide",          "Classic smooth horizontal slide (Default)" },
+    { "stack", "Stack",          "Depth card stack with scale & overlay" },
+    { "fade",  "Fade",           "Ultra-clean 60-120Hz smooth crossfade" },
+    { "zoom",  "Zoom",           "Modern Material-style zoom & fade transition" },
+    { "none",  "None (Instant)", "Disable animations for instant screen switching" }
+  };
+  int cnt = (int)(sizeof(styles) / sizeof(styles[0]));
+
+  CANVAS * tmpc = aw_muteparent(parent);
+  on_dialog_window = 1;
+  CANVAS * maskc = aw_maskparent();
+
+  char title[32];
+  snprintf(title, sizeof(title), "Transitions");
+  int pad  = agdp() * 4;
+  int winW = agw() - (pad * 2);
+  int btnH = agdp() * 20;
+  int titW = ag_txtwidth(title, 1);
+  int titH = ag_fontheight(1) + (pad * 2);
+
+  PNGCANVASP winp = atheme("img.dialog");
+  PNGCANVASP titp = atheme("img.dialog.titlebar");
+  APNG9 winv, titv;
+  int vtitY = -1;
+  int vpadB = pad;
+  int listX = pad * 2;
+  int listW = winW - (pad * 2);
+  int tit_id = atheme_id("img.dialog.titlebar");
+  int dlg_id = atheme_id("img.dialog");
+
+  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
+    int tmptitH = titH - (pad * 2);
+    titH  = tmptitH + (titv.t + titv.b);
+    vtitY = titv.t;
+  }
+  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
+    listW = winW - (winv.l + winv.r);
+    listX = pad + winv.l;
+    vpadB = winv.b;
+  }
+
+  int listH = (agh() * 48) / 100;
+  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
+  int winX  = pad;
+  int winY  = (agh() / 2) - (winH / 2);
+  int titX  = (agw() / 2) - (titW / 2);
+  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
+  int listY = winY + titH + pad;
+  int btnW  = (listW / 2) - (pad / 2);
+  int btnY  = listY + listH + pad;
+  int btnX  = listX;
+  int btnX2 = listX + (listW / 2) + (pad / 2);
+
+  CANVAS alertbg;
+  ag_canvas(&alertbg, agw(), agh());
+  ag_draw(&alertbg, agc(), 0, 0);
+
+  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  }
+  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  }
+  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+
+  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
+
+  AWINDOWP hWin = aw(&alertbg);
+  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
+  const char * cur_tr = aui_get_user_transition();
+  int i;
+  for (i = 0; i < cnt; i++) {
+    byte sel = (cur_tr != NULL && strcmp(cur_tr, styles[i].id) == 0) ? 1 : 0;
+    acopt_add(opt1, (char *) styles[i].title, (char *) styles[i].desc, sel);
+  }
+  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
+  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
+  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+
+  byte applied = 0;
+  byte ondispatch = 1;
+  while (ondispatch) {
+    dword msg = aw_dispatch(hWin);
+    switch (aw_gm(msg)) {
+      case 6: {
+        int selidx = acopt_getselectedindex(opt1, 0);
+        if (selidx != -1) {
+          int pick = acopt_getgroupid(opt1, selidx);
+          if (pick >= 0 && pick < cnt) {
+            aui_set_user_transition(styles[pick].id);
+            applied = 1;
+          }
+        }
+        ondispatch = 0;
+      }
+      break;
+      case 5:
+        ondispatch = 0;
+        break;
+    }
+  }
+
+  aw_destroy(hWin);
+  ag_ccanvas(&alertbg);
+  on_dialog_window = 0;
+  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
+  return applied;
+}
+
+static byte aw_themes_submenu(AWINDOWP parent) {
+  CANVAS * tmpc = aw_muteparent(parent);
+  on_dialog_window = 2;
+  ag_rectopa(agc(), 0, 0, agw(), agh(), 0x0000, 180);
+
+  int item_cnt = 4;
+  int btnH  = agdp() * 19;
+  int pad   = agdp() * 2;
+  int vpad  = agdp() * 1;
+  int winH  = ((btnH + vpad) * item_cnt) + pad;
+  int winW  = agw();
+  int winX  = 0;
+  int winY  = agh() - winH;
+  int btnY  = winY + pad;
+  int btnX  = winX + pad;
+  int btnW  = winW - (pad * 2);
+
+  CANVAS alertbg;
+  ag_canvas(&alertbg, agw(), agh());
+  ag_draw(&alertbg, agc(), 0, 0);
+  ag_roundgrad_ex(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, 0, 1, 1, 0, 0);
+  ag_roundgrad_ex(&alertbg, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
+
+  AWINDOWP hWin = aw(&alertbg);
+  int row = 0;
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Theme", 0, 15);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Font",  0, 16);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Transitions",  0, 18);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
+  aw_show_ex(hWin, 1, winY - 1, NULL);
+
+  byte ondispatch = 1;
+  byte pick = 0;
+  while (ondispatch) {
+    dword msg = aw_dispatch(hWin);
+    switch (aw_gm(msg)) {
+      case 5:  ondispatch = 0; break;
+      case 15: pick = 1; ondispatch = 0; break;
+      case 16: pick = 2; ondispatch = 0; break;
+      case 18: pick = 3; ondispatch = 0; break;
+    }
+  }
+
+  aw_destroy(hWin);
+  ag_ccanvas(&alertbg);
+  on_dialog_window = 0;
+  aw_unmuteparent(parent, tmpc);
+
+  if (pick == 1) {
+    return aw_theme_dialog(parent) ? 3 : 0;
+  }
+  else if (pick == 2) {
+    return aw_font_dialog(parent) ? 3 : 0;
+  }
+  else if (pick == 3) {
+    aw_transition_dialog(parent);
+    return 0;
+  }
+  return 0;
+}
+
 byte aw_showmenu(AWINDOWP parent) {
   CANVAS * tmpc = aw_muteparent(parent);
   //-- Set Mask
   on_dialog_window = 2;
   ag_rectopa(agc(),   0, 0, agw(), agh(), 0x0000, 180);
   byte in_fm = afm_is_active();
-  int item_cnt = in_fm ? 5 : 6;
+  int item_cnt = in_fm ? 4 : 5;
   int btnH  = agdp() * 19;
   int pad   = agdp() * 2;
   int vpad  = agdp() * 1;
@@ -2289,16 +2538,15 @@ byte aw_showmenu(AWINDOWP parent) {
   //-- Draw Window Background
   ag_roundgrad_ex(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, 0, 1, 1, 0, 0);
   ag_roundgrad_ex(&alertbg, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
-  //-- Create Window
+  //-- Create Window (Top -> Bottom: About, Themes, Filemanager, Exit, Back)
   AWINDOWP hWin   = aw(&alertbg);
   int row = 0;
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_about, 0, 11);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Theme", 0, 15);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Font", 0, 16);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Themes", 0, 15);
   if (!in_fm) {
     acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Filemanager", 0, 17);
   }
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_quit, 0, 14);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Exit", 0, 14);
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
   /* aw_show(hWin); */
   aw_show_ex(hWin, 1, winY - 1, NULL);
@@ -2338,11 +2586,6 @@ byte aw_showmenu(AWINDOWP parent) {
         ondispatch = 0;
         break;
 
-      case 16:
-        res = 6;
-        ondispatch = 0;
-        break;
-
       case 17:
         res = 7;
         ondispatch = 0;
@@ -2372,14 +2615,7 @@ byte aw_showmenu(AWINDOWP parent) {
     }
   }
   else if (res == 5) {
-    if (aw_theme_dialog(parent)) {
-      return 3;
-    }
-  }
-  else if (res == 6) {
-    if (aw_font_dialog(parent)) {
-      return 3;
-    }
+    return aw_themes_submenu(parent);
   }
   else if (res == 7) {
     afm_run(parent, NULL);

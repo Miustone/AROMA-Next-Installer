@@ -12,7 +12,7 @@ Focus: Modern open-source typography (**Google Sans** default + live Font Switch
 - **Google Sans Default & Live Font Switcher (`src/controls/aroma_controls.c`, `src/main/aroma_ui.c`, `assets/.../ttf/`):**
   - Set official SIL OFL **Google Sans** (`GoogleSans-Regular.ttf` v14.000) as the new default font across installer, Magisk template, Filemanager, and Demo configs.
   - Bundled 7 open-source modern fonts: **Google Sans**, **Roboto**, **Inter**, **Plus Jakarta Sans**, **Outfit**, **Ubuntu**, and **JetBrains Mono** (all paired with `DroidSansFallback.ttf` for full Unicode/CJK coverage).
-  - Added **Select Font** right next to **Select Theme** in the 3-Dot Menu for instant live font switching without restarting or losing selections.
+  - Added **Themes** hub in the streamlined 3-Dot Menu (`About` → `Themes` → `Filemanager` → `Exit` → `Back`) bundling **Select Theme**, **Select Font**, and **Transitions** (**Slide**, **Stack**, **Fade**, **Zoom**, **None** — all 60–120Hz VSYNC-locked) without restarting or losing selections.
 - **Integrated AROMA-Next-Filemanager & Root Module Manager (`src/main/aroma_filemanager.c`, `filemanager-template/`):**
   - Built directly into the shared AROMA-Next engine (reusing 64-bit DRM/KMS, 60–120Hz animations, Touch, Themes, and Fonts with zero duplicated C code).
   - Accessible both directly from the **3-Dot Menu → Filemanager** inside any installer AND as a standalone flashable **`AROMA-Next-Filemanager.zip`** via the new `filemanager()` Edify command.
