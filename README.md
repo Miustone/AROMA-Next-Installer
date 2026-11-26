@@ -10,7 +10,7 @@
 [![Architectures](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-222222)](#downloads--which-zip-should-i-use)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
-[Screenshots](#screenshots) • [Highlights](#highlights) • [Downloads & ZIP Guide](#downloads--which-zip-should-i-use) • [Filemanager](#aroma-next-filemanager--root-module-manager) • [Systemless Modding](#systemless-first-modding--optional-pre-rw) • [Building](#building-from-source) • [Changelog](CHANGELOG.md)
+[Screenshots](#screenshots) • [Highlights](#highlights) • [Wiki & Developer Guide](WIKI.md) • [Downloads & ZIP Guide](#downloads--which-zip-should-i-use) • [Filemanager](#aroma-next-filemanager--root-module-manager) • [Systemless Modding](#systemless-first-modding--optional-pre-rw) • [Building](#building-from-source) • [Changelog](CHANGELOG.md)
 
 </div>
 
