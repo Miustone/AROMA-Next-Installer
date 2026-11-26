@@ -19,9 +19,9 @@
   [/LIST]
 [*][B][COLOR="#0099CC"]Modern HiDPI Splash & Nostalgia Animation:[/COLOR][/B] Crisp 920×360 HiDPI [B]AROMA-Next-Installer[/B] Google Sans splash screen with the classic AROMA echo-pulse animation & automatic proportional HiDPI scaling.
 [*][B][COLOR="#0099CC"]Modernized 2026 Core Libraries:[/COLOR][/B] Upgraded all vendored libraries to [B]`zlib 1.4`[/B], [B]`libpng 1.6.59`[/B] (ARM NEON intrinsics), [B]`FreeType 2.15.0`[/B] (LCD Subpixel + Variable Fonts), and RFC 3629-compliant [B]`minutf8`[/B].
-[*][B][COLOR="#00AA55"]Safe by Design (Zero Recovery Hangs):[/COLOR][/B] Cleanly pauses/resumes recovery and restores all DRM planes on exit; exits safely with code `77` (`AROMA_EXIT_NO_DISPLAY`) with non-GUI fallback if a recovery holds an unshared display lock.
-[*][B][COLOR="#E67E22"]Flash Anywhere (Recovery OR Root App):[/COLOR][/B] Full Touch GUI inside custom recoveries (`BOOTMODE=false`) and automatic headless module installation inside the Magisk / KernelSU / APatch app (`BOOTMODE=true`).
-[*][B][COLOR="#0099CC"]High-Hz OLED Touch & Screenshot Combo:[/COLOR][/B] Scans `/dev/input/event0..63`, supports Multitouch Type-B (`ABS_MT_SLOT`), and cleanly captures `.bmp` screenshots via [B]Vol-Down + Power[/B] with shutter flash.
+[*][B][COLOR="#00AA55"]Safe by Design (Zero Recovery Hangs):[/COLOR][/B] Cleanly pauses/resumes recovery, restores all DRM planes on exit, installs async-signal-safe `SIGCONT` crash guards, and switches to Volume Key mode (`EXIT 77`) if a recovery holds an unshared display lock.
+[*][B][COLOR="#E67E22"]Single-Config Dual-Mode Engine (BOOTMODE=0 Touch GUI + BOOTMODE=1 Native Volume Key Selector):[/COLOR][/B] Write [B]only ONE `aroma-config`[/B] (zero MMT-Extended, zero duplicate bash menus!). In Custom Recovery (`BOOTMODE=0`), AROMA-Next launches the full 60–120Hz Touch GUI; when flashed inside [B]Magisk, KernelSU, or APatch[/B] (`BOOTMODE=1`), it automatically renders the [B]exact same `aroma-config`[/B] through its built-in native C Volume Key Selector with 48-column UTF-8 word-wrapping!
+[*][B][COLOR="#0099CC"]High-Hz OLED Touch & Thread-Safe Screenshots:[/COLOR][/B] Scans `/dev/input/event0..63`, supports Multitouch Type-B (`ABS_MT_SLOT`), and cleanly captures `.bmp` screenshots via [B]Vol-Down + Power[/B] with shutter flash.
 [/LIST]
 
 [HR][/HR]
@@ -32,7 +32,7 @@
 Every release includes [B]4 purpose-built flashable ZIPs[/B] + standalone static binaries (`arm64-v8a` & `armeabi-v7a`):
 [LIST]
 [*][B][COLOR="#0099CC"]`AROMA-Next-Installer.zip`[/COLOR] (Clean Base Installer Template):[/B] Minimal, clutter-free starter ZIP for ROM, kernel, or mod developers — includes the modern HiDPI nostalgia splash, Google Sans + Black & White defaults, Filemanager entry, and a clean sample `updater-script`.
-[*][B][COLOR="#00AA55"]`AROMA-Next-Magisk-Template.zip`[/COLOR] (Magisk / KernelSU / APatch Template):[/B] Ready-to-use [B]Systemless-First[/B] (+ optional Pre-RW) dual-mode module template with Recovery Touch GUI, App-mode fallback, `aroma-env-check.sh`, and `aroma-mod-lib.sh`.
+[*][B][COLOR="#00AA55"]`AROMA-Next-Magisk-Template.zip`[/COLOR] (Magisk / KernelSU / APatch Template):[/B] Ready-to-use [B]Systemless-First[/B] (+ optional Pre-RW) Dual-Mode module template — [B]one `aroma-config`[/B] drives both Recovery Touch GUI (`BOOTMODE=0`) and AROMA-Next's built-in [B]native Volume Key Selector[/B] (`BOOTMODE=1` in Magisk / KSU / APatch) with zero MMT-Extended needed!
 [*][B][COLOR="#9B59B6"]`AROMA-Next-Filemanager.zip`[/COLOR] (Standalone Filemanager & Module Manager):[/B] Boots directly into [B]AROMA-Next-Filemanager[/B] to manage `/data/adb/modules`, `/sdcard`, and system partitions from Recovery (also built into the 3-Dot Menu of every other ZIP).
 [*][B][COLOR="#E67E22"]`AROMA-Next-Demo.zip`[/COLOR] (Full Interactive Feature Showcase):[/B] Flash on demand to test the entire AROMA-Next V26.11 feature set — Splash & Animation, all 7 Themes, all 7 Fonts, all 5 Transitions, Multilanguage UTF-8, Checkboxes, Forms, Menubox, V26.11 Changelog, Apache 2.0 License, Filemanager, and simulated install progress.
 [*][B]`aroma_installer-arm64` & `aroma_installer-arm32`:[/B] Standalone static ELF binaries for custom integration.
@@ -59,7 +59,8 @@ Modern Android (`/system`, `/vendor`, `/product`, `/system_ext`) uses read-only 
 [/LIST]
 
 [B]Helper API (`aroma-mod-lib.sh`) for `customize.sh`:[/B]
-[CODE]aroma_mod_init "$REQ_MODE" "$MODPATH" 1
+[CODE]aroma_run_config_if_needed   # Auto-runs Volume Key Selector from aroma-config in BOOTMODE=1!
+aroma_mod_init "$REQ_MODE" "$MODPATH" 1
 aroma_mod_edit_prop "ro.config.media_vol_steps" "30"
 aroma_mod_copy "$MODPATH/files/my.conf" "system/etc/my.conf" 0644
 aroma_mod_delete "system/app/ExampleBloat" "dir"
@@ -90,6 +91,8 @@ python build.py --arch arm64 arm32[/CODE]
 [SIZE="4"][B][COLOR="#0099CC"]Links & Credits[/COLOR][/B][/SIZE]
 [LIST]
 [*][B]Source, Releases & Changelog (GitHub):[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer"]https://github.com/Miustone/AROMA-Next-Installer[/URL]
+[*][B]Full Developer Wiki (BOOTMODE=0/1, Edify, Modules, ROMs & Filemanager):[/B] [URL="https://github.com/Miustone/AROMA-Next-Installer/blob/main/WIKI.md"]WIKI.md[/URL]
+[*][B]Live Real-World Showcase Module (Zero MMT-Extended):[/B] [URL="https://github.com/Miustone/NLSound"]NLSound — AROMA-Next Edition[/URL]
 [*][B]Support:[/B] [COLOR="#00AA55"]Miustone[/COLOR] (XDA & GitHub)
 [*][B]Original AROMA Installer:[/B] [URL="https://github.com/amarullz/AROMA-Installer"]Ahmad Amarullah (amarullz)[/URL] — [COLOR="#7F8C8D"]2013 amarullz | 2026 Miustone — Apache License 2.0[/COLOR]
 [/LIST]

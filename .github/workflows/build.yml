@@ -37,7 +37,7 @@ jobs:
 
       - name: Package flashable ZIPs
         run: |
-          mkdir -p dist staging_rec staging_magisk
+          mkdir -p dist staging_rec staging_magisk staging_fm staging_demo
           cp -r assets/* staging_rec/
           rm -f staging_rec/META-INF/CERT.* staging_rec/META-INF/MANIFEST.MF
           mkdir -p staging_rec/META-INF/com/google/android/bin
@@ -46,9 +46,18 @@ jobs:
           (cd staging_rec && zip -r9 ../dist/AROMA-Next-Installer.zip .)
 
           cp -r staging_rec/* staging_magisk/
-          rm -f staging_magisk/META-INF/com/google/android/update-binary-installer
+          rm -f staging_magisk/META-INF/com/google/android/update-binary-installer staging_magisk/META-INF/com/google/android/updater-script
           cp -rf magisk-template/* staging_magisk/
           (cd staging_magisk && zip -r9 ../dist/AROMA-Next-Magisk-Template.zip .)
+
+          cp -r staging_rec/* staging_fm/
+          rm -f staging_fm/META-INF/com/google/android/update-binary-installer staging_fm/META-INF/com/google/android/updater-script
+          cp -rf filemanager-template/* staging_fm/
+          (cd staging_fm && zip -r9 ../dist/AROMA-Next-Filemanager.zip .)
+
+          cp -r staging_rec/* staging_demo/
+          cp -rf demo-template/* staging_demo/
+          (cd staging_demo && zip -r9 ../dist/AROMA-Next-Demo.zip .)
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -70,5 +79,7 @@ jobs:
           files: |
             dist/AROMA-Next-Installer.zip
             dist/AROMA-Next-Magisk-Template.zip
+            dist/AROMA-Next-Filemanager.zip
+            dist/AROMA-Next-Demo.zip
             out/bin/aroma_installer-arm64
             out/bin/aroma_installer-arm32

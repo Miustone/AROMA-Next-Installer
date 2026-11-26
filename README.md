@@ -101,8 +101,8 @@
 - **Integrated `AROMA-Next-Filemanager` & Root Module Manager:** Built directly into the shared AROMA-Next binary (zero duplicate engine code) — launchable from **3-Dot Menu → `Filemanager`** inside any installer OR standalone via **`AROMA-Next-Filemanager.zip`**.
 - **Modern HiDPI Splash & Nostalgia Animation:** Crisp 920×360 HiDPI **AROMA-Next-Installer** Google Sans splash screen featuring the classic AROMA echo-pulse nostalgia animation with automatic proportional HiDPI scaling.
 - **Modernized 2026 Core Libraries:** Upgraded all vendored C libraries from 2011/2012 baselines to **`zlib 1.4`**, **`libpng 1.6.59`** (ARM64/ARM32 NEON intrinsics), **`FreeType 2.15.0`** (Subpixel LCD filtering & Variable Fonts), and a rewritten RFC 3629-compliant **`minutf8`** UTF-8 decoder.
-- **Zero-Freeze Recovery Safety (`EXIT 77`) & High-Hz OLED Touch:** Scans `/dev/input/event0..63`, supports Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`), suppresses accidental key clicks during `Vol-Down + Power` screenshots (with shutter flash), cleanly pauses/resumes ancestor recovery processes, and exits with code `77` (`AROMA_EXIT_NO_DISPLAY`) if a recovery holds an unshared display lock.
-- **Flash Anywhere (Recovery or Root App):** Runs the full Touch GUI inside custom recoveries (`BOOTMODE=false`) and automatically falls back to headless module installation when flashed inside the **Magisk**, **KernelSU**, or **APatch** app (`BOOTMODE=true`).
+- **Zero-Freeze Recovery Safety (`EXIT 77` + Crash Guards) & High-Hz OLED Touch:** Scans `/dev/input/event0..63`, supports Linux Multitouch Protocol Type-B (`ABS_MT_SLOT`), captures thread-safe `.bmp` screenshots via `Vol-Down + Power` (with shutter flash), protects ancestor recovery processes with async-signal-safe `SIGCONT` crash guards, and switches seamlessly to Volume Key mode (`EXIT 77`) if a recovery holds an unshared display lock.
+- **Single-Config Dual-Mode Engine (`BOOTMODE=0` Touch GUI + `BOOTMODE=1` Native Volume Key Selector):** Module authors write **only ONE `aroma-config`** (zero MMT-Extended, zero duplicate scripts!) — AROMA-Next automatically renders the full **60–120Hz Touch GUI** in Custom Recovery (`BOOTMODE=0`) and switches to its built-in **native C Volume Key Selector** (with 48-column UTF-8 word-wrapping & `/dev/input` hardware key reading) when flashed inside the **Magisk**, **KernelSU**, or **APatch** app (`BOOTMODE=1`). See [Miustone/NLSound](https://github.com/Miustone/NLSound) for a live real-world showcase and read the full [WIKI.md](WIKI.md)!
 
 ---
 
@@ -113,7 +113,7 @@ Every GitHub Release on the [**Releases**](https://github.com/Miustone/AROMA-Nex
 | Package | Best For | What's Inside |
 | :--- | :--- | :--- |
 | **`AROMA-Next-Installer.zip`** | **ROM / Kernel / Mod Developers** (Clean Base Template) | Minimal, clutter-free starter installer with the modern HiDPI nostalgia splash, Google Sans + Black & White defaults, clean Welcome screen, quick Filemanager entry, and a safe sample `updater-script`. Ready to customize without legacy 2013 demo clutter. |
-| **`AROMA-Next-Magisk-Template.zip`** | **Magisk / KernelSU / APatch Module Authors** | Ready-to-use **Systemless-First** (+ optional Pre-RW) dual-mode module template with Recovery Touch GUI, automatic App-mode fallback (`BOOTMODE=true`), `aroma-env-check.sh`, and the `aroma-mod-lib.sh` helper API. |
+| **`AROMA-Next-Magisk-Template.zip`** | **Magisk / KernelSU / APatch Module Authors** | Ready-to-use **Systemless-First** (+ optional Pre-RW) Dual-Mode module template: **ONE `aroma-config`** automatically drives both the Recovery Touch GUI (`BOOTMODE=0`) and AROMA-Next's built-in **native Volume Key Selector** (`BOOTMODE=1` in Magisk / KSU / APatch apps) via `aroma_run_config_if_needed` — zero MMT-Extended required! |
 | **`AROMA-Next-Filemanager.zip`** | **End Users & Power Users** (Recovery Tool) | Standalone flashable **AROMA-Next-Filemanager & Root Module Manager** — boots directly into the file & module manager (also accessible from the 3-Dot Menu inside every other AROMA-Next ZIP). |
 | **`AROMA-Next-Demo.zip`** | **Testers & Explorers** (Full Feature Showcase) | Interactive showcase of **every** AROMA-Next V26.11 feature on demand: Splash + Nostalgia Animation, all 7 Themes, all 7 Fonts, all 5 Transitions, Multilanguage UTF-8 test, Checkboxes, Forms, Menubox, modern V26.11 Changelog, Apache 2.0 License, Filemanager launch, and simulated install progress. |
 | **`aroma_installer-arm64`** / **`aroma_installer-arm32`** | **Custom Integrations** | Standalone static musl/NDK ELF binaries (`arm64-v8a` & `armeabi-v7a`). |
@@ -161,16 +161,20 @@ On modern Android (10–16+), `/system`, `/vendor`, `/product`, and `/system_ext
    - Intended **only** if you already converted your partitions to RW beforehand using an external tool like **RO2RW** or **SystemRW** and rebooted prior to running AROMA-Next.
    - `aroma_probe_rw()` verifies actual partition writability before touching anything; if partitions are still EROFS or locked RO, it safely falls back to Systemless Mode (or aborts cleanly).
 
-### Dual-Mode Flow (`Recovery` vs. `App`)
+### Dual-Mode Flow (`BOOTMODE=0` Recovery vs. `BOOTMODE=1` Android App)
 
-- **In Recovery (`TWRP` / `OrangeFox` / `AERA`, `BOOTMODE=false`):** `update-binary` detects `uname -m` (`aarch64` / `armv7l`), launches the Touch GUI (`aroma-config`), writes user choices to `/tmp/aroma/*.prop`, and calls `magisk-installer` → `customize.sh`.
-- **In Magisk / KernelSU / APatch App (`BOOTMODE=true`):** Android's SurfaceFlinger owns the display, so `update-binary` skips the recovery Touch GUI and runs `magisk-installer` → `customize.sh` directly using safe Systemless defaults.
+- **In Custom Recovery (`TWRP` / `OrangeFox` / `AERA`, `BOOTMODE=0`):** `update-binary` detects `uname -m` (`aarch64` / `armv7l`), launches the **60–120Hz Touch GUI** (`aroma-config`), writes user choices to `/tmp/aroma/*.prop`, and calls `magisk-installer` → `customize.sh` (streaming real-time `aroma_progress` updates into AROMA's progress bar).
+- **In Magisk / KernelSU / APatch App (`BOOTMODE=1`):** Android's SurfaceFlinger owns the display, so `aroma_run_config_if_needed` automatically launches AROMA-Next's built-in **native C Volume Key Selector** (`--volkey --config-only`) on the **exact same `aroma-config`** — rendering every `viewbox`, `menubox`, `selectbox`, `checkbox`, and `form` with 48-column UTF-8 word-wrapping and writing identical `$AROMA_TMP/*.prop` files!
+- **On Locked Recovery Displays (`EXIT 77`):** `update-binary` catches exit code `77` and launches `aroma_installer --volkey` automatically — zero freezes and zero lost options.
 
 ### Developer Quickstart (`aroma-mod-lib.sh`)
 
-Use `magisk-template/` as your starting point (`module.prop`, `customize.sh`, `META-INF/com/google/android/aroma-config`). Inside `customize.sh`, source `aroma-mod-lib.sh` and use these helpers:
+Use `magisk-template/` as your starting point (see the full [**WIKI.md**](WIKI.md) for every Edify widget, CLI flag, and ROM/Module walkthrough, plus **[Miustone/NLSound](https://github.com/Miustone/NLSound)** as a live real-world module showcase). Inside `customize.sh`, source `aroma-mod-lib.sh`:
 
 ```sh
+# 0. In BOOTMODE=1 (Magisk / KSU / APatch App), automatically run aroma-config via Volume Keys!
+aroma_run_config_if_needed
+
 # 1. Initialize backend ("systemless", "rw", or "auto"; 3rd arg = fallback to systemless 1|0)
 aroma_mod_init "$REQ_MODE" "$MODPATH" 1
 

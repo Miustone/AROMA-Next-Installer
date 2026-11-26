@@ -4,25 +4,42 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
-## [V26.11-RC4] — 2026-11-25
+## [V26.11-RC4] — 2026-11-26
 
-Focus: Modern open-source typography (**Google Sans** default + live Font Switcher), integrated **AROMA-Next-Filemanager & Root Module Manager**, modern HiDPI splash screen with nostalgia animation, and clean separation of **Base Installer** vs. **Demo ZIP**.
+### 🚀 Biggest Highlights from RC3 → RC4
+1. **Built-In Native `BOOTMODE=1` Volume Key Selector (ONE `aroma-config`, Zero MMT-Extended!):** Module developers no longer have to maintain two separate installers. Write **one** `aroma-config` and get the full **60–120Hz Touch GUI** in Custom Recovery (`BOOTMODE=0`) **AND** an automatic, native C **Volume Key Selector** inside **Magisk, KernelSU, and APatch** (`BOOTMODE=1`) — complete with 48-column UTF-8 word-wrapping, multi-line descriptions, runtime `AROMA_TMP`, and automatic `/sbin/sh` → `/system/bin/sh` handling.
+2. **Integrated AROMA-Next-Filemanager & Root Module Manager:** Built straight into the shared binary (**3-Dot Menu → `Filemanager`** OR standalone **`AROMA-Next-Filemanager.zip`**) with 4 inline tabs (`Modules | Storage | System | Tools`), Magisk/KSU/APatch module management, `[RW]`/`[RO]` partition remounting, built-in **Touch QWERTY Keyboard**, and **Text Line Editor**.
+3. **Google Sans Default + 7 Modern Fonts & Live Themes/Transitions Hub:** Official **Google Sans** (SIL OFL) default + 6 more modern open-source fonts, streamlined 3-Dot Menu (`About → Themes → Filemanager → Exit → Back`), and live switching of **7 Themes**, **7 Fonts**, and **5 VSYNC-locked 60–120Hz Transitions** (`Fade` default, `Slide`, `Stack`, `Zoom`, `None`) without restarting.
+4. **Modern HiDPI Splash & Clean 4-ZIP Release Split:** Crisp 920×360 HiDPI **AROMA-Next-Installer** splash with classic echo-pulse nostalgia animation, clutter-free **Base Installer ZIP**, dedicated **`AROMA-Next-Demo.zip`**, **`AROMA-Next-Filemanager.zip`**, and **`AROMA-Next-Magisk-Template.zip`**.
+5. **Major Stability Fixes & Full `WIKI.md`:** Squashed two long-standing upstream AROMA engine bugs (`pleasewait()` font deadlock and `key_pressed[888]` out-of-bounds crash on touch/screenshots), added async-signal-safe `SIGCONT` crash guards so Recovery never freezes, and published the complete **[WIKI.md](WIKI.md)** developer guide.
 
 ### Added & Changed
+- **Native Volume Key Engine for `BOOTMODE=1` & `EXIT 77` (`src/main/aroma_volkey.c`, `src/main/aroma.c`, `src/main/aroma_ui.c`, `aroma-mod-lib.sh`):**
+  - Renders `viewbox`, `checkviewbox`, `textbox`, `agreebox`, `menubox`, `selectbox`, `checkbox`, `form`, `alert`, `confirm`, and `textdialog` natively via Linux `/dev/input/event0..63` (`KEY_VOLUMEUP` / `KEY_VOLUMEDOWN`, 120ms debounce) with 1:1 `.prop` output parity.
+  - Added CLI modes `--volkey`, `--config-only`, and `--plain` (supporting both Magisk `OUTFD` pipes and KernelSU/APatch `stdout`), plus `AROMA_VK_STDIN=1` for automated ADB testing.
+  - Added 48-column UTF-8-safe word-wrapping with continuation indentation and multi-line item descriptions so Magisk/KSU/APatch consoles never clip text horizontally.
+  - Added runtime `aroma_tmp_dir()` (`/tmp/aroma` in Recovery, `/dev/tmp/aroma` or `$AROMA_TMP` on booted Android), exported `AROMA_VOLKEY=0|1` to helper scripts, and added automatic `/sbin/sh` → `/system/bin/sh` + `/tmp/aroma/` path rewriting in `AROMA_EXEC`.
+  - Added one-line `aroma_run_config_if_needed` and `aroma_progress` helpers to `magisk-template/META-INF/com/google/android/aroma-mod-lib.sh` and wired `EXIT 77` in `update-binary` to fall back cleanly to `aroma_installer --volkey`.
 - **Google Sans Default & Live Font Switcher (`src/controls/aroma_controls.c`, `src/main/aroma_ui.c`, `assets/.../ttf/`):**
   - Set official SIL OFL **Google Sans** (`GoogleSans-Regular.ttf` v14.000) as the new default font across installer, Magisk template, Filemanager, and Demo configs.
   - Bundled 7 open-source modern fonts: **Google Sans**, **Roboto**, **Inter**, **Plus Jakarta Sans**, **Outfit**, **Ubuntu**, and **JetBrains Mono** (all paired with `DroidSansFallback.ttf` for full Unicode/CJK coverage).
-  - Added **Themes** hub in the streamlined 3-Dot Menu (`About` → `Themes` → `Filemanager` → `Exit` → `Back`) bundling **Select Theme**, **Select Font**, and **Transitions** (**Slide**, **Stack**, **Fade**, **Zoom**, **None** — all 60–120Hz VSYNC-locked) without restarting or losing selections.
+  - Added **Themes** hub in the streamlined 3-Dot Menu (`About` → `Themes` → `Filemanager` → `Exit` → `Back`) bundling **Select Theme**, **Select Font**, and **Transitions** (**Fade** default, **Slide**, **Stack**, **Zoom**, **None** — all 60–120Hz VSYNC-locked) without restarting or losing selections.
 - **Integrated AROMA-Next-Filemanager & Root Module Manager (`src/main/aroma_filemanager.c`, `filemanager-template/`):**
   - Built directly into the shared AROMA-Next engine (reusing 64-bit DRM/KMS, 60–120Hz animations, Touch, Themes, and Fonts with zero duplicated C code).
   - Accessible both directly from the **3-Dot Menu → Filemanager** inside any installer AND as a standalone flashable **`AROMA-Next-Filemanager.zip`** via the new `filemanager()` Edify command.
   - Unified inline **Modules / Storage / System / Tools** top bar with crisp active tab highlight (accent bar + bold + focus) and 1:1 matched installer bottom navigation bar (including vertical 3-dot icon).
   - **Root Module Manager (`/data/adb/modules`):** Inspect installed Magisk / KernelSU / APatch modules (`module.prop` metadata + live `ACTIVE` / `DISABLED` / `REMOVE PENDING` / `UPDATE PENDING` status), toggle enable/disable, mark for removal, delete immediately, browse module files, or edit `module.prop` / `system.prop`.
   - **Full Storage & System File Browser:** Browse `/sdcard`, `/data`, `/`, and system partitions (`/system`, `/vendor`, `/product`, `/system_ext`, `/odm`) inline with live `/proc/mounts` `[RW]` / `[RO]` detection, safe `Remount Partition RW` helper, recursive Copy / Cut / Paste / Delete, Rename, `chmod`, Properties, built-in **Touch QWERTY Keyboard**, and built-in **Text Viewer & Line Editor**.
-- **Modern HiDPI Splash Screen & Clean Release Packaging (`assets/.../splash/`, `demo-template/`, `build.py`):**
+- **Modern HiDPI Splash, 4-ZIP Release Split & Full Developer Wiki (`assets/.../splash/`, `demo-template/`, `build.py`, `.github/workflows/build.yml`, `WIKI.md`):**
   - Redesigned `sample.png` and `splash/a1..a6.png` at 920×360 HiDPI with modern **AROMA-Next-Installer** Google Sans branding and the iconic AROMA nostalgia echo animation + automatic proportional HiDPI scaling in `AROMA_SPLASH` / `AROMA_ANISPLASH`.
-  - Replaced legacy 2013 demo clutter in `AROMA-Next-Installer.zip` with a sleek, minimal Base Installer template + updated `changelog.txt`, `license.txt` (Apache 2.0), and safe modern `updater-script`.
-  - Added separate **`AROMA-Next-Demo.zip`** (`demo-template/`) showcasing every AROMA-Next V26.11 feature (Themes, 7 Fonts, UTF-8 Multilanguage, Checkboxes, Forms, Menubox, Filemanager, and simulated install) on demand.
+  - Replaced legacy 2013 demo clutter in `AROMA-Next-Installer.zip` with a sleek, minimal Base Installer template and separated **`AROMA-Next-Demo.zip`** (`demo-template/`) for full feature showcases.
+  - Published the complete **[WIKI.md](WIKI.md)** covering `BOOTMODE=0` vs. `BOOTMODE=1`, every Edify widget, module/ROM/kernel creation, Filemanager features, and troubleshooting.
+
+### Fixed
+- **Fixed `key_pressed[KEY_MAX + 1]` Out-of-Bounds Memory Corruption (`src/libs/aroma_input.c`):** Expanded `key_pressed` from 768 bytes to `1024` slots with strict bounds checks so virtual touch (`evtouch_code=888`) and window message (`atouch_message_code=889`) codes never corrupt `.bss` memory or trigger `SIGSEGV` (`ERROR: 139`).
+- **Fixed `pleasewait()` Deadlock Before First Screen (`src/libs/aroma_graph.c`, `src/main/aroma_ui.c`):** Called `aui_ensure_ready()` before `ag_setbusy_withtext()` and replaced the infinite `while (!ag_fontready(0))` spinlock in `ag_copybusy()` with a safe early return.
+- **Fixed Zoom Back Crash & Screenshot Thread Safety (`src/libs/aroma_graph.c`):** Clipped `ag_draw_strecth_ex` destination bounds and guarded `ag_takescreenshoot()` shutter flash with `ag_refreshlock = 1`.
+- **Added Async-Signal-Safe Crash Guards (`src/main/aroma.c`):** Registered `SIGSEGV`/`SIGBUS`/`SIGABRT`/`SIGFPE`/`SIGILL`/`SIGTERM` handlers that immediately send `SIGCONT` to paused recovery ancestors so Custom Recovery can never remain frozen.
 
 ---
 
