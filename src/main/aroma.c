@@ -20,7 +20,9 @@
  * Main executable for AROMA Installer Binary
  *
  */
+#include <signal.h>
 #include <sys/reboot.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include "../aroma.h"
 
@@ -34,6 +36,41 @@ static  int     paused_count = 0;
 static  char    currArgv[2][256];
 static  byte    reboot_opt = 0;
 static  char    reboot_type[32] = {0};
+
+static  char    g_tmp_dir[256]     = "/tmp/aroma";
+static  char    g_tmp_s_dir[256]   = "/tmp/aroma-data";
+static  char    g_install_log[300] = "/tmp/aroma/.install.log";
+static  char    g_install_txt[300] = "/tmp/aroma/.install.txt";
+
+const char * aroma_tmp_dir(void)          { return g_tmp_dir; }
+const char * aroma_tmp_s_dir(void)        { return g_tmp_s_dir; }
+const char * aroma_install_log_path(void) { return g_install_log; }
+const char * aroma_install_txt_path(void) { return g_install_txt; }
+
+static void a_init_tmp_paths(void) {
+  const char * env_tmp = getenv("AROMA_TMP");
+  if (env_tmp && env_tmp[0] == '/') {
+    snprintf(g_tmp_dir, sizeof(g_tmp_dir), "%s", env_tmp);
+  }
+  else if (!a_volkey_mode() && access("/tmp", W_OK) == 0) {
+    snprintf(g_tmp_dir, sizeof(g_tmp_dir), "/tmp/aroma");
+  }
+  else {
+    /* Booted Android (BOOTMODE=1) often lacks writable /tmp; prefer /dev/tmp/aroma */
+    if (access("/dev/tmp", W_OK) == 0 || mkdir("/dev/tmp", 0755) == 0) {
+      snprintf(g_tmp_dir, sizeof(g_tmp_dir), "/dev/tmp/aroma");
+    }
+    else if (access("/tmp", W_OK) == 0) {
+      snprintf(g_tmp_dir, sizeof(g_tmp_dir), "/tmp/aroma");
+    }
+    else {
+      snprintf(g_tmp_dir, sizeof(g_tmp_dir), "/data/local/tmp/aroma");
+    }
+  }
+  snprintf(g_tmp_s_dir, sizeof(g_tmp_s_dir), "%s-data", g_tmp_dir);
+  snprintf(g_install_log, sizeof(g_install_log), "%s/.install.log", g_tmp_dir);
+  snprintf(g_install_txt, sizeof(g_install_txt), "%s/.install.txt", g_tmp_dir);
+}
 
 static int a_read_proc_info(int pid, char * comm_buf, size_t comm_sz) {
   char path[64];
@@ -118,6 +155,32 @@ static void a_resume_ancestors(void) {
   paused_count = 0;
 }
 
+/* Async-signal-safe crash guard: always SIGCONT paused recovery ancestors so Recovery never freezes */
+static void a_crash_signal_handler(int sig) {
+  int i;
+  for (i = paused_count - 1; i >= 0; i--) {
+    if (paused_pids[i] > 1) {
+      kill(paused_pids[i], SIGCONT);
+    }
+  }
+  paused_count = 0;
+  _exit(128 + sig);
+}
+
+static void a_install_crash_guards(void) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = a_crash_signal_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESETHAND;
+  sigaction(SIGSEGV, &sa, NULL);
+  sigaction(SIGBUS,  &sa, NULL);
+  sigaction(SIGABRT, &sa, NULL);
+  sigaction(SIGFPE,  &sa, NULL);
+  sigaction(SIGILL,  &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+}
+
 //*
 //* Pass Recovery PIPE
 //*
@@ -171,9 +234,26 @@ char * getArgv(int id) {
 //* Show Text Splash
 //*
 void a_splash(char * spipe) {
-  int fd      = atoi(spipe);
-  acmd_pipe   = fdopen(fd, "wb");
+  if (strcmp(spipe, "stdout") == 0 || strcmp(spipe, "-") == 0) {
+    acmd_pipe = stdout;
+    a_set_plain_output(1);
+  }
+  else {
+    int fd    = atoi(spipe);
+    acmd_pipe = (fd == 1) ? stdout : fdopen(fd, "wb");
+    if (!acmd_pipe) {
+      acmd_pipe = stdout;
+    }
+    if (fd == 1) {
+      a_set_plain_output(1);
+    }
+  }
   setlinebuf(acmd_pipe);
+  if (a_volkey_mode()) {
+    avk_printf("Starting %s version %s (Volume Key Mode)", AROMA_NAME, AROMA_VERSION);
+    avk_printf("  %s", AROMA_COPY);
+    return;
+  }
   //#-- Print Info Into Recovery
   fprintf(apipe(), "ui_print\n"
           "ui_print Starting " AROMA_NAME " version " AROMA_VERSION "\n"
@@ -223,47 +303,112 @@ int main(int argc, char ** argv) {
 #endif
   int retval = 1;
   parent_pid = getppid();
-  LOGS("Initializing\n");
   //-- Normal Updater Sequences
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
-  //-- Init Temporaty
+
+  //-- Parse optional flags (--volkey, --config-only, --plain) and env vars
+  if (getenv("AROMA_VOLKEY") && strcmp(getenv("AROMA_VOLKEY"), "1") == 0) {
+    a_set_volkey_mode(1);
+  }
+  if (getenv("AROMA_CONFIG_ONLY") && strcmp(getenv("AROMA_CONFIG_ONLY"), "1") == 0) {
+    a_set_config_only_mode(1);
+  }
+  if (getenv("AROMA_PLAIN") && strcmp(getenv("AROMA_PLAIN"), "1") == 0) {
+    a_set_plain_output(1);
+  }
+
+  int argi = 1;
+  while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
+    if (strcmp(argv[argi], "--volkey") == 0) {
+      a_set_volkey_mode(1);
+    }
+    else if (strcmp(argv[argi], "--config-only") == 0) {
+      a_set_config_only_mode(1);
+      a_set_volkey_mode(1);
+    }
+    else if (strcmp(argv[argi], "--plain") == 0) {
+      a_set_plain_output(1);
+    }
+    argi++;
+  }
+
+  int rem = argc - argi;
+  //-- Check Arguments (<api> <outfd> <zipfile>)
+  if (rem != 3) {
+    LOGE("Unexpected Number of Arguments (%d)\n", rem);
+    return 1;
+  }
+
+  char * arg_api = argv[argi];
+  char * arg_fd  = argv[argi + 1];
+  char * arg_zip = argv[argi + 2];
+
+  //-- Resolve & Init Temporary Dir (Recovery: /tmp/aroma, Android BOOTMODE=1: /dev/tmp/aroma or $AROMA_TMP)
+  a_init_tmp_paths();
   remove_directory(AROMA_TMP);
   unlink(AROMA_TMP_S);
   create_directory(AROMA_TMP);
   symlink(AROMA_TMP, AROMA_TMP_S);
-  //-- Initializing Header
-  printf("Starting " AROMA_NAME " version " AROMA_VERSION "\n"
-         "     " AROMA_COPY "\n");
-         
-  //-- Check Arguments
-  if (argc != 4) {
-    LOGE("Unexpected Number of Arguments (%d)\n", argc);
-    return 1;
+  setenv("AROMA_TMP", AROMA_TMP, 1);
+
+  if (!a_volkey_mode()) {
+    printf("Starting " AROMA_NAME " version " AROMA_VERSION "\n"
+           "     " AROMA_COPY "\n");
   }
-  
+
   //-- Check CWM Version
-  if ((argv[1][0] != '1' && argv[1][0] != '2' && argv[1][0] != '3') || argv[1][1] != '\0') {
-    LOGE("Wrong Updater Binary API!!! Expected 1, 2, or 3, But got %s\n", argv[1]);
+  if ((arg_api[0] != '1' && arg_api[0] != '2' && arg_api[0] != '3') || arg_api[1] != '\0') {
+    LOGE("Wrong Updater Binary API!!! Expected 1, 2, or 3, But got %s\n", arg_api);
     return 2;
   }
-  
+
   //-- Init Pipe & Show Splash Info
-  a_splash(argv[2]);
-  
-  //-- Mute Parent & Recovery Compositor
+  a_splash(arg_fd);
+
+  //-- Save Arguments
+  if (!a_volkey_mode()) {
+    LOGS("Saving Arguments\n");
+  }
+  snprintf(currArgv[0], 255, "%s", arg_api);
+  snprintf(currArgv[1], 255, "%s", arg_zip);
+
+  //-- Native Volume Key Selector Mode (BOOTMODE=1 / Magisk / KernelSU / APatch / Headless)
+  if (a_volkey_mode()) {
+    if (az_init(arg_zip)) {
+      avk_init_input();
+      if (aui_start()) {
+        retval = 0;
+      }
+      avk_close_input();
+      az_close();
+    }
+    else {
+      avk_printf("! Cannot open archive: %s", arg_zip);
+    }
+
+    /* Keep AROMA_TMP intact in --config-only mode so customize.sh can read *.prop */
+    if (!a_config_only_mode()) {
+      unlink(AROMA_TMP_S);
+      remove_directory(AROMA_TMP);
+      a_check_reboot();
+    }
+    if (acmd_pipe && acmd_pipe != stdout) {
+      fclose(acmd_pipe);
+    }
+    return retval;
+  }
+
+  //-- Mute Parent & Recovery Compositor (Touch GUI mode only)
+  a_install_crash_guards();
   if (parent_pid) {
     a_pause_ancestors();
   }
-  
-  //-- Save to Argument
-  LOGS("Saving Arguments\n");
-  snprintf(currArgv[0], 255, "%s", argv[1]);
-  snprintf(currArgv[1], 255, "%s", argv[3]);
+
   //-- Init Zip
   LOGS("Open Archive\n");
   
-  if (az_init(argv[3])) {
+  if (az_init(arg_zip)) {
     //-- Initializing All Resources
     LOGS("Initializing Resource\n");
     if (!a_init_all()) {
@@ -306,7 +451,9 @@ int main(int argc, char ** argv) {
   a_check_reboot();
   //-- Cleanup PIPE
   LOGS("Closing Recovery Pipe\n");
-  fclose(acmd_pipe);
+  if (acmd_pipe && acmd_pipe != stdout) {
+    fclose(acmd_pipe);
+  }
 #ifndef _AROMA_NODEBUG
   aroma_dump_malloc();
 #endif

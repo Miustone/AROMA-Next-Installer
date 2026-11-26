@@ -33,8 +33,9 @@
 //-- Input Device
 #include "input/input_device.c"
 
-//-- GLOBAL EVENT VARIABLE
-static  char      key_pressed[KEY_MAX + 1];
+//-- GLOBAL EVENT VARIABLE (must hold KEY_MAX=767 plus virtual codes evtouch_code=888 / atouch_message_code=889)
+#define AROMA_KEY_SLOTS ((KEY_MAX + 1) > 1024 ? (KEY_MAX + 1) : 1024)
+static  char      key_pressed[AROMA_KEY_SLOTS];
 
 //-- AROMA CUSTOM MESSAGE
 static  dword     atouch_winmsg[64];
@@ -141,9 +142,15 @@ int vibrate(int timeout_ms) {
 
 //-- KEYPRESS MANAGER
 int ui_key_pressed(int key) {
+  if (key < 0 || key >= AROMA_KEY_SLOTS) {
+    return 0;
+  }
   return key_pressed[key];
 }
 void set_key_pressed(int key, char val) {
+  if (key < 0 || key >= AROMA_KEY_SLOTS) {
+    return;
+  }
   key_pressed[key] = val;
 }
 

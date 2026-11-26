@@ -12,6 +12,73 @@ AROMA_MOD_MODE="systemless"
 AROMA_MOD_ROOT=""
 AROMA_SYS_SRC=""
 
+# Emit progress bar & @Section updates to AROMA-Next Touch GUI when running in Recovery
+aroma_progress() {
+  local frac="$1"
+  local title="$2"
+  if [ "$BOOTMODE" != "true" ] && [ -n "$AROMA_TMP" ] && [ -n "$OUTFD" ] && [ -e "/proc/self/fd/$OUTFD" ]; then
+    [ -n "$frac" ] && printf 'set_progress %s\n' "$frac" > "/proc/self/fd/$OUTFD" 2>/dev/null || true
+    [ -n "$title" ] && printf 'ui_print @%s\nui_print\n' "$title" > "/proc/self/fd/$OUTFD" 2>/dev/null || true
+  fi
+}
+
+# Run AROMA-Next's built-in Volume Key Selector automatically in BOOTMODE=1
+# (works identically across Magisk App, KernelSU App, and APatch App!)
+# Sets and exports AROMA_TMP pointing to the generated *.prop directory.
+aroma_run_config_if_needed() {
+  if [ "$AROMA_DONE" = "1" ] && [ -d "${AROMA_TMP:-/tmp/aroma}" ]; then
+    export AROMA_TMP="${AROMA_TMP:-/tmp/aroma}"
+    return 0
+  fi
+
+  local work="${TMPDIR:-/dev/tmp}/aroma-vk-bin"
+  local prop_dir="${TMPDIR:-/dev/tmp}/aroma"
+  local arch bin_path c candidates
+
+  rm -rf "$work" "$prop_dir"
+  mkdir -p "$work" "$prop_dir"
+
+  arch="$(uname -m)"
+  case "$arch" in
+    aarch64|arm64*) candidates="META-INF/com/google/android/bin/aroma_installer-arm64 META-INF/com/google/android/bin/aroma_installer-arm32" ;;
+    armv7*|armv8*|arm*) candidates="META-INF/com/google/android/bin/aroma_installer-arm32" ;;
+    x86_64|amd64) candidates="META-INF/com/google/android/bin/aroma_installer-x86_64" ;;
+    *) candidates="META-INF/com/google/android/bin/aroma_installer-arm64 META-INF/com/google/android/bin/aroma_installer-arm32" ;;
+  esac
+
+  bin_path=""
+  for c in $candidates; do
+    unzip -o "$ZIPFILE" "$c" -d "$work" >/dev/null 2>&1
+    if [ -f "$work/$c" ]; then
+      bin_path="$work/$c"
+      chmod 755 "$bin_path"
+      break
+    fi
+  done
+
+  if [ -z "$bin_path" ] || [ ! -x "$bin_path" ]; then
+    ui_print "! AROMA-Next binary unavailable for $arch; continuing with defaults."
+    return 1
+  fi
+
+  export AROMA_TMP="$prop_dir"
+
+  # Use Magisk OUTFD recovery protocol when available; plain stdout in KernelSU / APatch
+  if [ -n "$OUTFD" ] && [ -e "/proc/self/fd/$OUTFD" ] && [ "$KSU" != "true" ] && [ "$APATCH" != "true" ]; then
+    "$bin_path" --volkey --config-only 3 "$OUTFD" "$ZIPFILE"
+  else
+    "$bin_path" --volkey --config-only --plain 3 1 "$ZIPFILE"
+  fi
+  local rc=$?
+  rm -rf "$work" 2>/dev/null || true
+
+  if [ "$rc" -eq 0 ]; then
+    export AROMA_DONE=1
+    return 0
+  fi
+  return "$rc"
+}
+
 # Normalize a partition-relative path (e.g. "/system/app/Foo" or "product/app/Bar")
 # into canonical Magisk-style module subpaths: system/..., system/product/..., system/vendor/...
 _aroma_norm_rel() {

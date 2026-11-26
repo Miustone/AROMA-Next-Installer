@@ -779,6 +779,9 @@ Value * AROMA_FONT(const char * name, State * state, int argc, Expr * argv[]) {
   if (argc != 3) {
     return ErrorAbort(state, "%s() expects 3 args (fonttype, fontpath, size), got %d", name, argc);
   }
+  if (a_volkey_mode()) {
+    return StringValue(strdup(""));
+  }
   
   //-- This is Busy Function
   ag_setbusy();
@@ -827,6 +830,9 @@ Value * AROMA_FONT(const char * name, State * state, int argc, Expr * argv[]) {
 Value * AROMA_THEME(const char * name, State * state, int argc, Expr * argv[]) {
   if (argc != 1) {
     return ErrorAbort(state, "%s() expects 1 args (themename), got %d", name, argc);
+  }
+  if (a_volkey_mode()) {
+    return StringValue(strdup(""));
   }
   
   //-- This is Busy Function
@@ -1004,6 +1010,8 @@ Value * AROMA_RESREAD(const char * name, State * state, int argc, Expr * argv[])
 //*
 //* pleasewait
 //*
+static void aui_ensure_ready(void);
+
 Value * AROMA_PLEASEWAIT(const char * name, State * state, int argc, Expr * argv[]) {
   int func_pos = ++aparse_current_position;
   
@@ -1017,9 +1025,16 @@ Value * AROMA_PLEASEWAIT(const char * name, State * state, int argc, Expr * argv
   
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    avk_printf("  ... %s", args[0]);
+    _FREEARGS();
+    return StringValue(strdup(""));
+  }
+  //-- Ensure theme & fonts are loaded before rendering busy overlay (prevents deadlock before first screen)
+  aui_ensure_ready();
   //-- Set Busy Text
-  char txt[32];
-  snprintf(txt, 32, "%s", args[0]);
+  char txt[128];
+  snprintf(txt, sizeof(txt), "%s", args[0]);
   ag_setbusy_withtext(txt);
   //-- Release Arguments
   _FREEARGS();
@@ -1736,6 +1751,9 @@ Value * AROMA_ANISPLASH(const char * name, State * state, int argc, Expr * argv[
   if (frame_n > 32) {
     return ErrorAbort(state, "%s() Number of max frame was 32, got %s frames", name, frame_n);
   }
+  if (a_volkey_mode()) {
+    return StringValue(strdup(""));
+  }
   
   //-- Set Busy before everythings ready
   ag_setbusy();
@@ -1831,6 +1849,9 @@ Value * AROMA_SPLASH(const char * name, State * state, int argc, Expr * argv[]) 
   if (argc != 2) {
     return ErrorAbort(state, "%s() expects 2 args (delay in milisecond, image name), got %d", name, argc);
   }
+  if (a_volkey_mode()) {
+    return StringValue(strdup(""));
+  }
   
   //-- Set Busy before everythings ready
   ag_setbusy();
@@ -1894,6 +1915,23 @@ Value * AROMA_VIEWBOX(const char * name, State * state, int argc, Expr * argv[])
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0, is_chk = 0;
+    avk_viewbox(isplain, argc, args, can_back, &go_back, &is_chk);
+    if (!isplain && argc == 6) {
+      aui_setvar(args[5], is_chk ? "1" : "");
+    }
+    _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
+    _FINISHBACK();
+    return StringValue(strdup(is_chk ? "1" : ""));
+  }
   //-- Init Background
   aui_setbg(args[0]);
   char text[1024];
@@ -2112,6 +2150,23 @@ Value * AROMA_TEXTBOX(const char * name, State * state, int argc, Expr * argv[])
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0, go_exit = 0;
+    avk_textbox(isplain, argc, args, can_back, &go_back, &go_exit);
+    _FREEARGS();
+    if (go_exit) {
+      return NULL;
+    }
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
   //-- Init Background
   aui_setbg(args[0]);
   char text[256];
@@ -2304,6 +2359,14 @@ Value * AROMA_CHECKOPT(const char * name, State * state, int argc, Expr * argv[]
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    char vk_path[256];
+    snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
+    avk_form(argc, args, vk_path);
+    _FREEARGS();
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
   //-- Variable Def
   int i;
   //-- Init Background
@@ -2540,6 +2603,14 @@ Value * AROMA_CHECKBOX(const char * name, State * state, int argc, Expr * argv[]
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    char vk_path[256];
+    snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
+    avk_checkbox(argc, args, vk_path);
+    _FREEARGS();
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
   //-- Variable Def
   int i;
   //-- Init Background
@@ -2748,6 +2819,14 @@ Value * AROMA_SELECTBOX(const char * name, State * state, int argc, Expr * argv[
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    char vk_path[256];
+    snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
+    avk_selectbox(argc, args, vk_path);
+    _FREEARGS();
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
   //-- Variable Def
   int i;
   //-- Init Background
@@ -2958,6 +3037,14 @@ Value * AROMA_MENUBOX(const char * name, State * state, int argc, Expr * argv[])
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    char vk_path[256];
+    snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
+    avk_menubox(argc, args, vk_path);
+    _FREEARGS();
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
   //-- Variable Def
   int i;
   //-- Init Background
@@ -3124,6 +3211,17 @@ Value * AROMA_INSTALL(const char * name, State * state, int argc, Expr * argv[])
   ag_setbusy();
   //-- Get Arguments
   _INITARGS();
+  if (a_volkey_mode()) {
+    int vk_ret = avk_run_install(args[0], args[1]);
+    _FREEARGS();
+    aparse_installpos = func_pos;
+    if (a_volkey_install_stopped()) {
+      return NULL;
+    }
+    char retbuf[32];
+    snprintf(retbuf, sizeof(retbuf), "%i", vk_ret);
+    return StringValue(strdup(retbuf));
+  }
   //-- Init Background
   aui_setbg(args[0]);
   //-- Init Strings
@@ -3256,6 +3354,12 @@ Value * AROMA_ALERT(const char * name, State * state, int argc, Expr * argv[]) {
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  if (a_volkey_mode()) {
+    _INITARGS();
+    avk_alert(argc, args);
+    _FREEARGS();
+    return StringValue(strdup(""));
+  }
   aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
@@ -3289,6 +3393,12 @@ Value * AROMA_CONFIRM(const char * name, State * state, int argc, Expr * argv[])
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  if (a_volkey_mode()) {
+    _INITARGS();
+    byte res = avk_confirm(argc, args);
+    _FREEARGS();
+    return StringValue(strdup(res ? "yes" : "no"));
+  }
   aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
@@ -3328,6 +3438,12 @@ Value * AROMA_TEXTDIALOG(const char * name, State * state, int argc, Expr * argv
   
   //-- Set Busy before everythings ready
   ag_setbusy();
+  if (a_volkey_mode()) {
+    _INITARGS();
+    avk_textdialog(argc, args);
+    _FREEARGS();
+    return StringValue(strdup(""));
+  }
   aui_ensure_ready();
   //-- Get Arguments
   _INITARGS();
@@ -3647,16 +3763,36 @@ Value * AROMA_EXEC(const char * name, State * state, int argc, Expr * argv[]) {
     }
   }
   else {
-    snprintf(path, 256, "%s", args[0]);
+    /* On booted Android (BOOTMODE=1), /sbin/sh does not exist; fall back to /system/bin/sh */
+    if (strcmp(args[0], "/sbin/sh") == 0 && access("/sbin/sh", X_OK) != 0 && access("/system/bin/sh", X_OK) == 0) {
+      snprintf(path, 256, "/system/bin/sh");
+    }
+    else {
+      snprintf(path, 256, "%s", args[0]);
+    }
   }
   
-  //-- Init Exec CMD & Arguments
+  //-- Init Exec CMD & Arguments (rewrite /tmp/aroma/ prefix to runtime AROMA_TMP if different)
   int i         = 0;
   char ** args2  = malloc(sizeof(char *) * (argc + 1));
+  char ** arg_dups = calloc((size_t) argc, sizeof(char *));
   args2[0]      = path;
   
   for (i = 1; i < argc; i++) {
-    args2[i] = args[i];
+    if (strcmp(AROMA_TMP, "/tmp/aroma") != 0 && strncmp(args[i], "/tmp/aroma/", 11) == 0) {
+      size_t nlen = strlen(AROMA_TMP) + strlen(args[i] + 10) + 1;
+      arg_dups[i] = (char *) malloc(nlen);
+      if (arg_dups[i]) {
+        snprintf(arg_dups[i], nlen, "%s%s", AROMA_TMP, args[i] + 10);
+        args2[i] = arg_dups[i];
+      }
+      else {
+        args2[i] = args[i];
+      }
+    }
+    else {
+      args2[i] = args[i];
+    }
   }
   
   args2[argc]   = NULL;
@@ -3695,6 +3831,10 @@ Value * AROMA_EXEC(const char * name, State * state, int argc, Expr * argv[]) {
   //-- Get Return Status
   waitpid(pid, &exec_status, 0);
   snprintf(status_str, 16, "%i", WEXITSTATUS(exec_status));
+  for (i = 1; i < argc; i++) {
+    free(arg_dups[i]);
+  }
+  free(arg_dups);
   free(args2);
   
   if (isremoveexec) {
@@ -3916,6 +4056,10 @@ Value * AROMA_FILEMANAGER(const char * name, State * state, int argc, Expr * arg
   if (argc > 1) {
     return ErrorAbort(state, "%s() expects 0 or 1 args (optional start_path), got %d", name, argc);
   }
+  if (a_volkey_mode()) {
+    avk_print_lines("- AROMA-Next Filemanager requires Custom Recovery Touch GUI.");
+    return StringValue(strdup("0"));
+  }
   aui_ensure_ready();
   char * start_path = NULL;
   if (argc == 1) {
@@ -4082,8 +4226,10 @@ byte aui_start() {
   state.errmsg = NULL;
   char * result = NULL;
   //-- EVALUATE & TEST FOR BACK ACTIONS
-  ag_canvas(&aui_bg, agw(), agh());
-  ag_canvas(&aui_win_bg, agw(), agh());
+  if (!a_volkey_mode()) {
+    ag_canvas(&aui_bg, agw(), agh());
+    ag_canvas(&aui_win_bg, agw(), agh());
+  }
   aparse_installpos = 0;
   //-- Init Config and Fonts
   acfg_init();
@@ -4114,23 +4260,37 @@ byte aui_start() {
   }
   while (aparse_isback);
   
-  aui_release_cached_icons();
-  ag_ccanvas(&aui_win_bg);
-  ag_ccanvas(&aui_bg);
+  if (!a_volkey_mode()) {
+    aui_release_cached_icons();
+    ag_ccanvas(&aui_win_bg);
+    ag_ccanvas(&aui_bg);
+  }
   
   //-- CLEANUP & ERROR HANDLER
   if (result == NULL) {
     byte res = 0;
     
     if (state.errmsg == NULL) {
-      fprintf(apipe(), "ui_print AROMA Installer Terminated...\nui_print\n");
+      if (!a_volkey_install_stopped()) {
+        if (a_volkey_mode()) {
+          avk_print_lines("AROMA Installer Terminated...");
+        }
+        else {
+          fprintf(apipe(), "ui_print AROMA Installer Terminated...\nui_print\n");
+        }
+      }
       res = 1;
     }
     else {
-      vibrate(50);
-      fprintf(apipe(), "ui_print ERROR!!! aroma-config: %s\nui_print\n", state.errmsg);
-      usleep(200000);
-      vibrate(50);
+      if (a_volkey_mode()) {
+        avk_printf("ERROR!!! aroma-config: %s", state.errmsg);
+      }
+      else {
+        vibrate(50);
+        fprintf(apipe(), "ui_print ERROR!!! aroma-config: %s\nui_print\n", state.errmsg);
+        usleep(200000);
+        vibrate(50);
+      }
     }
     
     free(script_installer.data);

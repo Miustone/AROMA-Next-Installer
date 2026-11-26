@@ -24,6 +24,11 @@ if [ -z "$MODLIB_PATH" ] && [ -n "$ZIPFILE" ]; then
 fi
 [ -f "$MODLIB_PATH" ] && . "$MODLIB_PATH"
 
+# In Booted Android (BOOTMODE=1: Magisk / KernelSU / APatch App), automatically run
+# the same aroma-config using AROMA-Next's built-in Volume Key Selector!
+aroma_run_config_if_needed
+AROMA_PROP_DIR="${AROMA_TMP:-/tmp/aroma}"
+
 read_aroma_prop() {
   local file="$AROMA_PROP_DIR/$1"
   local key="$2"

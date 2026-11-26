@@ -185,25 +185,25 @@ void ai_dump_logs() {
 }
 static void * aroma_install_package(void * cookie) {
   //-- Extract update-binary (traditional AROMA, Magisk bridge, or auto-detected Magisk module)
-  int res = az_extract(AROMA_ORIB, AROMA_TMP "/update-binary");
+  char    binary[256];
+  snprintf(binary, 255, "%s%s", AROMA_TMP, "/update-binary");
+  int res = az_extract(AROMA_ORIB, binary);
   if (res == 0) {
-    res = az_extract(AROMA_MAGISK_ORIB, AROMA_TMP "/update-binary");
+    res = az_extract(AROMA_MAGISK_ORIB, binary);
   }
   
   if (res == 0) {
     aw_post(aw_msg(15, 0, 0, 0));
     return NULL;
   }
-  chmod(AROMA_TMP "/update-binary", 0755);
+  chmod(binary, 0755);
   
   //-- Create Pipe
   int pipefd[2];
   pipe(pipefd);
   char ** argscmd       = malloc(sizeof(char *) * 5);
-  char    binary[256];
   char    pipestr[10];
   //-- Init Arguments
-  snprintf(binary, 255, "%s%s", AROMA_TMP, "/update-binary");
   snprintf(pipestr, 9, "%d", pipefd[1]);
   argscmd[0] = binary;
   argscmd[1] = getArgv(0);
@@ -219,6 +219,7 @@ static void * aroma_install_package(void * cookie) {
   if (pid == 0) {
     setenv("UPDATE_PACKAGE",  getArgv(1), 1);
     setenv("AROMA_TMP",       AROMA_TMP, 1);
+    setenv("AROMA_DONE",      "1", 1);
     setenv("AROMA_VERSION",   AROMA_VERSION, 1);
     setenv("AROMA_BUILD",     AROMA_BUILD, 1);
     setenv("AROMA_BUILD_CN",  AROMA_BUILD_CN, 1);

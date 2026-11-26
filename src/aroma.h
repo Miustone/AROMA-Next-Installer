@@ -93,11 +93,14 @@
 #define AROMA_BUILD_URL   "https://github.com/Miustone/AROMA-Next-Installer"
 #define AROMA_COPY        "2013 amarullz | 2026 Miustone"
 
-//-- Temporary Dir - Move from /tmp/aroma-data to /tmp/aroma symlink to /tmp/aroma-data for backward compatibility
+//-- Temporary Dir - Runtime resolved (Recovery: /tmp/aroma, Booted Android BOOTMODE=1: /dev/tmp/aroma or $AROMA_TMP)
 #define AROMA_SYSTMP      "/tmp"
-//#define AROMA_SYSTMP      "/data"
-#define AROMA_TMP         AROMA_SYSTMP "/aroma"
-#define AROMA_TMP_S       AROMA_SYSTMP "/aroma-data"
+const char * aroma_tmp_dir(void);
+const char * aroma_tmp_s_dir(void);
+const char * aroma_install_log_path(void);
+const char * aroma_install_txt_path(void);
+#define AROMA_TMP         aroma_tmp_dir()
+#define AROMA_TMP_S       aroma_tmp_s_dir()
 
 #define AROMA_DIR         "META-INF/com/google/android/aroma"
 #define AROMA_CFG         "META-INF/com/google/android/aroma-config"
@@ -107,9 +110,33 @@
 #define AROMA_FRAMEBUFFER "/dev/graphics/fb0"
 #define AROMA_FRAMEBUFFER_ALT "/dev/fb0"
 #define AROMA_EXIT_NO_DISPLAY 77
-#define AROMA_INSTALL_LOG (AROMA_TMP "/.install.log")
-#define AROMA_INSTALL_TXT (AROMA_TMP "/.install.txt")
+#define AROMA_INSTALL_LOG aroma_install_log_path()
+#define AROMA_INSTALL_TXT aroma_install_txt_path()
 #define AROMA_THEME_CNT   24
+
+//-- Native Volume Key Selector Engine (BOOTMODE=1 / Headless Fallback)
+void a_set_volkey_mode(byte enabled);
+byte a_volkey_mode(void);
+void a_set_config_only_mode(byte enabled);
+byte a_config_only_mode(void);
+void a_set_plain_output(byte enabled);
+byte a_plain_output(void);
+byte a_volkey_install_stopped(void);
+int  avk_init_input(void);
+void avk_close_input(void);
+int  avk_wait_key(void);
+void avk_print_lines(const char * text);
+void avk_printf(const char * fmt, ...);
+void avk_viewbox(byte isplain, int argc, char ** args, byte can_back, byte * out_back, byte * out_checked);
+void avk_textbox(byte isplain, int argc, char ** args, byte can_back, byte * out_back, byte * out_exit);
+void avk_alert(int argc, char ** args);
+byte avk_confirm(int argc, char ** args);
+void avk_textdialog(int argc, char ** args);
+void avk_menubox(int argc, char ** args, const char * prop_path);
+void avk_selectbox(int argc, char ** args, const char * prop_path);
+void avk_checkbox(int argc, char ** args, const char * prop_path);
+void avk_form(int argc, char ** args, const char * prop_path);
+int  avk_run_install(const char * title, const char * desc);
 
 
 //-- CALIB MATRIX

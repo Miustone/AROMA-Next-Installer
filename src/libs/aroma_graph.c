@@ -866,8 +866,9 @@ void ag_copybusy(char * wait) {
   ag_draw(&tmpc, &ag_c, 0, 0);
   ag_rectopa(&tmpc, 0, 0, agw(), agh(), 0x0000, 180);
   
-  while (!(ag_fontready(0))) {
-    usleep(50);
+  if (!(ag_fontready(0))) {
+    ag_ccanvas(&tmpc);
+    return;
   }
   
   ag_oncopybusy = 1;
@@ -925,12 +926,18 @@ void ag_copybusy(char * wait) {
   ag_ccanvas(&tmpc);
 }
 void ag_setbusy() {
+  if (a_volkey_mode()) {
+    return;
+  }
   if (ag_isbusy == 0) {
     ag_isbusy   = 1;
     ag_lastbusy = alib_tick();
   }
 }
 void ag_setbusy_withtext(char * text) {
+  if (a_volkey_mode()) {
+    return;
+  }
   ag_copybusy(text);
   ag_isbusy = 2;
 }
@@ -3387,6 +3394,7 @@ void ag_takescreenshoot() {
 
     byte * saved = (byte *) malloc(ag_c.sz);
     if (saved != NULL) {
+      ag_refreshlock = 1;
       memcpy(saved, ag_c.data, ag_c.sz);
       int fw = agdp() * 2;
       if (fw < 4) fw = 4;
@@ -3399,6 +3407,7 @@ void ag_takescreenshoot() {
       usleep(95000);
       memcpy(ag_c.data, saved, ag_c.sz);
       ag_sync();
+      ag_refreshlock = 0;
       free(saved);
     }
   }
