@@ -90,6 +90,92 @@ static void avk_emit_single_line(const char * line) {
   fflush(out);
 }
 
+#define AVK_WRAP_COLS  48
+
+static void avk_emit_wrapped_line(const char * line, size_t len) {
+  if (len == 0) {
+    avk_emit_single_line("");
+    return;
+  }
+
+  /* Detect leading indentation (spaces + optional bullet prefix) for wrapped continuations */
+  size_t indent = 0;
+  while (indent < len && line[indent] == ' ' && indent < 10) {
+    indent++;
+  }
+  size_t cont_indent = indent;
+  /* Extra indent if line starts with a bullet or numbered prefix */
+  if (indent + 2 < len && ((line[indent] == '-' && line[indent + 1] == ' ') ||
+                           (isdigit((unsigned char)line[indent]) && line[indent + 1] == '.'))) {
+    cont_indent = indent + 3;
+    if (cont_indent > 10) cont_indent = 10;
+  }
+
+  /* Preserve short lines and horizontal rules as-is */
+  if (len <= AVK_WRAP_COLS || (len > 4 && (line[0] == '=' || line[0] == '-'))) {
+    char buf[512];
+    size_t c = len < sizeof(buf) - 1 ? len : sizeof(buf) - 1;
+    memcpy(buf, line, c);
+    buf[c] = '\0';
+    avk_emit_single_line(buf);
+    return;
+  }
+
+  size_t pos = 0;
+  int first = 1;
+  while (pos < len) {
+    while (!first && pos < len && line[pos] == ' ') {
+      pos++;
+    }
+    if (pos >= len) {
+      break;
+    }
+
+    size_t pad = first ? 0 : cont_indent;
+    size_t avail = (AVK_WRAP_COLS > pad + 8) ? (AVK_WRAP_COLS - pad) : 20;
+    size_t rem = len - pos;
+    size_t take = rem;
+
+    if (rem > avail) {
+      /* Find last space within avail columns (UTF-8 safe since ASCII space < 0x80) */
+      size_t split = avail;
+      while (split > 0 && line[pos + split] != ' ') {
+        split--;
+      }
+      if (split > 0) {
+        take = split;
+      }
+      else {
+        /* Single word longer than avail: avoid cutting inside UTF-8 continuation bytes */
+        take = avail;
+        while (take < rem && (((unsigned char)line[pos + take]) & 0xC0) == 0x80) {
+          take++;
+        }
+      }
+    }
+
+    char buf[512];
+    size_t w = 0;
+    size_t k;
+    for (k = 0; k < pad && w < sizeof(buf) - 1; k++) {
+      buf[w++] = ' ';
+    }
+    if (w + take >= sizeof(buf)) {
+      take = sizeof(buf) - 1 - w;
+    }
+    memcpy(buf + w, line + pos, take);
+    w += take;
+    while (w > pad && buf[w - 1] == ' ') {
+      w--;
+    }
+    buf[w] = '\0';
+    avk_emit_single_line(buf);
+
+    pos += take;
+    first = 0;
+  }
+}
+
 void avk_print_lines(const char * text) {
   if (!text) {
     avk_emit_single_line("");
@@ -99,20 +185,16 @@ void avk_print_lines(const char * text) {
   while (*p) {
     const char * nl = strchr(p, '\n');
     if (!nl) {
-      avk_emit_single_line(p);
+      size_t len = strlen(p);
+      while (len > 0 && p[len - 1] == '\r') len--;
+      avk_emit_wrapped_line(p, len);
       break;
     }
     size_t len = (size_t) (nl - p);
     if (len > 0 && p[len - 1] == '\r') {
       len--;
     }
-    char buf[512];
-    if (len >= sizeof(buf)) {
-      len = sizeof(buf) - 1;
-    }
-    memcpy(buf, p, len);
-    buf[len] = '\0';
-    avk_emit_single_line(buf);
+    avk_emit_wrapped_line(p, len);
     p = nl + 1;
   }
 }
@@ -451,11 +533,9 @@ static int avk_pick_from_list(
     char ct[256], cd[256];
     avk_strip_markup(titles[i] ? titles[i] : "", ct, sizeof(ct));
     avk_strip_markup(descs[i] ? descs[i] : "", cd, sizeof(cd));
+    avk_printf("  %d. %s%s", i + 1, ct, (i == cur) ? " [*]" : "");
     if (cd[0]) {
-      avk_printf("  %d. %s%s - %s", i + 1, ct, (i == cur) ? " [*]" : "", cd);
-    }
-    else {
-      avk_printf("  %d. %s%s", i + 1, ct, (i == cur) ? " [*]" : "");
+      avk_printf("     %s", cd);
     }
   }
   avk_emit_single_line("  [VOL+] Next option   |   [VOL-] Select");

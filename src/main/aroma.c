@@ -351,6 +351,7 @@ int main(int argc, char ** argv) {
   create_directory(AROMA_TMP);
   symlink(AROMA_TMP, AROMA_TMP_S);
   setenv("AROMA_TMP", AROMA_TMP, 1);
+  setenv("AROMA_VOLKEY", a_volkey_mode() ? "1" : "0", 1);
 
   if (!a_volkey_mode()) {
     printf("Starting " AROMA_NAME " version " AROMA_VERSION "\n"
