@@ -4,6 +4,22 @@
 
 [CENTER][COLOR=#555555]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR][/CENTER]
 
+[SIZE=5][B][COLOR=#0099CC]Screenshots[/COLOR][/B][/SIZE] [COLOR=#7F8C8D](Pixel 7 Pro • OrangeFox R12.0 • Black & White Theme + Google Sans Default — Click thumbnails for full QHD+ resolution)[/COLOR]
+
+[SPOILER="Click to view Screenshots (9 Thumbnails — Full QHD+ on Click)"]
+[CENTER]
+[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/01-welcome.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/01-welcome.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/02-3dot-menu.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/02-3dot-menu.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/03-about-dialog.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/03-about-dialog.png[/IMG][/URL]
+
+[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/04-themes-submenu.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/04-themes-submenu.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/05-select-theme.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/05-select-theme.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/06-select-font.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/06-select-font.png[/IMG][/URL]
+
+[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/07-transitions.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/07-transitions.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/08-demo-hub.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/08-demo-hub.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/09-multilanguage-utf8.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/09-multilanguage-utf8.png[/IMG][/URL]
+
+[COLOR=#7F8C8D][SIZE=2]1. Welcome & Highlights • 2. Streamlined 3-Dot Menu • 3. About (V26.11) • 4. Themes Submenu • 5. Live Themes • 6. Live Fonts (7 OFL) • 7. Smooth Transitions (Fade Default) • 8. Demo Hub • 9. Full UTF-8 & Multilanguage[/SIZE][/COLOR]
+[/CENTER]
+[/SPOILER]
+
+[CENTER][COLOR=#555555]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR][/CENTER]
+
 [SIZE=5][B][COLOR=#0099CC]What is AROMA-Next-Installer?[/COLOR][/B][/SIZE]
 [B]AROMA-Next-Installer[/B] is a modern [ICODE]arm64-v8a[/ICODE] + [ICODE]armeabi-v7a[/ICODE] revival of Ahmad Amarullah's classic [B]AROMA Installer[/B] (Apache 2.0), rebuilt for Android 10–17+ devices, modern custom recoveries ([B]TWRP[/B], [B]OrangeFox[/B], [B]AERA Recovery[/B], [B]PitchBlack[/B]), and safe [B][COLOR=#00AA55]Systemless-First[/COLOR][/B] modding ([B]Magisk[/B], [B]KernelSU[/B], [B]APatch[/B]).
 
@@ -96,19 +112,3 @@ python build.py --arch arm64 arm32[/CODE]
 [*][B]Support:[/B] [URL=https://xdaforums.com/m/miustone.4756773/][COLOR=#00AA55]Miustone[/COLOR][/URL] (XDA & [URL=https://github.com/Miustone]GitHub[/URL])
 [*][B]Original AROMA Installer:[/B] [URL=https://github.com/amarullz/AROMA-Installer]Ahmad Amarullah (amarullz)[/URL] — [COLOR=#7F8C8D]2013 amarullz | 2026 Miustone — Apache License 2.0[/COLOR]
 [/LIST]
-
-[CENTER][COLOR=#555555]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR][/CENTER]
-
-[SIZE=5][B][COLOR=#0099CC]Screenshots[/COLOR][/B][/SIZE] [COLOR=#7F8C8D](Pixel 7 Pro • OrangeFox R12.0 • Black & White Theme + Google Sans Default — Click thumbnails for full QHD+ resolution)[/COLOR]
-
-[SPOILER="Click to view Screenshots (9 Thumbnails — Full QHD+ on Click)"]
-[CENTER]
-[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/01-welcome.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/01-welcome.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/02-3dot-menu.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/02-3dot-menu.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/03-about-dialog.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/03-about-dialog.png[/IMG][/URL]
-
-[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/04-themes-submenu.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/04-themes-submenu.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/05-select-theme.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/05-select-theme.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/06-select-font.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/06-select-font.png[/IMG][/URL]
-
-[URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/07-transitions.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/07-transitions.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/08-demo-hub.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/08-demo-hub.png[/IMG][/URL] [URL=https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/09-multilanguage-utf8.png][IMG]https://raw.githubusercontent.com/Miustone/AROMA-Next-Installer/main/screenshots/thumbs/09-multilanguage-utf8.png[/IMG][/URL]
-
-[COLOR=#7F8C8D][SIZE=2]1. Welcome & Highlights • 2. Streamlined 3-Dot Menu • 3. About (V26.11) • 4. Themes Submenu • 5. Live Themes • 6. Live Fonts (7 OFL) • 7. Smooth Transitions (Fade Default) • 8. Demo Hub • 9. Full UTF-8 & Multilanguage[/SIZE][/COLOR]
-[/CENTER]
-[/SPOILER]
