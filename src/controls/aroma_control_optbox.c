@@ -340,8 +340,9 @@ byte acopt_add(ACONTROLP ctl, char * title, char * desc, byte selected) {
   ACOPTIP newip = (ACOPTIP) malloc(sizeof(ACOPTI));
   snprintf(newip->title, 64, "%s", title);
   snprintf(newip->desc, 128, "%s", desc);
-  newip->th       = ag_txtheight(d->clientTextW, newip->title, 0);
-  newip->dh       = newip->desc[0] ? ag_txtheight(d->clientTextW, newip->desc, 0) : 0;
+  int measureW    = aui_is_m3() ? (d->clientTextW - (agdp() * 2)) : d->clientTextW;
+  newip->th       = ag_txtheight(measureW, newip->title, 0);
+  newip->dh       = newip->desc[0] ? ag_txtheight(measureW, newip->desc, 0) : 0;
   if (aui_is_m3()) {
     newip->ty     = agdp() * 6;
     newip->dy     = (agdp() * 7) + newip->th;

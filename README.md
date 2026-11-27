@@ -33,13 +33,13 @@
     <tr>
       <td align="center">
         <a href="screenshots/01-welcome.png">
-          <img src="screenshots/thumbs/01-welcome.png" width="215" alt="Material 3 Hero Card & Status Bar">
+          <img src="screenshots/thumbs/01-welcome.png" width="215" alt="Welcome Hero Card & Status Bar">
         </a><br>
-        <sub><b>1. Hero Card, Status Bar &amp; M3 Nav</b></sub>
+        <sub><b>1. Welcome Hero Card &amp; Status Bar</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/02-bottom-sheet.png">
-          <img src="screenshots/thumbs/02-bottom-sheet.png" width="215" alt="Material 3 Modal Bottom Sheet">
+        <a href="screenshots/02-3dot-menu.png">
+          <img src="screenshots/thumbs/02-3dot-menu.png" width="215" alt="Material 3 Bottom Sheet (3-Dot)">
         </a><br>
         <sub><b>2. M3 Bottom Sheet (3-Dot Menu)</b></sub>
       </td>
@@ -52,42 +52,62 @@
     </tr>
     <tr>
       <td align="center">
-        <a href="screenshots/04-demo-hub.png">
-          <img src="screenshots/thumbs/04-demo-hub.png" width="215" alt="Demo Hub & Redesigned Icons">
+        <a href="screenshots/04-themes-submenu.png">
+          <img src="screenshots/thumbs/04-themes-submenu.png" width="215" alt="1-Tap Live Appearance Hub">
         </a><br>
-        <sub><b>4. Demo Hub &amp; M3 Icons</b></sub>
+        <sub><b>4. 1-Tap Live Appearance Hub</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/05-selectbox-cards.png">
-          <img src="screenshots/thumbs/05-selectbox-cards.png" width="215" alt="Material 3 Selectbox Cards">
+        <a href="screenshots/05-select-theme.png">
+          <img src="screenshots/thumbs/05-select-theme.png" width="215" alt="Live Themes Preview">
         </a><br>
-        <sub><b>5. Selectbox M3 Cards &amp; Radios</b></sub>
+        <sub><b>5. Live Themes (8 Themes)</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/06-form-checkboxes.png">
-          <img src="screenshots/thumbs/06-form-checkboxes.png" width="215" alt="Material 3 Form & Checkboxes">
+        <a href="screenshots/10-live-accents.png">
+          <img src="screenshots/thumbs/10-live-accents.png" width="215" alt="Live Accent Colors">
         </a><br>
-        <sub><b>6. Form Section Headers &amp; Checks</b></sub>
+        <sub><b>6. Live Accent Colors (8 Accents)</b></sub>
       </td>
     </tr>
     <tr>
       <td align="center">
-        <a href="screenshots/07-slider-control.png">
-          <img src="screenshots/thumbs/07-slider-control.png" width="215" alt="Interactive slider() Control">
+        <a href="screenshots/06-select-font.png">
+          <img src="screenshots/thumbs/06-select-font.png" width="215" alt="Live Fonts Preview">
         </a><br>
-        <sub><b>7. Interactive <code>slider(...)</code> Control</b></sub>
+        <sub><b>7. Live Fonts (7 OFL Fonts)</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/08-live-install-log.png">
-          <img src="screenshots/thumbs/08-live-install-log.png" width="215" alt="Live Install Output Card">
+        <a href="screenshots/07-transitions.png">
+          <img src="screenshots/thumbs/07-transitions.png" width="215" alt="60-120Hz Transitions">
         </a><br>
-        <sub><b>8. Live Install Log &amp; Save Logs</b></sub>
+        <sub><b>8. 60–120Hz Live Transitions</b></sub>
       </td>
       <td align="center">
-        <a href="screenshots/09-finish-card.png">
-          <img src="screenshots/thumbs/09-finish-card.png" width="215" alt="Finish Card & Reboot Toggle">
+        <a href="screenshots/08-demo-hub.png">
+          <img src="screenshots/thumbs/08-demo-hub.png" width="215" alt="Demo Hub & Material 3 Icons">
         </a><br>
-        <sub><b>9. Finish Card &amp; Reboot Toggle</b></sub>
+        <sub><b>9. Demo Hub &amp; M3 Icons</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <a href="screenshots/09-multilanguage-utf8.png">
+          <img src="screenshots/thumbs/09-multilanguage-utf8.png" width="215" alt="UTF-8 & Multilanguage">
+        </a><br>
+        <sub><b>10. Full UTF-8 &amp; Multilanguage</b></sub>
+      </td>
+      <td align="center">
+        <a href="screenshots/11-slider-control.png">
+          <img src="screenshots/thumbs/11-slider-control.png" width="215" alt="Interactive slider() Control">
+        </a><br>
+        <sub><b>11. Interactive <code>slider(...)</code> Control</b></sub>
+      </td>
+      <td align="center">
+        <a href="screenshots/12-anf-tools.png">
+          <img src="screenshots/thumbs/12-anf-tools.png" width="215" alt="ANF Bootloop-Saver & Tools">
+        </a><br>
+        <sub><b>12. <code>ANF</code> Bootloop-Saver &amp; Tools</b></sub>
       </td>
     </tr>
   </table>
