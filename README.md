@@ -141,12 +141,31 @@ Every GitHub Release on the [**Releases**](https://github.com/Miustone/AROMA-Nex
 
 ---
 
-## Ecosystem: AnyKernel3 & Reusable GitHub Action
+## Ecosystem: Zero-Bloat CI Magic (`aroma-next-action`) & Live Showcases
 
-Alongside **`ANI`** and **`ANF`**, two official companion repositories make integrating AROMA-Next effortless:
+Historically, every AROMA-powered Android module, kernel, or ROM had to commit **~280 files (~6–7 MB)** of compiled `arm64`/`arm32` binaries, themes, fonts, icons, and dispatchers straight into its Git repository — and manually copy them again whenever the installer engine was updated.
+
+With **[`Miustone/aroma-next-action@v1`](https://github.com/Miustone/aroma-next-action)**, your Git repository stays **100% pure source code** while GitHub Actions dynamically merges your files with the latest official **`ANI` + `ANF`** release on every build:
+
+```text
+  Your Tiny Git Repo (pure source!)             Miustone/AROMA-Next-Installer (Release)
+  ├─ module.prop / customize.sh / anykernel.sh  ├─ arm64-v8a & armeabi-v7a ANI+ANF binaries
+  ├─ META-INF/.../aroma-config                  ├─ AMOLED Modern + 7 Classic Themes
+  └─ (optional) custom scripts/icons/overrides  ├─ 17 Material 3 Icons + 7 SIL OFL Fonts
+                         │                      └─ Magisk/KSU/APatch & Recovery dispatchers
+                         └──────────┬───────────┘
+                                    ▼
+                    [ Miustone/aroma-next-action@v1 ]
+                     1. Downloads requested / latest ANI release
+                     2. Overlays YOUR files on top (your overrides always win!)
+                     3. Enforces Unix LF endings & 0755/0644 permissions
+                                    │
+                                    ▼
+             dist/YourProject-AROMA.zip  (Touch GUI + VolKey + ANF Ready!)
+```
 
 1. **Reusable GitHub Action — [`Miustone/aroma-next-action`](https://github.com/Miustone/aroma-next-action):**
-   Package your Magisk/KernelSU/APatch module, AnyKernel3 kernel, or Custom ROM with the latest official `ANI` binaries & Material 3 UI assets automatically in CI — **without committing ~5 MB of binaries into your Git repo!**
+   Add 8 lines of YAML and never commit ~6 MB of binaries again — your releases automatically inherit every new `ANI` display fix, Material 3 theme improvement, and `ANF` tool!
    ```yaml
    - name: Package with AROMA-Next-Installer (ANI)
      uses: Miustone/aroma-next-action@v1
@@ -158,8 +177,10 @@ Alongside **`ANI`** and **`ANF`**, two official companion repositories make inte
        output_zip: dist/MyModule-AROMA.zip
        github_token: ${{ secrets.GITHUB_TOKEN }}
    ```
-2. **Custom Kernel Template — [`Miustone/AROMA-Next-AnyKernel3`](https://github.com/Miustone/AROMA-Next-AnyKernel3):**
-   Built directly on top of **`osm0sis/AnyKernel3`** for Android 10–16+ **GKI 2.0** (`boot`, `init_boot`, `vendor_boot`, `dtbo`) & **Non-GKI** devices — letting users configure kernel variants, CPU governors, I/O schedulers, TCP BBR, SELinux, and **ZRAM size (`slider(...)`)** live in both Recovery (`BOOTMODE=0`) and Kernel Flasher apps (`BOOTMODE=1`), complete with a built-in **Template Dry-Run Safety Guard**.
+2. **Live Production Repositories Powered by `aroma-next-action@v1`:**
+   - **[`Miustone/AROMA-Next-AnyKernel3`](https://github.com/Miustone/AROMA-Next-AnyKernel3)** (`template: anykernel3`) — Built on **`osm0sis/AnyKernel3`** for Android 10–16+ **GKI 2.0** (`boot`, `init_boot`, `vendor_boot`, `dtbo`) & **Non-GKI** kernels with live variant selection, CPU/IO/BBR tuning, **`slider(...)`** ZRAM control, and a built-in **Template Dry-Run Safety Guard** *(277 vendored ANI files removed!)*.
+   - **[`Miustone/ADSD`](https://github.com/Miustone/ADSD)** (`template: magisk`) — *AROMA Dynamic Systemless Debloater* with live partition APK discovery & 3-tier risk warnings — **only 6 pure source files** in `module/` *(277 vendored ANI files removed!)*.
+   - **[`Miustone/NLSound`](https://github.com/Miustone/NLSound)** (`template: magisk`) — *NLSound AROMA-Next Edition* Hi-Fi audio module showcasing how a custom `magisk-installer` override layers seamlessly on top of the stock `ANI` Magisk template *(279 vendored ANI files removed!)*.
 
 ---
 
