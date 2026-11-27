@@ -181,6 +181,7 @@ With **[`Miustone/aroma-next-action@v1`](https://github.com/Miustone/aroma-next-
    - **[`Miustone/AROMA-Next-AnyKernel3`](https://github.com/Miustone/AROMA-Next-AnyKernel3)** (`template: anykernel3`) — Built on **`osm0sis/AnyKernel3`** for Android 10–16+ **GKI 2.0** (`boot`, `init_boot`, `vendor_boot`, `dtbo`) & **Non-GKI** kernels with live variant selection, CPU/IO/BBR tuning, **`slider(...)`** ZRAM control, and a built-in **Template Dry-Run Safety Guard** *(277 vendored ANI files removed!)*.
    - **[`Miustone/ADSD`](https://github.com/Miustone/ADSD)** (`template: magisk`) — *AROMA Dynamic Systemless Debloater* with live partition APK discovery & 3-tier risk warnings — **only 6 pure source files** in `module/` *(277 vendored ANI files removed!)*.
    - **[`Miustone/NLSound`](https://github.com/Miustone/NLSound)** (`template: magisk`) — *NLSound AROMA-Next Edition* Hi-Fi audio module showcasing how a custom `magisk-installer` override layers seamlessly on top of the stock `ANI` Magisk template *(279 vendored ANI files removed!)*.
+   - **[`Miustone/SmaliPatcherANI`](https://github.com/Miustone/SmaliPatcherANI)** (`template: magisk`) — On-device Android 10–17 `services.jar` patcher combining `SmaliPatcherReborn` with a **108 KB static C11 native in-recovery DEX patcher** (`0.21s` live on Pixel 7 Pro Android 17!) and zero vendored `ANI` files.
 
 ---
 
