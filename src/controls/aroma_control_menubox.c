@@ -61,7 +61,12 @@ typedef struct {
   int       focusedItem;
   int       draweditemn;
   int       selectedIndex;
+  int       activeItem;
   byte      touchmsg;
+  /* Custom Material 3 Surface Colors (e.g. seamless inside bottom sheets/dialogs) */
+  byte      has_custom_m3;
+  color     m3_bg;
+  color     m3_card;
   /* Focus */
   byte      focused;
 } ACMENUD, * ACMENUDP;
@@ -103,75 +108,105 @@ void acmenu_redrawitem(ACONTROLP ctl, int index) {
   
   ACMENUIP p = d->items[index];
   CANVAS  * c = &d->client;
+  color bg_col = (aui_is_m3() && d->has_custom_m3) ? d->m3_bg : acfg()->textbg;
   //-- Cleanup Background
-  ag_rect(c, 0, p->y, d->clientWidth, p->h, acfg()->textbg);
+  ag_rect(c, 0, p->y, d->clientWidth, p->h, bg_col);
   color txtcolor = acfg()->textfg;
   color graycolor = acfg()->textfg_gray;
   byte isselectcolor = 0;
   
-  if (index == d->touchedItem) {
-    if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-      color pshad = ag_calpushad(acfg()->selectbg_g);
-      dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
-      ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
-      ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+  if (aui_is_m3()) {
+    int m3_gap = agdp() * 2;
+    int m3_r   = agdp() * 7;
+    int cy     = p->y + m3_gap;
+    int ch     = p->h - (m3_gap * 2);
+    color card_base   = d->has_custom_m3 ? d->m3_card : acfg()->dialogbg;
+    color card_bg     = card_base;
+    color card_border = acfg()->border;
+    if (index == d->touchedItem) {
+      card_bg     = ag_calculatealpha(card_base, acfg()->selectbg, 95);
+      card_border = acfg()->selectbg;
+    }
+    else if (index == d->activeItem) {
+      card_bg     = ag_calculatealpha(card_base, acfg()->selectbg, 45);
+      card_border = acfg()->selectbg;
+    }
+    else if ((index == d->focusedItem) && (d->focused)) {
+      card_bg     = ag_calculatealpha(card_base, acfg()->selectbg, 35);
+      card_border = acfg()->selectbg;
+    }
+    ag_roundgrad(c, 0, cy, d->clientWidth, ch, card_border, card_border, m3_r);
+    ag_roundgrad(c, 1, cy + 1, d->clientWidth - 2, ch - 2, card_bg, card_bg, max(m3_r - 1, 1));
+  }
+  else {
+    if (index == d->touchedItem) {
+      if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+        color pshad = ag_calpushad(acfg()->selectbg_g);
+        dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
+        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
+        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+      }
+      graycolor = txtcolor = acfg()->selectfg;
+      isselectcolor = 1;
+    }
+    else if ((index == d->focusedItem) && (d->focused)) {
+      if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+        dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
+        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
+        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+      }
+      graycolor = txtcolor = acfg()->selectfg;
+      isselectcolor = 1;
     }
     
-    graycolor = txtcolor = acfg()->selectfg;
-    isselectcolor = 1;
-  }
-  else if ((index == d->focusedItem) && (d->focused)) {
-    if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-      dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
-      ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
-      ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+    if (index < d->itemn - 1) {
+      //-- Not Last... Add Separator
+      color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
+      ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
     }
-    
-    graycolor = txtcolor = acfg()->selectfg;
-    isselectcolor = 1;
   }
   
-  if (index < d->itemn - 1) {
-    //-- Not Last... Add Separator
-    color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
-    ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
-  }
-  
-  //-- Now Draw The Checkbox
-  int imgS = agdp() * 30;
-  
+  //-- Now Draw The Icon & Text (zero wasted left space when item has no icon!)
+  int imgS = agdp() * 20;
+  int txtX = aui_is_m3() ? (agdp() * 6) : (agdp() * 5);
+  int txtW = d->clientWidth - (txtX * 2);
+  int minRowH = aui_is_m3() ? (agdp() * 28) : (agdp() * 24);
+
   if (p->img != NULL) {
-    int imgW = p->img->w;
-    int imgH = p->img->h;
+    int imgX = aui_is_m3() ? (agdp() * 5) : (agdp() * 3);
+    int imgY = (p->h - imgS) / 2;
+    if (imgY < agdp() * 2) imgY = agdp() * 2;
+    apng_stretch(c, p->img, imgX, p->y + imgY, imgS, imgS, 0, 0, p->img->w, p->img->h);
+    txtX = imgX + imgS + (agdp() * 5);
+    txtW = d->clientWidth - txtX - (agdp() * 5);
+    minRowH = imgS + (aui_is_m3() ? (agdp() * 12) : (agdp() * 6));
+  }
+  
+  if (aui_is_m3()) {
+    int contentH = p->th + (p->desc[0] ? (agdp() + p->dh) : 0);
+    int startY   = p->y + ((p->h - contentH) / 2);
+    ag_text(c, txtW, txtX, startY, p->title, txtcolor, 0);
+    if (p->desc[0]) {
+      ag_text(c, txtW, txtX, startY + p->th + agdp(), p->desc, graycolor, 0);
+    }
+  }
+  else {
+    int txtH    = p->th + p->dh;
+    int txtAddY = 0;
     
-    if (imgW > imgS) {
-      imgW = imgS;
+    if (txtH < minRowH) {
+      txtAddY = round((minRowH - txtH) / 2);
     }
     
-    if (imgH > imgS) {
-      imgH = imgS;
+    //-- Now Draw The Text
+    if (isselectcolor) {
+      ag_textf(c, txtW, txtX + 1, p->y + p->ty + txtAddY + 1, p->title, acfg()->selectbg_g, 0);
+      ag_textf(c, txtW, txtX + 1, p->y + p->dy + txtAddY + 1, p->desc, acfg()->selectbg_g, 0);
     }
     
-    int imgX = round((imgS - imgW) / 2);
-    int imgY = round((imgS - imgH) / 2) + (agdp() * 2);
-    apng_draw_ex(c, p->img, imgX + agdp(), p->y + imgY, 0, 0, imgW, imgH);
+    ag_text(c, txtW, txtX, p->y + p->ty + txtAddY, p->title, txtcolor, 0);
+    ag_text(c, txtW, txtX, p->y + p->dy + txtAddY, p->desc, graycolor, 0);
   }
-  
-  int txtH    = p->th + p->dh;
-  int txtAddY = 0;
-  
-  if (txtH < imgS) {
-    txtAddY = round((imgS - txtH) / 2);
-  }
-  
-  //-- Now Draw The Text
-  if (isselectcolor) {
-    ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->ty + txtAddY, p->title, acfg()->selectbg_g, 0);
-    ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->dy + txtAddY, p->desc, acfg()->selectbg_g, 0);
-  }
-  
-  ag_text(c, d->clientTextW, d->clientTextX - 1, (p->y + p->ty + txtAddY) - 1, p->title, txtcolor, 0);
-  ag_text(c, d->clientTextW, d->clientTextX - 1, (p->y + p->dy + txtAddY) - 1, p->desc, graycolor, 0);
 }
 void acmenu_redraw(ACONTROLP ctl) {
   ACMENUDP d = (ACMENUDP) ctl->d;
@@ -181,9 +216,10 @@ void acmenu_redraw(ACONTROLP ctl) {
   }
   
   if ((d->itemn > 0) && (d->draweditemn < d->itemn)) {
+    color bg_col = (aui_is_m3() && d->has_custom_m3) ? d->m3_bg : acfg()->textbg;
     ag_ccanvas(&d->client);
     ag_canvas(&d->client, d->clientWidth, d->nextY);
-    ag_rect(&d->client, 0, 0, d->clientWidth, agdp()*max(acfg()->roundsz, 4), acfg()->textbg);
+    ag_rect(&d->client, 0, 0, d->clientWidth, agdp()*max(acfg()->roundsz, 4), bg_col);
     //-- Set Values
     d->scrollY     = 0;
     d->maxScrollY  = d->nextY - (ctl->h - (agdp() * max(acfg()->roundsz, 4)));
@@ -211,6 +247,38 @@ int acmenu_getselectedindex(ACONTROLP ctl) {
   
   return d->selectedIndex;
 }
+int acmenu_getscroll(ACONTROLP ctl) {
+  ACMENUDP d = (ACMENUDP) ctl->d;
+  if (d->acheck_signature != 144) return 0;
+  return d->scrollY;
+}
+void acmenu_setscroll(ACONTROLP ctl, int y) {
+  ACMENUDP d = (ACMENUDP) ctl->d;
+  if (d->acheck_signature != 144) return;
+  acmenu_redraw(ctl);
+  if (y < 0) y = 0;
+  if (y > d->maxScrollY) y = d->maxScrollY;
+  d->scrollY = y;
+}
+void acmenu_set_m3_colors(ACONTROLP ctl, color bg, color card) {
+  ACMENUDP d = (ACMENUDP) ctl->d;
+  if (d->acheck_signature != 144) return;
+  d->has_custom_m3 = 1;
+  d->m3_bg = bg;
+  d->m3_card = card;
+  if (aui_is_m3()) {
+    ag_rect(&d->control, 0, 0, ctl->w, ctl->h, bg);
+    ag_rect(&d->control_focused, 0, 0, ctl->w, ctl->h, bg);
+  }
+}
+void acmenu_set_active_index(ACONTROLP ctl, int idx) {
+  ACMENUDP d = (ACMENUDP) ctl->d;
+  if (d->acheck_signature != 144) return;
+  d->activeItem = idx;
+  if (d->draweditemn > 0 && idx >= 0 && idx < d->itemn) {
+    acmenu_redrawitem(ctl, idx);
+  }
+}
 //-- Add Item Into Control
 byte acmenu_add(ACONTROLP ctl, char * title, char * desc, char * img) {
   ACMENUDP d = (ACMENUDP) ctl->d;
@@ -232,14 +300,29 @@ byte acmenu_add(ACONTROLP ctl, char * title, char * desc, char * img) {
     newip->img = NULL;
   }
   
-  newip->th       = ag_txtheight(d->clientTextW, newip->title, 0);
-  newip->dh       = ag_txtheight(d->clientTextW, newip->desc, 0);
-  newip->ty       = agdp() * 2;
-  newip->dy       = (agdp() * 2) + newip->th;
-  newip->h        = (agdp() * 4) + newip->dh + newip->th;
-  
-  if (newip->h < (agdp() * 34)) {
-    newip->h = (agdp() * 34);
+  int calcW = (newip->img != NULL)
+              ? (d->clientWidth - (agdp() * (aui_is_m3() ? 35 : 32)))
+              : (d->clientWidth - (agdp() * (aui_is_m3() ? 12 : 10)));
+  if (calcW < agdp() * 20) calcW = d->clientTextW;
+  newip->th       = ag_txtheight(calcW, newip->title, 0);
+  newip->dh       = newip->desc[0] ? ag_txtheight(calcW, newip->desc, 0) : 0;
+  if (aui_is_m3()) {
+    newip->ty     = agdp() * 5;
+    newip->dy     = (agdp() * 6) + newip->th;
+    newip->h      = (agdp() * 14) + newip->dh + newip->th;
+    int minH      = (newip->img != NULL) ? (agdp() * 34) : (agdp() * 28);
+    if (newip->h < minH) {
+      newip->h = minH;
+    }
+  }
+  else {
+    newip->ty     = agdp() * 3;
+    newip->dy     = (agdp() * 4) + newip->th;
+    newip->h      = (agdp() * 8) + newip->dh + newip->th;
+    int minH      = (newip->img != NULL) ? (agdp() * 28) : (agdp() * 24);
+    if (newip->h < minH) {
+      newip->h = minH;
+    }
   }
   
   newip->id       = d->itemn;
@@ -304,47 +387,46 @@ void acmenu_ondraw(void * x) {
       add_t_y = agdp();
     }
     
+    color glow_col = (aui_is_m3() && d->has_custom_m3) ? d->m3_bg : acfg()->textbg;
     for (i = 0; i < agdpX; i++) {
       byte alph = 255 - round((((float) (i + 1)) / ((float) agdpX)) * 230);
       
       if (isST) {
-        ag_rectopa(pc, ctl->x + agdp3, ctl->y + i + add_t_y, ctl->w - agdpX, 1, acfg()->textbg, alph);
+        ag_rectopa(pc, ctl->x + agdp3, ctl->y + i + add_t_y, ctl->w - agdpX, 1, glow_col, alph);
       }
       
       if (isSB) {
-        ag_rectopa(pc, ctl->x + agdp3, ((ctl->y + ctl->h) - (add_t_y)) - (i + 1), ctl->w - agdpX, 1, acfg()->textbg, alph);
+        ag_rectopa(pc, ctl->x + agdp3, ((ctl->y + ctl->h) - (add_t_y)) - (i + 1), ctl->w - agdpX, 1, glow_col, alph);
       }
     }
     
     if (d->maxScrollY > 0) {
-      //-- Scrollbar
+      //-- Scrollbar (slim modern pill on Material 3, classic bar on legacy themes)
       int newh = ctl->h - agdp() * 3;
       float scrdif    = ((float) newh) / ((float) d->client.h);
       int  scrollbarH = floor(scrdif * newh);
       int  scrollbarY = floor(scrdif * d->scrollY) + agdp();
+      int  sbW        = aui_is_m3() ? max(agdp() / 2, 3) : agdp();
+      color sbCol     = aui_is_m3() ? acfg()->border : acfg()->scrollbar;
+      int  sbX        = (ctl->w - agdp() * 2 - sbW) + ctl->x;
       
       if (d->scrollY < 0) {
         scrollbarY = agdp();
         int alp = (1.0 - (((float) abs(d->scrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
       }
       else if (d->scrollY > d->maxScrollY) {
         scrollbarY = floor(scrdif * d->maxScrollY) + agdp();
         int alp = (1.0 - (((float) abs(d->scrollY - d->maxScrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
+      }
+      else if (aui_is_m3()) {
+        ag_roundgrad(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, sbCol, sbW / 2);
       }
       else {
-        ag_rect(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar);
+        ag_rect(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol);
       }
     }
   }
@@ -634,12 +716,19 @@ ACONTROLP acmenu(
   d->client.data = NULL;
   //-- Draw Control
   ag_draw_ex(&d->control, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control, 0, 0, w, h, acfg()->border);
-  ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
-  //-- Draw Focused Control
-  ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
-  ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  if (aui_is_m3()) {
+    ag_roundgrad(&d->control, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+  }
+  else {
+    ag_rect(&d->control, 0, 0, w, h, acfg()->border);
+    ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
+    //-- Draw Focused Control
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
+    ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  }
   //-- Set Scroll Value
   d->scrollY     = 0;
   d->maxScrollY  = 0;
@@ -653,6 +742,7 @@ ACONTROLP acmenu(
   d->nextY       = agdp() * minpadding;
   d->draweditemn = 0;
   d->selectedIndex = -1;
+  d->activeItem  = -1;
   d->touchmsg    = touchmsg;
   ACONTROLP ctl  = malloc(sizeof(ACONTROL));
   ctl->ondestroy = &acmenu_ondestroy;

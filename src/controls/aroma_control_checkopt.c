@@ -197,112 +197,192 @@ void acchkopt_redrawitem(ACONTROLP ctl, int index) {
   ag_rect(c, 0, p->y, d->clientWidth, p->h, acfg()->textbg);
   
   if (p->isTitle) {
-    ag_roundgrad(c, 0, p->y, d->clientWidth, p->h, acfg()->titlebg, acfg()->titlebg_g, 0);
-    ag_textf(c, d->clientTextW + (agdp() * 14), (d->clientTextX - (agdp() * 14)) + 1, p->y + p->ty, p->title, acfg()->titlebg_g, 0);
-    ag_text(c, d->clientTextW + (agdp() * 14), d->clientTextX - (agdp() * 14), p->y + p->ty - 1, p->title, acfg()->titlefg, 0);
+    if (aui_is_m3()) {
+      color hdrCol = ag_calculatealpha(acfg()->winfg, acfg()->selectbg, 190);
+      ag_text(c, d->clientWidth - (agdp() * 8), agdp() * 4, p->y + p->ty, p->title, hdrCol, 0);
+    }
+    else {
+      ag_roundgrad(c, 0, p->y, d->clientWidth, p->h, acfg()->titlebg, acfg()->titlebg_g, 0);
+      ag_textf(c, d->clientTextW + (agdp() * 14), (d->clientTextX - (agdp() * 14)) + 1, p->y + p->ty, p->title, acfg()->titlebg_g, 0);
+      ag_text(c, d->clientTextW + (agdp() * 14), d->clientTextX - (agdp() * 14), p->y + p->ty - 1, p->title, acfg()->titlefg, 0);
+    }
   }
   else {
     color txtcolor = acfg()->textfg;
     color graycolor = acfg()->textfg_gray;
     byte isselectcolor = 0;
+    byte is_active = p->type ? ((p->id == d->selectedIndexs[p->group]) ? 1 : 0) : (p->checked ? 1 : 0);
+    color card_fill = acfg()->dialogbg;
     
-    if (index == d->touchedItem) {
-      if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-        color pshad = ag_calpushad(acfg()->selectbg_g);
-        dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+    if (aui_is_m3()) {
+      int m3_gap = agdp() * 2;
+      int m3_r   = agdp() * 7;
+      int cy     = p->y + m3_gap;
+      int ch     = p->h - (m3_gap * 2);
+      color card_border = is_active ? ag_calculatealpha(acfg()->border, acfg()->selectbg, 140) : acfg()->border;
+      if (index == d->touchedItem) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 95);
+        card_border = acfg()->selectbg;
+      }
+      else if ((index == d->focusedItem) && (d->focused)) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 45);
+        card_border = acfg()->selectbg;
+      }
+      else if (is_active) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 22);
+      }
+      ag_roundgrad(c, 0, cy, d->clientWidth, ch, card_border, card_border, m3_r);
+      ag_roundgrad(c, 1, cy + 1, d->clientWidth - 2, ch - 2, card_fill, card_fill, max(m3_r - 1, 1));
+    }
+    else {
+      if (index == d->touchedItem) {
+        if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+          color pshad = ag_calpushad(acfg()->selectbg_g);
+          dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+        }
+        graycolor = txtcolor = acfg()->selectfg;
+        isselectcolor = 1;
+      }
+      else if ((index == d->focusedItem) && (d->focused)) {
+        if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+          dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+        }
+        graycolor = txtcolor = acfg()->selectfg;
+        isselectcolor = 1;
       }
       
-      graycolor = txtcolor = acfg()->selectfg;
-      isselectcolor = 1;
-    }
-    else if ((index == d->focusedItem) && (d->focused)) {
-      if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-        dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+      if (index < d->itemn - 1) {
+        //-- Not Last... Add Separator
+        color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
+        ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
       }
-      
-      graycolor = txtcolor = acfg()->selectfg;
-      isselectcolor = 1;
-    }
-    
-    if (index < d->itemn - 1) {
-      //-- Not Last... Add Separator
-      color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
-      ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
     }
     
     //-- Now Draw The Text
-    if (isselectcolor) {
-      ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->ty, p->title, acfg()->selectbg_g, 0);
-      ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->dy, p->desc, acfg()->selectbg_g, 0);
+    if (aui_is_m3()) {
+      int contentH = p->th + (p->desc[0] ? (agdp() + p->dh) : 0);
+      int startY   = p->y + ((p->h - contentH) / 2);
+      ag_text(c, d->clientTextW - (agdp() * 2), d->clientTextX, startY, p->title, txtcolor, 0);
+      if (p->desc[0]) {
+        ag_text(c, d->clientTextW - (agdp() * 2), d->clientTextX, startY + p->th + agdp(), p->desc, graycolor, 0);
+      }
     }
-    
-    ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->ty - 1, p->title, txtcolor, 0);
-    ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->dy - 1, p->desc, graycolor, 0);
-    //-- Now Draw The Checkbox
+    else {
+      if (isselectcolor) {
+        ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->ty, p->title, acfg()->selectbg_g, 0);
+        ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->dy, p->desc, acfg()->selectbg_g, 0);
+      }
+      
+      ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->ty - 1, p->title, txtcolor, 0);
+      ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->dy - 1, p->desc, graycolor, 0);
+    }
+    //-- Now Draw The Checkbox / Radio
     int halfdp   = ceil(((float) agdp()) / 2);
     int halfdp2  = halfdp * 2;
-    int chkbox_s = (agdp() * 10);
+    int chkbox_s = aui_is_m3() ? (agdp() * 11) : (agdp() * 10);
     int chkbox_x = round((d->clientTextX / 2) - ((chkbox_s + 2) / 2));
     int chkbox_y = p->y + round((p->h / 2) - (chkbox_s / 2));
     byte drawed = 0;
     int minpad = 3 * agdp();
     int addpad = 6 * agdp();
     
-    if (p->type) {
-      if (p->id == d->selectedIndexs[p->group]) {
-        if (index == d->touchedItem) {
-          drawed = atheme_draw("img.radio.on.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else if ((index == d->focusedItem) && (d->focused)) {
-          drawed = atheme_draw("img.radio.on.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+    if (!aui_is_m3()) {
+      if (p->type) {
+        if (p->id == d->selectedIndexs[p->group]) {
+          if (index == d->touchedItem) {
+            drawed = atheme_draw("img.radio.on.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else if ((index == d->focusedItem) && (d->focused)) {
+            drawed = atheme_draw("img.radio.on.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else {
+            drawed = atheme_draw("img.radio.on", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
         }
         else {
-          drawed = atheme_draw("img.radio.on", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          if (index == d->touchedItem) {
+            drawed = atheme_draw("img.radio.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else if ((index == d->focusedItem) && (d->focused)) {
+            drawed = atheme_draw("img.radio.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else {
+            drawed = atheme_draw("img.radio", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
         }
       }
       else {
-        if (index == d->touchedItem) {
-          drawed = atheme_draw("img.radio.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else if ((index == d->focusedItem) && (d->focused)) {
-          drawed = atheme_draw("img.radio.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else {
-          drawed = atheme_draw("img.radio", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-      }
-    }
-    else {
-      if (p->checked) {
-        if (index == d->touchedItem) {
-          drawed = atheme_draw("img.checkbox.on.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else if ((index == d->focusedItem) && (d->focused)) {
-          drawed = atheme_draw("img.checkbox.on.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+        if (p->checked) {
+          if (index == d->touchedItem) {
+            drawed = atheme_draw("img.checkbox.on.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else if ((index == d->focusedItem) && (d->focused)) {
+            drawed = atheme_draw("img.checkbox.on.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else {
+            drawed = atheme_draw("img.checkbox.on", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
         }
         else {
-          drawed = atheme_draw("img.checkbox.on", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-      }
-      else {
-        if (index == d->touchedItem) {
-          drawed = atheme_draw("img.checkbox.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else if ((index == d->focusedItem) && (d->focused)) {
-          drawed = atheme_draw("img.checkbox.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
-        }
-        else {
-          drawed = atheme_draw("img.checkbox", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          if (index == d->touchedItem) {
+            drawed = atheme_draw("img.checkbox.push", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else if ((index == d->focusedItem) && (d->focused)) {
+            drawed = atheme_draw("img.checkbox.focus", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
+          else {
+            drawed = atheme_draw("img.checkbox", c, chkbox_x - minpad, chkbox_y - minpad, chkbox_s + addpad, chkbox_s + addpad);
+          }
         }
       }
     }
     
     if (!drawed) {
-      if (p->type) {
+      if (aui_is_m3()) {
+        int bw = max(agdp(), 2);
+        if (p->type) {
+          int rr = chkbox_s / 2;
+          color ringCol = is_active ? acfg()->selectbg : acfg()->textfg_gray;
+          ag_roundgrad(c, chkbox_x, chkbox_y, chkbox_s, chkbox_s, ringCol, ringCol, rr);
+          ag_roundgrad(c, chkbox_x + bw, chkbox_y + bw, chkbox_s - (bw * 2), chkbox_s - (bw * 2), card_fill, card_fill, max(rr - bw, 1));
+          if (is_active) {
+            int dotOff = bw + max(agdp(), 2);
+            int dotS   = chkbox_s - (dotOff * 2);
+            if (dotS > 2) {
+              ag_roundgrad(c, chkbox_x + dotOff, chkbox_y + dotOff, dotS, dotS, acfg()->selectbg, acfg()->selectbg, dotS / 2);
+            }
+          }
+        }
+        else {
+          int cr = agdp() * 3;
+          if (p->checked) {
+            ag_roundgrad(c, chkbox_x, chkbox_y, chkbox_s, chkbox_s, acfg()->selectbg, acfg()->selectbg, cr);
+            int thk = max(agdp(), 2);
+            int k;
+            int s1 = chkbox_s / 5;
+            int x0 = chkbox_x + (chkbox_s * 22) / 100;
+            int y0 = chkbox_y + (chkbox_s * 50) / 100;
+            for (k = 0; k <= s1; k++) {
+              ag_rect(c, x0 + k, y0 + k, thk, thk, acfg()->selectfg);
+            }
+            int xm = x0 + s1;
+            int ym = y0 + s1;
+            int s2 = (chkbox_s * 38) / 100;
+            for (k = 0; k <= s2; k++) {
+              ag_rect(c, xm + k, ym - k, thk, thk, acfg()->selectfg);
+            }
+          }
+          else {
+            ag_roundgrad(c, chkbox_x, chkbox_y, chkbox_s, chkbox_s, acfg()->textfg_gray, acfg()->textfg_gray, cr);
+            ag_roundgrad(c, chkbox_x + bw, chkbox_y + bw, chkbox_s - (bw * 2), chkbox_s - (bw * 2), card_fill, card_fill, max(cr - bw, 1));
+          }
+        }
+      }
+      else if (p->type) {
         ag_roundgrad(c,
                      chkbox_x,
                      chkbox_y,
@@ -407,14 +487,24 @@ byte acchkopt_add(ACONTROLP ctl, char * id, char * title, char * desc, byte chec
   snprintf(newip->title, 64, "%s", title);
   snprintf(newip->desc, 128, "%s", desc);
   newip->th       = ag_txtheight(d->clientTextW, newip->title, 0);
-  newip->dh       = ag_txtheight(d->clientTextW, newip->desc, 0);
-  newip->ty       = agdp() * 5;
-  newip->dy       = (agdp() * 5) + newip->th;
-  newip->h        = (agdp() * 10) + newip->dh + newip->th;
-  newip->type     = type;
-  
-  if (newip->h < (agdp() * 22)) {
-    newip->h = (agdp() * 22);
+  newip->dh       = newip->desc[0] ? ag_txtheight(d->clientTextW, newip->desc, 0) : 0;
+  if (aui_is_m3()) {
+    newip->ty     = agdp() * 6;
+    newip->dy     = (agdp() * 7) + newip->th;
+    newip->h      = (agdp() * 14) + newip->dh + newip->th;
+    newip->type   = type;
+    if (newip->h < (agdp() * 28)) {
+      newip->h = (agdp() * 28);
+    }
+  }
+  else {
+    newip->ty     = agdp() * 5;
+    newip->dy     = (agdp() * 5) + newip->th;
+    newip->h      = (agdp() * 10) + newip->dh + newip->th;
+    newip->type   = type;
+    if (newip->h < (agdp() * 22)) {
+      newip->h = (agdp() * 22);
+    }
   }
   
   newip->checked  = checked;
@@ -556,29 +646,27 @@ void acchkopt_ondraw(void * x) {
       float scrdif    = ((float) newh) / ((float) d->client.h);
       int  scrollbarH = floor(scrdif * newh);
       int  scrollbarY = floor(scrdif * d->scrollY) + agdp();
+      int  sbW        = aui_is_m3() ? max(agdp() / 2, 3) : agdp();
+      color sbCol     = aui_is_m3() ? acfg()->border : acfg()->scrollbar;
+      int  sbX        = (ctl->w - agdp() * 2 - sbW) + ctl->x;
       
       if (d->scrollY < 0) {
         scrollbarY = agdp();
         int alp = (1.0 - (((float) abs(d->scrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
       }
       else if (d->scrollY > d->maxScrollY) {
         scrollbarY = floor(scrdif * d->maxScrollY) + agdp();
         int alp = (1.0 - (((float) abs(d->scrollY - d->maxScrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
+      }
+      else if (aui_is_m3()) {
+        ag_roundgrad(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, sbCol, sbW / 2);
       }
       else {
-        ag_rect(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar);
+        ag_rect(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol);
       }
     }
   }
@@ -920,12 +1008,19 @@ ACONTROLP acchkopt(
   d->client.data = NULL;
   //-- Draw Control
   ag_draw_ex(&d->control, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control, 0, 0, w, h, acfg()->border);
-  ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
-  //-- Draw Focused Control
-  ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
-  ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  if (aui_is_m3()) {
+    ag_roundgrad(&d->control, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+  }
+  else {
+    ag_rect(&d->control, 0, 0, w, h, acfg()->border);
+    ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
+    //-- Draw Focused Control
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
+    ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  }
   //-- Set Scroll Value
   d->scrollY     = 0;
   d->maxScrollY  = 0;

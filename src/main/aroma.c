@@ -307,7 +307,7 @@ int main(int argc, char ** argv) {
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
 
-  //-- Parse optional flags (--volkey, --config-only, --plain) and env vars
+  //-- Parse optional flags (--volkey, --config-only, --plain, --preset <file>) and env vars
   if (getenv("AROMA_VOLKEY") && strcmp(getenv("AROMA_VOLKEY"), "1") == 0) {
     a_set_volkey_mode(1);
   }
@@ -316,6 +316,10 @@ int main(int argc, char ** argv) {
   }
   if (getenv("AROMA_PLAIN") && strcmp(getenv("AROMA_PLAIN"), "1") == 0) {
     a_set_plain_output(1);
+  }
+  if (getenv("AROMA_PRESET") && getenv("AROMA_PRESET")[0] != '\0') {
+    a_set_preset_file(getenv("AROMA_PRESET"));
+    a_set_volkey_mode(1);
   }
 
   int argi = 1;
@@ -329,6 +333,11 @@ int main(int argc, char ** argv) {
     }
     else if (strcmp(argv[argi], "--plain") == 0) {
       a_set_plain_output(1);
+    }
+    else if (strcmp(argv[argi], "--preset") == 0 && argi + 1 < argc) {
+      argi++;
+      a_set_preset_file(argv[argi]);
+      a_set_volkey_mode(1);
     }
     argi++;
   }

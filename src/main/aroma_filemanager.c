@@ -27,15 +27,22 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/input.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <sys/reboot.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
+#include "../../libs/minzip/Zip.h"
 #include "../aroma.h"
 
 #define AFM_PATH_MAX      1024
@@ -1196,12 +1203,349 @@ static void afm_show_properties(AWINDOWP parent, const AFM_ENTRY * e) {
   aw_alert(parent, "Item Properties", info, "@info", NULL);
 }
 
+static byte afm_is_zip_file(const char * name) {
+  if (!name) return 0;
+  size_t len = strlen(name);
+  if (len < 4) return 0;
+  const char * ext = name + (len - 4);
+  return (strcasecmp(ext, ".zip") == 0) ? 1 : 0;
+}
+
+/* ZIP Inspector: lists entries & sizes inside any .zip using minzip */
+static void afm_inspect_zip(AWINDOWP parent, const char * zip_path) {
+  ZipArchive za;
+  if (mzOpenZipArchive(zip_path, &za) != 0) {
+    aw_alert(parent, "ZIP Error", "Cannot open ZIP archive (corrupt or unreadable).", "@alert", NULL);
+    return;
+  }
+
+  unsigned int cnt = mzZipEntryCount(&za);
+  unsigned long long total_uncomp = 0;
+  unsigned long long total_comp = 0;
+  unsigned int i;
+  for (i = 0; i < cnt; i++) {
+    const ZipEntry * e = mzGetZipEntryAt(&za, i);
+    if (e) {
+      total_uncomp += (unsigned long long) e->uncompLen;
+      total_comp   += (unsigned long long) e->compLen;
+    }
+  }
+
+  size_t cap = 65536;
+  char * out = (char *) malloc(cap);
+  if (!out) {
+    mzCloseZipArchive(&za);
+    return;
+  }
+  char sz_u[32], sz_c[32];
+  afm_format_size((off_t) total_uncomp, sz_u, sizeof(sz_u));
+  afm_format_size((off_t) total_comp,   sz_c, sizeof(sz_c));
+
+  size_t pos = (size_t) snprintf(out, cap,
+    "Archive: %s\nEntries: %u  |  Compressed: %s  |  Uncompressed: %s\n"
+    "----------------------------------------\n",
+    zip_path, cnt, sz_c, sz_u);
+
+  unsigned int limit = (cnt > 400) ? 400 : cnt;
+  for (i = 0; i < limit && pos + 320 < cap; i++) {
+    const ZipEntry * e = mzGetZipEntryAt(&za, i);
+    if (!e) continue;
+    char esz[32];
+    afm_format_size((off_t) e->uncompLen, esz, sizeof(esz));
+    int nlen = (int) e->fileNameLen;
+    if (nlen > 220) nlen = 220;
+    pos += (size_t) snprintf(out + pos, cap - pos, "%8s  %.*s\n", esz, nlen, e->fileName);
+  }
+  if (cnt > limit && pos + 80 < cap) {
+    snprintf(out + pos, cap - pos, "\n... (%u more entries omitted)\n", cnt - limit);
+  }
+
+  mzCloseZipArchive(&za);
+  aw_textdialog(parent, "ZIP Contents", out, "Close");
+  free(out);
+}
+
+/* ZIP Extractor: safely extracts archive into <cur_dir>/<zipname>_extracted/ */
+static void afm_extract_zip(AWINDOWP parent, const char * zip_path, const char * cur_dir, const char * zip_name) {
+  char base[256];
+  snprintf(base, sizeof(base), "%s", zip_name);
+  size_t blen = strlen(base);
+  if (blen > 4 && strcasecmp(base + blen - 4, ".zip") == 0) {
+    base[blen - 4] = '\0';
+  }
+  char folder[300];
+  snprintf(folder, sizeof(folder), "%s_extracted", base);
+
+  char out_dir[AFM_PATH_MAX];
+  afm_join_path(out_dir, sizeof(out_dir), cur_dir, folder);
+
+  char q[512];
+  snprintf(q, sizeof(q), "Extract <b>%s</b> into:\n%s ?", zip_name, out_dir);
+  if (!aw_confirm(parent, "Extract ZIP", q, "@install", "Extract", "Cancel")) {
+    return;
+  }
+
+  ZipArchive za;
+  if (mzOpenZipArchive(zip_path, &za) != 0) {
+    aw_alert(parent, "Extract Error", "Cannot open ZIP archive.", "@alert", NULL);
+    return;
+  }
+
+  create_directory(out_dir);
+  unsigned int cnt = mzZipEntryCount(&za);
+  unsigned int extracted = 0;
+  unsigned int skipped = 0;
+  unsigned int i;
+
+  for (i = 0; i < cnt; i++) {
+    const ZipEntry * e = mzGetZipEntryAt(&za, i);
+    if (!e || e->fileNameLen == 0) continue;
+    char rel[512];
+    size_t rlen = (e->fileNameLen < sizeof(rel) - 1) ? e->fileNameLen : (sizeof(rel) - 1);
+    memcpy(rel, e->fileName, rlen);
+    rel[rlen] = '\0';
+
+    /* Reject path traversal */
+    if (rel[0] == '/' || strstr(rel, "..") != NULL) {
+      skipped++;
+      continue;
+    }
+
+    char dst[AFM_PATH_MAX];
+    afm_join_path(dst, sizeof(dst), out_dir, rel);
+
+    if (rel[rlen - 1] == '/') {
+      create_directory(dst);
+      continue;
+    }
+
+    /* Ensure parent directory exists */
+    char pdir[AFM_PATH_MAX];
+    snprintf(pdir, sizeof(pdir), "%s", dst);
+    char * slash = strrchr(pdir, '/');
+    if (slash && slash > pdir) {
+      *slash = '\0';
+      create_directory(pdir);
+    }
+
+    unlink(dst);
+    int fd = creat(dst, 0644);
+    if (fd >= 0) {
+      if (mzExtractZipEntryToFile(&za, e, fd)) {
+        extracted++;
+      }
+      else {
+        skipped++;
+      }
+      close(fd);
+    }
+    else {
+      skipped++;
+    }
+  }
+
+  mzCloseZipArchive(&za);
+  char msg[512];
+  snprintf(msg, sizeof(msg),
+    "Extraction finished!\n\n"
+    "<b>Extracted files:</b> %u\n"
+    "<b>Skipped/Errors:</b> %u\n"
+    "<b>Destination:</b>\n%s",
+    extracted, skipped, out_dir);
+  aw_alert(parent, "ZIP Extracted", msg, "@confirm", NULL);
+}
+
+/* Bootloop-Saver: disable or re-enable ALL Magisk/KernelSU/APatch modules in 1 tap */
+static int afm_set_all_modules_disabled(byte disable_all) {
+  DIR * d = opendir("/data/adb/modules");
+  if (!d) return -1;
+  struct dirent * de;
+  int touched = 0;
+  while ((de = readdir(d)) != NULL) {
+    if (de->d_name[0] == '.') continue;
+    char mdir[AFM_PATH_MAX];
+    afm_join_path(mdir, sizeof(mdir), "/data/adb/modules", de->d_name);
+    if (!afm_dir_exists(mdir)) continue;
+    char flag[AFM_PATH_MAX];
+    afm_join_path(flag, sizeof(flag), mdir, "disable");
+    if (disable_all) {
+      afm_touch_file(flag);
+      if (file_exists(flag)) touched++;
+    }
+    else {
+      if (unlink(flag) == 0) touched++;
+    }
+  }
+  closedir(d);
+  return touched;
+}
+
+/* Quick Reboot Menu (System / Recovery / Bootloader / Fastbootd) */
+static void afm_quick_reboot_menu(AWINDOWP parent) {
+  const char * items[4] = {
+    "Reboot System",
+    "Reboot Recovery",
+    "Reboot Bootloader",
+    "Reboot Fastbootd"
+  };
+  const char * descs[4] = {
+    "Normal boot into Android OS",
+    "Restart back into Custom Recovery",
+    "Restart into Bootloader / Fastboot mode",
+    "Restart into userspace Fastbootd"
+  };
+  int pick = afm_action_sheet(parent, "Quick Reboot", items, descs, 4);
+  if (pick < 0 || pick > 3) return;
+
+  char q[256];
+  snprintf(q, sizeof(q), "Are you sure you want to:\n<b>%s</b>?", items[pick]);
+  if (!aw_confirm(parent, "Confirm Reboot", q, "@alert", "Reboot Now", "Cancel")) {
+    return;
+  }
+
+  sync();
+  usleep(250000);
+  if (pick == 0) {
+    reboot(RB_AUTOBOOT);
+  }
+  else if (pick == 1) {
+    syscall(__NR_reboot, 0xfee1dead, 672274793, 0xA1B2C3D4, "recovery");
+  }
+  else if (pick == 2) {
+    syscall(__NR_reboot, 0xfee1dead, 672274793, 0xA1B2C3D4, "bootloader");
+  }
+  else if (pick == 3) {
+    syscall(__NR_reboot, 0xfee1dead, 672274793, 0xA1B2C3D4, "fastboot");
+  }
+  aw_alert(parent, "Reboot Blocked", "Kernel rejected direct reboot syscall in this environment.", "@alert", NULL);
+}
+
+/* Backup /tmp/recovery.log to /sdcard/AROMA-Next-recovery.log */
+static void afm_backup_recovery_log(AWINDOWP parent) {
+  const char * src = NULL;
+  if (file_exists("/tmp/recovery.log")) src = "/tmp/recovery.log";
+  else if (file_exists("/cache/recovery/last_log")) src = "/cache/recovery/last_log";
+
+  if (!src) {
+    aw_alert(parent, "Log Not Found", "Neither /tmp/recovery.log nor /cache/recovery/last_log exists.", "@alert", NULL);
+    return;
+  }
+
+  const char * dst = (access("/sdcard", W_OK) == 0) ? "/sdcard/AROMA-Next-recovery.log" : "/tmp/AROMA-Next-recovery.log";
+  if (afm_copy_file(src, dst)) {
+    struct stat st;
+    char sz[32] = "?";
+    if (stat(dst, &st) == 0) afm_format_size(st.st_size, sz, sizeof(sz));
+    char msg[384];
+    snprintf(msg, sizeof(msg), "Recovery log backed up successfully!\n\n<b>Source:</b> %s\n<b>Saved to:</b> %s\n<b>Size:</b> %s", src, dst, sz);
+    aw_alert(parent, "Log Backed Up", msg, "@confirm", NULL);
+  }
+  else {
+    aw_alert(parent, "Backup Failed", "Could not copy recovery log (storage may be encrypted or read-only).", "@alert", NULL);
+  }
+}
+
+/* Export Hardware & Environment Diagnostic Report */
+static void afm_export_diagnostics(AWINDOWP parent) {
+  const char * dst = (access("/sdcard", W_OK) == 0)
+                     ? "/sdcard/AROMA-Next-Diagnostics.txt"
+                     : "/tmp/AROMA-Next-Diagnostics.txt";
+  FILE * fp = fopen(dst, "wb");
+  if (!fp) {
+    aw_alert(parent, "Export Failed", "Cannot write diagnostic report (storage not writable).", "@alert", NULL);
+    return;
+  }
+
+  struct utsname u;
+  memset(&u, 0, sizeof(u));
+  uname(&u);
+  char slot[16] = {0};
+  aui_get_slot_suffix(slot, sizeof(slot));
+  const char * backend_str = (ag_backend() == 2) ? "DRM/KMS" : ((ag_backend() == 1) ? "fbdev" : "None");
+
+  fprintf(fp, "=== AROMA-Next-Installer (ANI) Hardware Diagnostic Report ===\n");
+  fprintf(fp, "Version:  %s %s (Build %s / %s)\n", AROMA_NAME, AROMA_VERSION, AROMA_BUILD, AROMA_BUILD_CN);
+  fprintf(fp, "Kernel:   %s %s %s (%s)\n", u.sysname, u.release, u.version, u.machine);
+  fprintf(fp, "Display:  %s  %dx%d  dp=%d\n", backend_str, agw(), agh(), agdp());
+  fprintf(fp, "Slot:     %s\n", slot[0] ? slot : "(non-A/B)");
+  fprintf(fp, "Theme:    %s  |  Accent: %s  |  Font: %s\n\n",
+          acfg()->themename[0] ? acfg()->themename : "generic",
+          aui_get_user_accent(), aui_get_user_font());
+
+  fprintf(fp, "--- Input Devices (/dev/input/event*) ---\n");
+  DIR * d = opendir("/dev/input");
+  if (d) {
+    struct dirent * de;
+    while ((de = readdir(d)) != NULL) {
+      if (strncmp(de->d_name, "event", 5) != 0) continue;
+      char p[64];
+      snprintf(p, sizeof(p), "/dev/input/%s", de->d_name);
+      int fd = open(p, O_RDONLY | O_NONBLOCK);
+      if (fd >= 0) {
+        char name[128] = "unknown";
+        ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+        fprintf(fp, "  %s: %s\n", p, name);
+        close(fd);
+      }
+    }
+    closedir(d);
+  }
+
+  fprintf(fp, "\n--- Root Modules (/data/adb/modules) ---\n");
+  d = opendir("/data/adb/modules");
+  if (d) {
+    struct dirent * de;
+    int mc = 0;
+    while ((de = readdir(d)) != NULL) {
+      if (de->d_name[0] == '.') continue;
+      char mp[AFM_PATH_MAX], df[AFM_PATH_MAX];
+      afm_join_path(mp, sizeof(mp), "/data/adb/modules", de->d_name);
+      if (!afm_dir_exists(mp)) continue;
+      afm_join_path(df, sizeof(df), mp, "disable");
+      fprintf(fp, "  - %s [%s]\n", de->d_name, file_exists(df) ? "DISABLED" : "ACTIVE");
+      mc++;
+    }
+    if (mc == 0) fprintf(fp, "  (none)\n");
+    closedir(d);
+  }
+  else {
+    fprintf(fp, "  (not accessible / encrypted)\n");
+  }
+
+  fprintf(fp, "\n--- Active Mounts (/proc/mounts) ---\n");
+  FILE * mf = fopen("/proc/mounts", "r");
+  if (mf) {
+    char line[512];
+    int lines = 0;
+    while (fgets(line, sizeof(line), mf) && lines < 64) {
+      fputs(line, fp);
+      lines++;
+    }
+    fclose(mf);
+  }
+
+  fclose(fp);
+
+  char * report = aui_readfromfs((char *) dst);
+  if (report) {
+    char hdr[320];
+    snprintf(hdr, sizeof(hdr), "Saved to: %s", dst);
+    aw_textdialog(parent, hdr, report, "Close");
+    free(report);
+  }
+  else {
+    char msg[320];
+    snprintf(msg, sizeof(msg), "Diagnostic report saved to:\n<b>%s</b>", dst);
+    aw_alert(parent, "Diagnostics Exported", msg, "@confirm", NULL);
+  }
+}
+
 /* Item action sheet for a file or folder. Returns 1 if directory should reload. */
 static byte afm_handle_item_actions(AWINDOWP parent, const char * cur_dir,
                                     const AFM_ENTRY * e, char * nav_target, size_t nav_sz) {
-  const char * items[8];
-  const char * descs[8];
-  int codes[8];
+  const char * items[10];
+  const char * descs[10];
+  int codes[10];
   int n = 0;
 
   if (e->is_dir) {
@@ -1210,6 +1554,15 @@ static byte afm_handle_item_actions(AWINDOWP parent, const char * cur_dir,
     codes[n++] = 1;
   }
   else {
+    if (afm_is_zip_file(e->name)) {
+      items[n] = "Inspect ZIP Contents";
+      descs[n] = "List files and sizes inside this archive";
+      codes[n++] = 9;
+
+      items[n] = "Extract ZIP Here";
+      descs[n] = "Unpack archive into a subfolder here";
+      codes[n++] = 10;
+    }
     items[n] = "View / Edit Text";
     descs[n] = "Open in built-in line viewer & editor";
     codes[n++] = 2;
@@ -1243,6 +1596,12 @@ static byte afm_handle_item_actions(AWINDOWP parent, const char * cur_dir,
   if (pick < 0 || pick >= n) return 0;
 
   switch (codes[pick]) {
+    case 9:
+      afm_inspect_zip(parent, e->fullpath);
+      return 0;
+    case 10:
+      afm_extract_zip(parent, e->fullpath, cur_dir, e->name);
+      return 1;
     case 1:
       if (nav_target && nav_sz > 0) {
         snprintf(nav_target, nav_sz, "%s", e->fullpath);
@@ -1347,15 +1706,17 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     aui_sync_theme_and_font();
 
     int pad   = agdp() * 2;
+    int m3    = aui_is_m3();
+    int sbH   = aui_statusbar_height();
     int capH  = ag_fontheight(1) + (pad * 2);
     int barH  = agdp() * 19;
-    int indH  = agdp() * 3;
-    int subH  = ag_fontheight(0) + (pad * 2);
+    int indH  = m3 ? 0 : (agdp() * 3);
+    int subH  = ag_fontheight(0) + (pad * (m3 ? 3 : 2));
     int navH  = agdp() * 24;
-    int tbY   = capH + (pad / 2);
+    int tbY   = sbH + capH + (pad / 2);
     int indY  = tbY + barH + (agdp() > 1 ? agdp() : 1);
-    int subY  = indY + indH + (pad / 2);
-    int listY = subY + subH;
+    int subY  = m3 ? (tbY + barH + (agdp() * 3)) : (indY + indH + (pad / 2));
+    int listY = subY + subH + (m3 ? (agdp() * 2) : 0);
     int listH = agh() - listY - navH;
 
     int active_tab = 2; /* 0 = Modules, 1 = Storage, 2 = System, 3 = Tools */
@@ -1380,8 +1741,10 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     if (!atheme_id_draw(0, &bg, 0, 0, agw(), agh())) {
       ag_roundgrad(&bg, 0, 0, agw(), agh(), acfg()->winbg, acfg()->winbg_g, 0);
     }
-    if (!atheme_id_draw(1, &bg, 0, 0, agw(), capH)) {
-      ag_roundgrad_ex(&bg, 0, 0, agw(), capH, acfg()->titlebg, acfg()->titlebg_g, 0, 1, 1, 0, 0);
+    /* Slim Top Status Bar (Clock | Punch-hole Safe Gap | Slot + Battery) */
+    aui_draw_statusbar(&bg, sbH);
+    if (!atheme_id_draw(1, &bg, 0, sbH, agw(), capH)) {
+      ag_roundgrad_ex(&bg, 0, sbH, agw(), capH, acfg()->titlebg, acfg()->titlebg_g, 0, 0, 0, 0, 0);
     }
     if (!atheme_id_draw(2, &bg, 0, agh() - navH, agw(), navH)) {
       ag_roundgrad_ex(&bg, 0, agh() - navH, agw(), navH, acfg()->navbg, acfg()->navbg_g, 0, 0, 0, 1, 1);
@@ -1390,6 +1753,10 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     char title[128];
     char sub[320];
     char mp[256], fs[64];
+    char slot[16] = {0};
+    aui_get_slot_suffix(slot, sizeof(slot));
+    const char * slot_txt = (strcmp(slot, "_a") == 0) ? "Slot A" :
+                            ((strcmp(slot, "_b") == 0) ? "Slot B" : "");
     snprintf(title, sizeof(title), "AROMA-Next-Filemanager");
 
     if (view_mode == AFM_VIEW_MODULES) {
@@ -1402,15 +1769,18 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
       }
     }
     else if (view_mode == AFM_VIEW_SYSTEM) {
-      snprintf(sub, sizeof(sub), "System & Root Partitions • Tap a partition to browse");
+      snprintf(sub, sizeof(sub), "System & Root Partitions%s%s • Tap a partition",
+               slot_txt[0] ? " • " : "", slot_txt);
     }
     else if (view_mode == AFM_VIEW_TOOLS) {
       if (prev_view_mode == AFM_VIEW_FILES) {
         byte rw = afm_mount_info(cur_path, mp, sizeof(mp), fs, sizeof(fs));
-        snprintf(sub, sizeof(sub), "Tools • %s [%s • %s]", cur_path, rw ? "RW" : "RO", fs);
+        snprintf(sub, sizeof(sub), "Tools%s%s • %s [%s • %s]",
+                 slot_txt[0] ? " • " : "", slot_txt, cur_path, rw ? "RW" : "RO", fs);
       }
       else {
-        snprintf(sub, sizeof(sub), "Tools • Quick Actions & Partition Controls");
+        snprintf(sub, sizeof(sub), "Tools%s%s • Bootloop-Saver, Reboot & Diagnostics",
+                 slot_txt[0] ? " • " : "", slot_txt);
       }
     }
     else {
@@ -1427,27 +1797,45 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     }
 
     int titW = ag_txtwidth(title, 1);
-    ag_textf(&bg, titW, (agw() - titW) / 2 + 1, pad + 1, title, acfg()->titlebg_g, 1);
-    ag_text(&bg, titW, (agw() - titW) / 2, pad, title, acfg()->titlefg, 1);
+    if (!m3) {
+      ag_textf(&bg, titW, (agw() - titW) / 2 + 1, sbH + pad + 1, title, acfg()->titlebg_g, 1);
+    }
+    ag_text(&bg, titW, (agw() - titW) / 2, sbH + pad, title, acfg()->titlefg, 1);
 
-    /* Active tab underline indicator (uniformly shown for Modules / Storage / System / Tools) */
-    int tbW = (agw() - (pad * 5)) / 4;
-    int actX = pad + active_tab * (tbW + pad);
-    color ind_col = (acfg()->selectbg != acfg()->winbg) ? acfg()->selectbg : acfg()->titlefg;
-    color ind_col_g = (acfg()->selectbg_g != acfg()->winbg) ? acfg()->selectbg_g : ind_col;
-    ag_roundgrad(&bg, actX, indY, tbW, indH, ind_col, ind_col_g, agdp());
+    /* Top Tab Grid: align outer edges with card margin (agdp() * 4) on Material 3 */
+    int sideM = m3 ? (agdp() * 4) : pad;
+    int tbGap = pad;
+    int tbW   = (agw() - (sideM * 2) - (tbGap * 3)) / 4;
+
+    if (!m3) {
+      /* Classic themes keep the underline indicator below active tab */
+      int actX = sideM + active_tab * (tbW + tbGap);
+      color ind_col = (acfg()->selectbg != acfg()->winbg) ? acfg()->selectbg : acfg()->titlefg;
+      color ind_col_g = (acfg()->selectbg_g != acfg()->winbg) ? acfg()->selectbg_g : ind_col;
+      ag_roundgrad(&bg, actX, indY, tbW, indH, ind_col, ind_col_g, agdp());
+    }
 
     /* Status / path bar */
-    ag_rect(&bg, 0, subY, agw(), subH, acfg()->controlbg);
-    ag_text(&bg, agw() - (pad * 2), pad, subY + pad, sub, acfg()->controlfg, 0);
+    if (m3) {
+      int cardW = agw() - (sideM * 2);
+      int pillR = agdp() * 6;
+      ag_roundgrad(&bg, sideM, subY, cardW, subH, acfg()->border, acfg()->border, pillR);
+      ag_roundgrad(&bg, sideM + 1, subY + 1, cardW - 2, subH - 2, acfg()->dialogbg, acfg()->dialogbg, max(pillR - 1, 1));
+      int txtY = subY + ((subH - ag_fontheight(0)) / 2);
+      ag_text(&bg, cardW - (agdp() * 8), sideM + (agdp() * 4), txtY, sub, acfg()->controlfg, 0);
+    }
+    else {
+      ag_rect(&bg, 0, subY, agw(), subH, acfg()->controlbg);
+      ag_text(&bg, agw() - (pad * 2), pad, subY + pad, sub, acfg()->controlfg, 0);
+    }
 
     AWINDOWP hWin = aw(&bg);
 
     /* Quick-Access Top Bar: Modules | Storage | System | Tools */
-    ACONTROLP btn_mod = acbutton(hWin, pad,               tbY, tbW, barH, (active_tab == 0) ? "<b>Modules</b>" : "Modules", 0, 21);
-    ACONTROLP btn_sto = acbutton(hWin, pad * 2 + tbW,     tbY, tbW, barH, (active_tab == 1) ? "<b>Storage</b>" : "Storage", 0, 22);
-    ACONTROLP btn_sys = acbutton(hWin, pad * 3 + tbW * 2, tbY, tbW, barH, (active_tab == 2) ? "<b>System</b>"  : "System",  0, 23);
-    ACONTROLP btn_tls = acbutton(hWin, pad * 4 + tbW * 3, tbY, tbW, barH, (active_tab == 3) ? "<b>Tools</b>"   : "Tools",   0, 24);
+    ACONTROLP btn_mod = acbutton(hWin, sideM,                     tbY, tbW, barH, (active_tab == 0) ? "<b>Modules</b>" : "Modules", 0, 21);
+    ACONTROLP btn_sto = acbutton(hWin, sideM + (tbW + tbGap),     tbY, tbW, barH, (active_tab == 1) ? "<b>Storage</b>" : "Storage", 0, 22);
+    ACONTROLP btn_sys = acbutton(hWin, sideM + (tbW + tbGap) * 2, tbY, tbW, barH, (active_tab == 2) ? "<b>System</b>"  : "System",  0, 23);
+    ACONTROLP btn_tls = acbutton(hWin, sideM + (tbW + tbGap) * 3, tbY, tbW, barH, (active_tab == 3) ? "<b>Tools</b>"   : "Tools",   0, 24);
     ACONTROLP active_tab_btn = (active_tab == 0) ? btn_mod :
                                (active_tab == 1) ? btn_sto :
                                (active_tab == 2) ? btn_sys : btn_tls;
@@ -1457,7 +1845,7 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
     int ent_cnt = 0;
     const char * sys_paths[16];
     int sys_cnt = 0;
-    int tool_codes[10];
+    int tool_codes[20];
     int tool_cnt = 0;
     int i;
 
@@ -1530,6 +1918,26 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
           tool_codes[tool_cnt++] = 4;
         }
       }
+      acmenu_add(menu, "Bootloop-Saver: Disable ALL Modules",
+                 "Emergency Safe Mode — disables every module in /data/adb/modules", "@alert");
+      tool_codes[tool_cnt++] = 9;
+
+      acmenu_add(menu, "Re-Enable ALL Modules",
+                 "Remove disable flag from all Magisk/KSU/APatch modules", "@confirm");
+      tool_codes[tool_cnt++] = 10;
+
+      acmenu_add(menu, "Quick Reboot...",
+                 "Reboot to System, Recovery, Bootloader, or Fastbootd", "@update");
+      tool_codes[tool_cnt++] = 11;
+
+      acmenu_add(menu, "Backup Recovery Log",
+                 "Save /tmp/recovery.log to /sdcard/AROMA-Next-recovery.log", "@agreement");
+      tool_codes[tool_cnt++] = 12;
+
+      acmenu_add(menu, "Export Hardware Diagnostic Report",
+                 "Save Display, Input, Slot & Mounts to /sdcard/AROMA-Next-Diagnostics.txt", "@info");
+      tool_codes[tool_cnt++] = 13;
+
       acmenu_add(menu,
                  afm_show_hidden ? "Hide Hidden Files (.dotfiles)" : "Show Hidden Files (.dotfiles)",
                  "Toggle visibility of hidden entries", "");
@@ -1771,6 +2179,48 @@ byte afm_run(AWINDOWP parent, const char * start_path) {
             } break;
             case 8:
               view_mode = prev_view_mode;
+              break;
+            case 9: {
+              if (aw_confirm(hWin, "Bootloop-Saver",
+                             "Disable <b>ALL</b> root modules under /data/adb/modules?\n\n"
+                             "Your module files stay intact; a <b>disable</b> flag will be placed in each module so Android can boot safely.",
+                             "@alert", "Disable All", "Cancel")) {
+                int n = afm_set_all_modules_disabled(1);
+                if (n < 0) {
+                  aw_alert(hWin, "Unavailable", "/data/adb/modules is not accessible (decrypt /data first).", "@alert", NULL);
+                }
+                else {
+                  char msg[256];
+                  snprintf(msg, sizeof(msg), "Safe Mode applied!\n\n<b>%d</b> module(s) marked as disabled.", n);
+                  aw_alert(hWin, "Bootloop-Saver Done", msg, "@confirm", NULL);
+                }
+              }
+              view_mode = AFM_VIEW_MODULES;
+            } break;
+            case 10: {
+              if (aw_confirm(hWin, "Re-Enable All Modules",
+                             "Remove the <b>disable</b> flag from all modules under /data/adb/modules?",
+                             "@confirm", "Enable All", "Cancel")) {
+                int n = afm_set_all_modules_disabled(0);
+                if (n < 0) {
+                  aw_alert(hWin, "Unavailable", "/data/adb/modules is not accessible.", "@alert", NULL);
+                }
+                else {
+                  char msg[256];
+                  snprintf(msg, sizeof(msg), "<b>%d</b> module(s) re-enabled for next boot.", n);
+                  aw_alert(hWin, "Modules Enabled", msg, "@confirm", NULL);
+                }
+              }
+              view_mode = AFM_VIEW_MODULES;
+            } break;
+            case 11:
+              afm_quick_reboot_menu(hWin);
+              break;
+            case 12:
+              afm_backup_recovery_log(hWin);
+              break;
+            case 13:
+              afm_export_diagnostics(hWin);
               break;
           }
         }

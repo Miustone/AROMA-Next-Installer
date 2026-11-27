@@ -149,49 +149,67 @@ ACONTROLP acbutton(
   ag_canvas(&d->control_pushed, w, h);
   ag_canvas(&d->control_focused, w, h);
   //-- Draw Rest Control
-  dword hl1 = ag_calchighlight(acfg()->controlbg, acfg()->controlbg_g);
   ag_draw_ex(&d->control, &win->c, 0, 0, x, y, w, h);
-  
-  if (!atheme_draw("img.button", &d->control, 0, 0, w, h)) {
-    ag_roundgrad(&d->control, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
-    ag_roundgrad(&d->control, 1, 1, w - 2, h - 2,
-                 ag_calculatealpha(acfg()->controlbg, acfg()->winbg, 180),
-                 ag_calculatealpha(acfg()->controlbg_g, acfg()->winbg, 160),
-                 (agdp()*acfg()->btnroundsz) - 1);
-    ag_roundgrad(&d->control, 2, 2, w - 4, h - 4, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 2);
-    ag_roundgrad_ex(&d->control, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
+  if (aui_is_m3()) {
+    int pill_r = min(h / 2, agdp() * 12);
+    ag_roundgrad(&d->control, 0, 0, w, h, acfg()->border, acfg()->border, pill_r);
+    ag_roundgrad(&d->control, 1, 1, w - 2, h - 2, acfg()->controlbg, acfg()->controlbg, max(pill_r - 1, 1));
+    ag_text(&d->control, txtw, txtx, txty, text, acfg()->controlfg, isbig);
+
+    /* Material 3 Pushed: crisp flat accent pill (zero 2011 gloss!) */
+    ag_draw_ex(&d->control_pushed, &win->c, 0, 0, x, y, w, h);
+    ag_roundgrad(&d->control_pushed, 0, 0, w, h, acfg()->selectbg, acfg()->selectbg, pill_r);
+    ag_text(&d->control_pushed, txtw, txtx, txty, text, acfg()->selectfg, isbig);
+
+    /* Material 3 Focused: subtle tonal accent surface + crisp accent outline (zero glossy red bar!) */
+    color m3_focus_bg = ag_calculatealpha(acfg()->controlbg, acfg()->selectbg, 45);
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->selectbg, acfg()->selectbg, pill_r);
+    ag_roundgrad(&d->control_focused, 2, 2, w - 4, h - 4, m3_focus_bg, m3_focus_bg, max(pill_r - 2, 1));
+    ag_text(&d->control_focused, txtw, txtx, txty, text, acfg()->controlfg, isbig);
   }
-  
-  ag_textf(&d->control, txtw, txtx + 1, txty + 1, text, acfg()->controlbg, isbig);
-  ag_text(&d->control, txtw, txtx, txty, text, acfg()->controlfg, isbig);
-  //-- Draw Pushed Control
-  //-- Highlight
-  color pshad = ag_calpushad(acfg()->selectbg_g);
-  hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
-  ag_draw_ex(&d->control_pushed, &win->c, 0, 0, x, y, w, h);
-  
-  if (!atheme_draw("img.button.push", &d->control_pushed, 0, 0, w, h)) {
-    ag_roundgrad(&d->control_pushed, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
-    ag_roundgrad(&d->control_pushed, 1, 1, w - 2, h - 2, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 1);
-    ag_roundgrad(&d->control_pushed, 2, 2, w - 4, h - 4, acfg()->selectbg, pshad, (agdp()*acfg()->btnroundsz) - 2);
-    ag_roundgrad_ex(&d->control_pushed, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
+  else {
+    dword hl1 = ag_calchighlight(acfg()->controlbg, acfg()->controlbg_g);
+    if (!atheme_draw("img.button", &d->control, 0, 0, w, h)) {
+      ag_roundgrad(&d->control, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
+      ag_roundgrad(&d->control, 1, 1, w - 2, h - 2,
+                   ag_calculatealpha(acfg()->controlbg, acfg()->winbg, 180),
+                   ag_calculatealpha(acfg()->controlbg_g, acfg()->winbg, 160),
+                   (agdp()*acfg()->btnroundsz) - 1);
+      ag_roundgrad(&d->control, 2, 2, w - 4, h - 4, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 2);
+      ag_roundgrad_ex(&d->control, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
+    }
+    
+    ag_textf(&d->control, txtw, txtx + 1, txty + 1, text, acfg()->controlbg, isbig);
+    ag_text(&d->control, txtw, txtx, txty, text, acfg()->controlfg, isbig);
+    //-- Draw Pushed Control
+    color pshad = ag_calpushad(acfg()->selectbg_g);
+    hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
+    ag_draw_ex(&d->control_pushed, &win->c, 0, 0, x, y, w, h);
+    
+    if (!atheme_draw("img.button.push", &d->control_pushed, 0, 0, w, h)) {
+      ag_roundgrad(&d->control_pushed, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
+      ag_roundgrad(&d->control_pushed, 1, 1, w - 2, h - 2, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 1);
+      ag_roundgrad(&d->control_pushed, 2, 2, w - 4, h - 4, acfg()->selectbg, pshad, (agdp()*acfg()->btnroundsz) - 2);
+      ag_roundgrad_ex(&d->control_pushed, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
+    }
+    
+    ag_textf(&d->control_pushed, txtw, txtx + 1, txty + 1, text, acfg()->selectbg_g, isbig);
+    ag_text(&d->control_pushed, txtw, txtx, txty, text, acfg()->selectfg, isbig);
+    //-- Draw Focused Control
+    hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    
+    if (!atheme_draw("img.button.focus", &d->control_focused, 0, 0, w, h)) {
+      ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
+      ag_roundgrad(&d->control_focused, 1, 1, w - 2, h - 2, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 1);
+      ag_roundgrad(&d->control_focused, 2, 2, w - 4, h - 4, acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->btnroundsz) - 2);
+      ag_roundgrad_ex(&d->control_focused, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
+    }
+    
+    ag_textf(&d->control_focused, txtw, txtx + 1, txty + 1, text, acfg()->selectbg_g, isbig);
+    ag_text(&d->control_focused, txtw, txtx, txty, text, acfg()->selectfg, isbig);
   }
-  
-  ag_textf(&d->control_pushed, txtw, txtx + 1, txty + 1, text, acfg()->selectbg_g, isbig);
-  ag_text(&d->control_pushed, txtw, txtx, txty, text, acfg()->selectfg, isbig);
-  //-- Draw Focused Control
-  hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
-  ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
-  
-  if (!atheme_draw("img.button.focus", &d->control_focused, 0, 0, w, h)) {
-    ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->border, acfg()->border_g, (agdp()*acfg()->btnroundsz));
-    ag_roundgrad(&d->control_focused, 1, 1, w - 2, h - 2, acfg()->controlbg, acfg()->controlbg_g, (agdp()*acfg()->btnroundsz) - 1);
-    ag_roundgrad(&d->control_focused, 2, 2, w - 4, h - 4, acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->btnroundsz) - 2);
-    ag_roundgrad_ex(&d->control_focused, 2, 2, w - 4, (h - 4) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->btnroundsz) - 2, 1, 1, 0, 0);
-  }
-  
-  ag_textf(&d->control_focused, txtw, txtx + 1, txty + 1, text, acfg()->selectbg_g, isbig);
-  ag_text(&d->control_focused, txtw, txtx, txty, text, acfg()->selectfg, isbig);
   //-- Initializing Control
   ACONTROLP ctl  = malloc(sizeof(ACONTROL));
   ctl->ondestroy = &acbutton_ondestroy;

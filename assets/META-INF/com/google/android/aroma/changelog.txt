@@ -1,5 +1,25 @@
-AROMA-Next-Installer Changelog
-==============================
+AROMA-Next-Installer (ANI) Changelog
+====================================
+
+V26.11-RC5 (NextGen)
+--------------------
+- New AMOLED Modern Material 3 You default theme (Monochrome White default
+  + 8 Live Accent Colors & #RRGGBB hex support) across ANI & ANF
+- Unified Material 3 rounded cards across viewbox, menubox, selectbox,
+  checkbox, form, textbox, slider, dialogs, bottom sheets & bottom nav bar
+- 17 redesigned 4x-supersampled Material 3 You icons (all 7 classic themes
+  remain 100% preserved)
+- 1-Tap Stay-Open Live Appearance Hub (3-dot -> Appearance & live_appearance)
+- Punch-hole-safe Android Top Status Bar (clock + active A/B slot + battery)
+- Lossless PNG screenshots via libpng 1.6.59 (~250 KB instead of 9 MB BMP)
+- New interactive slider(...) Edify control (Touch drag + VolKey stepper)
+- Upgraded ANF (AROMA-Next-Filemanager) Toolkit: Bootloop-Saver (Disable/
+  Re-Enable ALL Modules), ZIP Inspector & Extractor, Quick Reboot Menu,
+  /tmp/recovery.log backup & Hardware Diagnostics export
+- Upgraded BOOTMODE=1 VolKey Selector: Go Back + VOL- long-press + --preset
+- Fixed Linux MT Type-B touch scrolling & mutex touch FIFO queue, CRLF
+  Edify stripping, and 2048B About/Alert/Confirm dialog text buffers
+- New companion repos: AROMA-Next-AnyKernel3 & Miustone/aroma-next-action@v1
 
 V26.11-RC4 (NextGen)
 --------------------

@@ -48,11 +48,21 @@ static  int       key_queue_len = 0;
 static pthread_mutex_t key_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t key_queue_cond = PTHREAD_COND_INITIALIZER;
 
-//-- TOUCH SCREEN VAR
+//-- TOUCH SCREEN VAR (Mutex-protected FIFO prevents DOWN/MOVE/UP races!)
+typedef struct {
+  int  x;
+  int  y;
+  byte state;
+} ATOUCH_QITEM;
+
+#define ATOUCH_QMAX 256
+static  ATOUCH_QITEM evtouch_q[ATOUCH_QMAX];
+static  int          evtouch_q_len = 0;
+
 static  byte      evthread_active = 1;
-static  int       evtouch_state   = 0;  //-- Touch State
-static  int       evtouch_x       = 0;  //-- Translated X (Ready to use)
-static  int       evtouch_y       = 0;  //-- Translated Y (Ready to use)
+static  int       evtouch_state   = 0;  //-- Latest Touch State
+static  int       evtouch_x       = 0;  //-- Latest Translated X
+static  int       evtouch_y       = 0;  //-- Latest Translated Y
 static  int       evtouch_code    = 888;//-- Touch Virtual Code
 
 //-- PASS TOUCH STATE FUNCTIONS
@@ -215,6 +225,29 @@ void ev_input_callback_(struct input_event * ev) {
   }
 }
 
+static void ev_post_touch(int x, int y, byte state) {
+  pthread_mutex_lock(&key_queue_mutex);
+  /* Coalesce consecutive MOVE events at queue tail for 120Hz zero-lag scrolling */
+  if (state == 2 && evtouch_q_len > 0 && evtouch_q[evtouch_q_len - 1].state == 2) {
+    evtouch_q[evtouch_q_len - 1].x = x;
+    evtouch_q[evtouch_q_len - 1].y = y;
+    pthread_cond_signal(&key_queue_cond);
+    pthread_mutex_unlock(&key_queue_mutex);
+    return;
+  }
+  const int queue_max = (int)(sizeof(key_queue) / sizeof(key_queue[0]));
+  if (evtouch_q_len < ATOUCH_QMAX && key_queue_len < queue_max) {
+    evtouch_q[evtouch_q_len].x     = x;
+    evtouch_q[evtouch_q_len].y     = y;
+    evtouch_q[evtouch_q_len].state = state;
+    evtouch_q_len++;
+    key_queue[key_queue_len++] = evtouch_code;
+    set_key_pressed(evtouch_code, state);
+    pthread_cond_signal(&key_queue_cond);
+  }
+  pthread_mutex_unlock(&key_queue_mutex);
+}
+
 byte touch_move_sent = 0;
 //-- INPUT THREAD
 static void * ev_input_thread(void * cookie) {
@@ -228,29 +261,10 @@ static void * ev_input_thread(void * cookie) {
     }
     
     if (ret == AINPUT_EV_RET_TOUCH) {
-      if ((e.x > 0) && (e.y > 0)) {
-        if (e.state == 2) {
-          evtouch_x = e.x;
-          evtouch_y = e.y;
-          evtouch_state = e.state;
-          
-          if (touch_move_sent == 0) {
-            touch_move_sent = 1;
-            ev_post_message(evtouch_code, evtouch_state);
-          }
-          else {
-            touch_move_sent = 2;
-          }
-        }
-        else {
-          evtouch_x = e.x;
-          evtouch_y = e.y;
-          evtouch_state = e.state;
-          ev_post_message(evtouch_code, evtouch_state);
-        }
+      if ((e.x >= 0) && (e.y >= 0)) {
+        ev_post_touch(e.x, e.y, e.state);
       }
       else {
-        //-- False Event
         evtouch_state = 0;
         evtouch_x = 0;
         evtouch_y = 0;
@@ -297,12 +311,14 @@ byte atouch_send_message(dword msg) {
 void ui_clear_key_queue_ex() {
   pthread_mutex_lock(&key_queue_mutex);
   key_queue_len = 0;
+  evtouch_q_len = 0;
   pthread_mutex_unlock(&key_queue_mutex);
   atouch_winmsg_n = 0;
 }
 void ui_clear_key_queue() {
   pthread_mutex_lock(&key_queue_mutex);
   key_queue_len = 0;
+  evtouch_q_len = 0;
   pthread_mutex_unlock(&key_queue_mutex);
   
   if (atouch_winmsg_n > 0) {
@@ -315,19 +331,24 @@ int ui_wait_key() {
   pthread_mutex_lock(&key_queue_mutex);
   int key = 0;
   
-  if (touch_move_sent == 2) {
-    touch_move_sent = 1;
-    key = evtouch_code;
+  while (key_queue_len == 0) {
+    pthread_cond_wait(&key_queue_cond, &key_queue_mutex);
   }
-  else {
-    touch_move_sent = 0;
-    
-    while (key_queue_len == 0) {
-      pthread_cond_wait(&key_queue_cond, &key_queue_mutex);
+  
+  key = key_queue[0];
+  key_queue_len--;
+  if (key_queue_len > 0) {
+    memmove(&key_queue[0], &key_queue[1], sizeof(int) * (size_t) key_queue_len);
+  }
+
+  if (key == evtouch_code && evtouch_q_len > 0) {
+    evtouch_x     = evtouch_q[0].x;
+    evtouch_y     = evtouch_q[0].y;
+    evtouch_state = evtouch_q[0].state;
+    evtouch_q_len--;
+    if (evtouch_q_len > 0) {
+      memmove(&evtouch_q[0], &evtouch_q[1], sizeof(ATOUCH_QITEM) * (size_t) evtouch_q_len);
     }
-    
-    key = key_queue[0];
-    memcpy(&key_queue[0], &key_queue[1], sizeof(int) * --key_queue_len);
   }
   
   pthread_mutex_unlock(&key_queue_mutex);

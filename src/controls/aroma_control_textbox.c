@@ -156,7 +156,12 @@ void actext_ondraw(void * x) {
   int agdp6 = (agdp() * (minpadding * 2));
   int agdpX = agdp6;
   
-  if ((d->focused) && (!d->isFixedText)) {
+  if (aui_is_m3()) {
+    int ypad = agdp() * 3;
+    ag_draw(pc, ((d->focused) && (!d->isFixedText)) ? &d->control_focused : &d->control, ctl->x, ctl->y);
+    ag_draw_ex(pc, &d->client, ctl->x + agdp3, ctl->y + ypad, 0, d->scrollY + ypad, ctl->w - agdp6, ctl->h - (ypad * 2));
+  }
+  else if ((d->focused) && (!d->isFixedText)) {
     ag_draw(pc, &d->control_focused, ctl->x, ctl->y);
     ag_draw_ex(pc, &d->client, ctl->x + agdp3, ctl->y + agdp(), 0, d->scrollY + agdp(), ctl->w - agdp6, ctl->h - (agdp() * 2));
   }
@@ -175,9 +180,10 @@ void actext_ondraw(void * x) {
       isST = 1;
     }
     
-    int add_t_y = 1;
+    int add_t_y = aui_is_m3() ? (agdp() * 3) : 1;
+    color glowcol = aui_is_m3() ? acfg()->dialogbg : acfg()->textbg;
     
-    if (d->focused) {
+    if (!aui_is_m3() && d->focused) {
       add_t_y = agdp();
     }
     
@@ -185,43 +191,42 @@ void actext_ondraw(void * x) {
       byte alph = 255 - round((((float) (i + 1)) / ((float) agdpX)) * 230);
       
       if (isST) {
-        ag_rectopa(pc, ctl->x + agdp3, ctl->y + i + add_t_y, ctl->w - agdpX, 1, acfg()->textbg, alph);
+        ag_rectopa(pc, ctl->x + agdp3, ctl->y + i + add_t_y, ctl->w - agdpX, 1, glowcol, alph);
       }
       
       if (isSB) {
-        ag_rectopa(pc, ctl->x + agdp3, (ctl->y + ctl->h) - (i + 1) - add_t_y, ctl->w - agdpX, 1, acfg()->textbg, alph);
+        ag_rectopa(pc, ctl->x + agdp3, (ctl->y + ctl->h) - (i + 1) - add_t_y, ctl->w - agdpX, 1, glowcol, alph);
       }
     }
     
     if (d->maxScrollY > 0) {
       //-- Scrollbar
-      int newh = ctl->h - agdp() * 3;
+      int newh = ctl->h - agdp() * 6;
+      if (newh < agdp() * 8) newh = ctl->h - agdp() * 3;
       float scrdif    = ((float) newh) / ((float) d->client.h);
       int  scrollbarH = floor(scrdif * newh);
-      int  scrollbarY = floor(scrdif * d->scrollY) + agdp();
+      int  scrollbarY = floor(scrdif * d->scrollY) + (aui_is_m3() ? (agdp() * 3) : agdp());
+      int  sbW        = aui_is_m3() ? max(agdp() / 2, 3) : agdp();
+      color sbCol     = aui_is_m3() ? acfg()->border : acfg()->scrollbar;
+      int  sbX        = aui_is_m3() ? ((ctl->w - agdp() * 5 - sbW) + ctl->x) : ((ctl->w - agdp() * 3) + ctl->x);
       
       if (d->scrollY < 0) {
-        scrollbarY = agdp();
+        scrollbarY = aui_is_m3() ? (agdp() * 3) : agdp();
         int alp = (1.0 - (((float) abs(d->scrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
       }
       else if (d->scrollY > d->maxScrollY) {
-        scrollbarY = floor(scrdif * d->maxScrollY) + agdp();
+        scrollbarY = floor(scrdif * d->maxScrollY) + (aui_is_m3() ? (agdp() * 3) : agdp());
         int alp = (1.0 - (((float) abs(d->scrollY - d->maxScrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
+      }
+      else if (aui_is_m3()) {
+        ag_roundgrad(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, sbCol, sbW / 2);
       }
       else {
-        ag_rect(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar);
+        ag_rect(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol);
       }
     }
   }
@@ -266,7 +271,7 @@ void actext_appendtxt(ACONTROLP ctl, char * txt) {
     d->appendPos -= step_up;
   }
   
-  ag_rect(&d->client, 0, d->appendPos, d->client.w, ch, acfg()->textbg);
+  ag_rect(&d->client, 0, d->appendPos, d->client.w, ch, aui_is_m3() ? acfg()->dialogbg : acfg()->textbg);
   ag_text(&d->client,
           d->client.w,
           0, d->appendPos,
@@ -368,14 +373,24 @@ void actext_rebuild(
   */
   //-- Draw Control
   ag_draw_ex(&d->control, ctl->win->bg, 0, 0, x, y, w, h);
-  ag_rect(&d->control, 0, 0, w, h, acfg()->border);
-  ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
-  //-- Draw Focused Control
   ag_draw_ex(&d->control_focused, ctl->win->bg, 0, 0, x, y, w, h);
-  ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
-  ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  color tbg = aui_is_m3() ? acfg()->dialogbg : acfg()->textbg;
+  if (aui_is_m3()) {
+    int mx = agdp() * 2;
+    int mr = agdp() * 7;
+    ag_roundgrad(&d->control, mx, 0, w - (mx * 2), h, acfg()->border, acfg()->border, mr);
+    ag_roundgrad(&d->control, mx + 1, 1, w - (mx * 2) - 2, h - 2, tbg, tbg, max(mr - 1, 1));
+    ag_roundgrad(&d->control_focused, mx, 0, w - (mx * 2), h, acfg()->border, acfg()->border, mr);
+    ag_roundgrad(&d->control_focused, mx + 1, 1, w - (mx * 2) - 2, h - 2, tbg, tbg, max(mr - 1, 1));
+  }
+  else {
+    ag_rect(&d->control, 0, 0, w, h, acfg()->border);
+    ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
+    ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
+    ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  }
   //-- Draw Client
-  ag_rect(&d->client, 0, 0, cw, ch, acfg()->textbg);
+  ag_rect(&d->client, 0, 0, cw, ch, tbg);
   
   if (text != NULL) {
     ag_text(&d->client, cw, 0, agdp()*minpadding, text, acfg()->textfg, isbig);
@@ -453,14 +468,24 @@ ACONTROLP actext(
   ag_canvas(&d->client, cw, ch);
   //-- Draw Control
   ag_draw_ex(&d->control, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control, 0, 0, w, h, acfg()->border);
-  ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
-  //-- Draw Focused Control
   ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
-  ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  color tbg = aui_is_m3() ? acfg()->dialogbg : acfg()->textbg;
+  if (aui_is_m3()) {
+    int mx = agdp() * 2;
+    int mr = agdp() * 7;
+    ag_roundgrad(&d->control, mx, 0, w - (mx * 2), h, acfg()->border, acfg()->border, mr);
+    ag_roundgrad(&d->control, mx + 1, 1, w - (mx * 2) - 2, h - 2, tbg, tbg, max(mr - 1, 1));
+    ag_roundgrad(&d->control_focused, mx, 0, w - (mx * 2), h, acfg()->border, acfg()->border, mr);
+    ag_roundgrad(&d->control_focused, mx + 1, 1, w - (mx * 2) - 2, h - 2, tbg, tbg, max(mr - 1, 1));
+  }
+  else {
+    ag_rect(&d->control, 0, 0, w, h, acfg()->border);
+    ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
+    ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
+    ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  }
   //-- Draw Client
-  ag_rect(&d->client, 0, 0, cw, ch, acfg()->textbg);
+  ag_rect(&d->client, 0, 0, cw, ch, tbg);
   
   if (text != NULL) {
     ag_text(&d->client, cw, 0, agdp()*minpadding, text, acfg()->textfg, isbig);

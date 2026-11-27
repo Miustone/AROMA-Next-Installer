@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -44,12 +44,15 @@
 #define AVK_KEY_NONE   0
 #define AVK_KEY_UP     1
 #define AVK_KEY_DOWN   2
+#define AVK_KEY_BACK   3
 
-static byte g_vk_mode        = 0;
-static byte g_vk_config_only = 0;
-static byte g_vk_plain_out   = 0;
+static byte g_vk_mode         = 0;
+static byte g_vk_config_only  = 0;
+static byte g_vk_plain_out    = 0;
 static byte g_vk_done_install = 0;
-static byte g_vk_use_stdin   = 0;
+static byte g_vk_use_stdin    = 0;
+static char g_vk_preset_path[256] = {0};
+static char * g_vk_preset_buf = NULL;
 
 static struct pollfd g_vk_fds[AVK_MAX_DEVS];
 static int           g_vk_fd_cnt = 0;
@@ -63,6 +66,40 @@ byte a_config_only_mode(void)             { return g_vk_config_only; }
 void a_set_plain_output(byte enabled)     { g_vk_plain_out = enabled ? 1 : 0; }
 byte a_plain_output(void)                 { return g_vk_plain_out; }
 byte a_volkey_install_stopped(void)       { return g_vk_done_install; }
+
+void a_set_preset_file(const char * path) {
+  if (g_vk_preset_buf) {
+    free(g_vk_preset_buf);
+    g_vk_preset_buf = NULL;
+  }
+  if (path && path[0]) {
+    snprintf(g_vk_preset_path, sizeof(g_vk_preset_path), "%s", path);
+    g_vk_preset_buf = aui_readfromfs(g_vk_preset_path);
+  }
+  else {
+    g_vk_preset_path[0] = '\0';
+  }
+}
+
+const char * a_get_preset_file(void) {
+  return g_vk_preset_path;
+}
+
+static byte avk_has_preset(void) {
+  return (g_vk_preset_buf != NULL) ? 1 : 0;
+}
+
+/* Lookup `propname:key` first, then fallback to `key` inside loaded --preset file */
+static char * avk_preset_lookup(const char * prop_name, const char * key) {
+  if (!g_vk_preset_buf || !key) return NULL;
+  if (prop_name && prop_name[0]) {
+    char scoped[256];
+    snprintf(scoped, sizeof(scoped), "%s:%s", prop_name, key);
+    char * v = aui_parsepropstring(g_vk_preset_buf, scoped);
+    if (v != NULL) return v;
+  }
+  return aui_parsepropstring(g_vk_preset_buf, (char *) key);
+}
 
 static long long avk_now_ms(void) {
   struct timespec ts;
@@ -345,11 +382,17 @@ static void avk_drain_events(void) {
 }
 
 int avk_wait_key(void) {
+  if (avk_has_preset()) {
+    return AVK_KEY_NONE;
+  }
   if (g_vk_use_stdin) {
     int ch;
     while ((ch = getchar()) != EOF) {
       if (ch == '+' || ch == 'u' || ch == 'U' || ch == '1') {
         return AVK_KEY_UP;
+      }
+      if (ch == 'b' || ch == 'B') {
+        return AVK_KEY_BACK;
       }
       if (ch == '-' || ch == 'd' || ch == 'D' || ch == '2' || ch == '\n') {
         return AVK_KEY_DOWN;
@@ -391,8 +434,37 @@ int avk_wait_key(void) {
             return AVK_KEY_UP;
           }
           if (ev.code == KEY_VOLUMEDOWN) {
-            g_vk_last_ms = now;
-            return AVK_KEY_DOWN;
+            /* Detect VOL- long-press (>= 600ms) as instant Back */
+            long long press_start = now;
+            int is_long = 0;
+            while (1) {
+              long long elapsed = avk_now_ms() - press_start;
+              if (elapsed >= 600) {
+                is_long = 1;
+                break;
+              }
+              int rem = (int)(600 - elapsed);
+              int pr = poll(&g_vk_fds[i], 1, rem);
+              if (pr <= 0) {
+                if (pr == 0) {
+                  is_long = 1;
+                  break;
+                }
+                continue;
+              }
+              struct input_event rev;
+              int released = 0;
+              while (read(g_vk_fds[i].fd, &rev, sizeof(rev)) == (ssize_t) sizeof(rev)) {
+                if (rev.type == EV_KEY && rev.code == KEY_VOLUMEDOWN && rev.value == 0) {
+                  released = 1;
+                }
+              }
+              if (released) {
+                break;
+              }
+            }
+            g_vk_last_ms = avk_now_ms();
+            return is_long ? AVK_KEY_BACK : AVK_KEY_DOWN;
           }
         }
       }
@@ -415,10 +487,14 @@ void avk_viewbox(
 
   if (isplain) {
     const char * next_lbl = acfg()->text_next[0] ? acfg()->text_next : "Next";
+    if (avk_has_preset()) {
+      avk_printf("  [PRESET] -> %s", next_lbl);
+      return;
+    }
     if (can_back) {
       avk_printf("  [VOL+] %s   |   [VOL-] Back", next_lbl);
       int k = avk_wait_key();
-      if (k == AVK_KEY_DOWN) {
+      if (k == AVK_KEY_DOWN || k == AVK_KEY_BACK) {
         *out_back = 1;
         avk_emit_single_line("  <- Back");
       }
@@ -435,9 +511,26 @@ void avk_viewbox(
     byte defchk = (argc > 4 && atoi(args[4]) != 0) ? 1 : 0;
     char cchk[256];
     avk_strip_markup(args[3], cchk, sizeof(cchk));
+    if (avk_has_preset()) {
+      char * pv = (argc == 6) ? avk_preset_lookup(NULL, args[5]) : NULL;
+      if (pv) {
+        *out_checked = (atoi(pv) != 0) ? 1 : 0;
+        free(pv);
+      }
+      else {
+        *out_checked = defchk;
+      }
+      avk_printf("  [PRESET] %s -> %s", cchk, *out_checked ? "YES" : "NO");
+      return;
+    }
     avk_printf("  Option: %s  [Default: %s]", cchk, defchk ? "YES" : "NO");
     avk_emit_single_line("  [VOL+] Yes (Enable)   |   [VOL-] No (Skip)");
     int k = avk_wait_key();
+    if (k == AVK_KEY_BACK && can_back) {
+      *out_back = 1;
+      avk_emit_single_line("  <- Back");
+      return;
+    }
     if (k == AVK_KEY_NONE) {
       *out_checked = defchk;
     }
@@ -462,10 +555,16 @@ void avk_textbox(
   }
   avk_emit_single_line("");
 
+  if (avk_has_preset()) {
+    avk_emit_single_line("  [PRESET] -> Agree & Continue");
+    return;
+  }
+
   if (isplain) {
     if (can_back) {
       avk_emit_single_line("  [VOL+] Continue   |   [VOL-] Back");
-      if (avk_wait_key() == AVK_KEY_DOWN) {
+      int k = avk_wait_key();
+      if (k == AVK_KEY_DOWN || k == AVK_KEY_BACK) {
         *out_back = 1;
       }
     }
@@ -480,7 +579,10 @@ void avk_textbox(
     avk_printf("  %s", cagree);
     avk_emit_single_line("  [VOL+] Agree & Continue   |   [VOL-] Decline (Exit)");
     int k = avk_wait_key();
-    if (k == AVK_KEY_DOWN) {
+    if (k == AVK_KEY_BACK && can_back) {
+      *out_back = 1;
+    }
+    else if (k == AVK_KEY_DOWN) {
       *out_exit = 1;
     }
   }
@@ -489,6 +591,10 @@ void avk_textbox(
 void avk_alert(int argc, char ** args) {
   avk_print_header(args[0], args[1]);
   const char * ok_txt = (argc > 3 && args[3] && args[3][0]) ? args[3] : "OK";
+  if (avk_has_preset()) {
+    avk_printf("  [PRESET] %s", ok_txt);
+    return;
+  }
   avk_printf("\n  [VOL+ / VOL-] %s", ok_txt);
   avk_wait_key();
 }
@@ -497,6 +603,10 @@ byte avk_confirm(int argc, char ** args) {
   avk_print_header(args[0], args[1]);
   const char * yes_txt = (argc > 3 && args[3] && args[3][0]) ? args[3] : "Yes";
   const char * no_txt  = (argc > 4 && args[4] && args[4][0]) ? args[4] : "No";
+  if (avk_has_preset()) {
+    avk_printf("  [PRESET] -> %s", no_txt);
+    return 0;
+  }
   avk_printf("\n  [VOL+] %s   |   [VOL-] %s", yes_txt, no_txt);
   int k = avk_wait_key();
   byte res = (k == AVK_KEY_UP) ? 1 : 0;
@@ -507,19 +617,25 @@ byte avk_confirm(int argc, char ** args) {
 void avk_textdialog(int argc, char ** args) {
   avk_print_header(args[0], args[1]);
   const char * ok_txt = (argc > 2 && args[2] && args[2][0]) ? args[2] : "OK";
+  if (avk_has_preset()) {
+    avk_printf("  [PRESET] %s", ok_txt);
+    return;
+  }
   avk_printf("\n  [VOL+ / VOL-] %s", ok_txt);
   avk_wait_key();
 }
 
-/* Helper: cycle through a list of options with VOL+ and confirm with VOL- */
+/* Helper: cycle through a list of options with VOL+ and confirm with VOL-.
+ * Returns -2 when user chooses Go Back (either explicit entry or VOL- long-press). */
 static int avk_pick_from_list(
     const char * group_title,
     char ** titles, char ** descs,
-    int count, int initial_idx) {
+    int count, int initial_idx, byte can_back) {
   if (count <= 0) {
     return -1;
   }
   int cur = (initial_idx >= 0 && initial_idx < count) ? initial_idx : 0;
+  int total = can_back ? (count + 1) : count;
 
   if (group_title && group_title[0]) {
     char cg[256];
@@ -538,24 +654,46 @@ static int avk_pick_from_list(
       avk_printf("     %s", cd);
     }
   }
-  avk_emit_single_line("  [VOL+] Next option   |   [VOL-] Select");
+  if (can_back) {
+    avk_printf("  %d. <- Go Back", count + 1);
+    avk_emit_single_line("  [VOL+] Next  |  [VOL-] Select  |  [Hold VOL-] Back");
+  }
+  else {
+    avk_emit_single_line("  [VOL+] Next option   |   [VOL-] Select");
+  }
 
   while (1) {
-    char ct[256];
-    avk_strip_markup(titles[cur] ? titles[cur] : "", ct, sizeof(ct));
-    avk_printf("  > [%d/%d] %s", cur + 1, count, ct);
-    int k = avk_wait_key();
-    if (k == AVK_KEY_UP) {
-      cur = (cur + 1) % count;
+    if (can_back && cur == count) {
+      avk_printf("  > [%d/%d] <- Go Back", cur + 1, total);
     }
     else {
+      char ct[256];
+      avk_strip_markup(titles[cur] ? titles[cur] : "", ct, sizeof(ct));
+      avk_printf("  > [%d/%d] %s", cur + 1, total, ct);
+    }
+    int k = avk_wait_key();
+    if (k == AVK_KEY_BACK && can_back) {
+      avk_emit_single_line("  <- Back");
+      return -2;
+    }
+    if (k == AVK_KEY_UP) {
+      cur = (cur + 1) % total;
+    }
+    else {
+      if (can_back && cur == count) {
+        avk_emit_single_line("  <- Back");
+        return -2;
+      }
+      char ct[256];
+      avk_strip_markup(titles[cur] ? titles[cur] : "", ct, sizeof(ct));
       avk_printf("  [*] Selected: %s", ct);
       return cur;
     }
   }
 }
 
-void avk_menubox(int argc, char ** args, const char * prop_path) {
+void avk_menubox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back) {
+  if (out_back) *out_back = 0;
   avk_print_header(args[0], args[1]);
 
   char * titles[64];
@@ -570,9 +708,25 @@ void avk_menubox(int argc, char ** args, const char * prop_path) {
     }
   }
 
-  int sel = avk_pick_from_list(NULL, titles, descs, cnt, 0);
-  if (sel < 0) {
-    sel = 0;
+  int sel = 0;
+  if (avk_has_preset()) {
+    char * pv = avk_preset_lookup(args[3], "selected");
+    if (pv) {
+      int idx = atoi(pv) - 1;
+      if (idx >= 0 && idx < cnt) sel = idx;
+      free(pv);
+    }
+    char ct[256];
+    avk_strip_markup((cnt > 0 && titles[sel]) ? titles[sel] : "", ct, sizeof(ct));
+    avk_printf("  [PRESET] selected=%d (%s)", sel + 1, ct);
+  }
+  else {
+    sel = avk_pick_from_list(NULL, titles, descs, cnt, 0, can_back);
+    if (sel == -2) {
+      if (out_back) *out_back = 1;
+      return;
+    }
+    if (sel < 0) sel = 0;
   }
 
   FILE * fp = fopen(prop_path, "wb");
@@ -582,7 +736,8 @@ void avk_menubox(int argc, char ** args, const char * prop_path) {
   }
 }
 
-void avk_selectbox(int argc, char ** args, const char * prop_path) {
+void avk_selectbox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back) {
+  if (out_back) *out_back = 0;
   avk_print_header(args[0], args[1]);
 
   typedef struct {
@@ -624,19 +779,51 @@ void avk_selectbox(int argc, char ** args, const char * prop_path) {
     }
   }
 
-  FILE * fp = fopen(prop_path, "wb");
+  byte went_back = 0;
   for (i = 0; i < g_cnt; i++) {
     VK_GROUP * g = &groups[i];
     if (g->item_cnt <= 0) {
       continue;
     }
     int def = (g->def_idx >= 0) ? g->def_idx : 0;
-    int sel = avk_pick_from_list(g->title, g->item_titles, g->item_descs, g->item_cnt, def);
-    if (sel < 0) {
-      sel = def;
+    if (avk_has_preset()) {
+      char pkey[32];
+      snprintf(pkey, sizeof(pkey), "selected.%d", i);
+      char * pv = avk_preset_lookup(args[3], pkey);
+      int sel = def;
+      if (pv) {
+        int idx = atoi(pv) - 1;
+        if (idx >= 0 && idx < g->item_cnt) sel = idx;
+        free(pv);
+      }
+      g->chosen_idx = sel;
+      char ct[256];
+      avk_strip_markup(g->item_titles[sel] ? g->item_titles[sel] : "", ct, sizeof(ct));
+      avk_printf("  [PRESET] %s=%d (%s)", pkey, sel + 1, ct);
     }
+    else {
+      int sel = avk_pick_from_list(g->title, g->item_titles, g->item_descs, g->item_cnt, def, can_back);
+      if (sel == -2) {
+        went_back = 1;
+        break;
+      }
+      if (sel < 0) sel = def;
+      g->chosen_idx = sel;
+    }
+  }
+
+  if (went_back) {
+    if (out_back) *out_back = 1;
+    free(groups);
+    return;
+  }
+
+  FILE * fp = fopen(prop_path, "wb");
+  for (i = 0; i < g_cnt; i++) {
+    VK_GROUP * g = &groups[i];
+    if (g->item_cnt <= 0) continue;
     if (fp) {
-      fprintf(fp, "selected.%d=%d\n", i, sel + 1);
+      fprintf(fp, "selected.%d=%d\n", i, g->chosen_idx + 1);
     }
   }
   if (fp) {
@@ -645,14 +832,24 @@ void avk_selectbox(int argc, char ** args, const char * prop_path) {
   free(groups);
 }
 
-void avk_checkbox(int argc, char ** args, const char * prop_path) {
+void avk_checkbox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back) {
+  if (out_back) *out_back = 0;
   avk_print_header(args[0], args[1]);
-  avk_emit_single_line("  [VOL+] Enable (ON)   |   [VOL-] Disable (OFF)");
+  if (!avk_has_preset()) {
+    if (can_back) {
+      avk_emit_single_line("  [VOL+] ON  |  [VOL-] OFF  |  [Hold VOL-] Back");
+    }
+    else {
+      avk_emit_single_line("  [VOL+] Enable (ON)   |   [VOL-] Disable (OFF)");
+    }
+  }
 
-  FILE * fp = fopen(prop_path, "wb");
+  int out_g[128], out_idx[128], out_val[128];
+  int out_cnt = 0;
   int group_id = 0;
   int idx = 0;
   int i;
+  byte went_back = 0;
 
   for (i = 4; i < argc; i += 3) {
     int defchk = atoi(args[i + 2]);
@@ -669,26 +866,57 @@ void avk_checkbox(int argc, char ** args, const char * prop_path) {
       char ct[256], cd[256];
       avk_strip_markup(args[i], ct, sizeof(ct));
       avk_strip_markup(args[i + 1], cd, sizeof(cd));
-      avk_emit_single_line("");
-      avk_printf("  [?] %s  [Default: %s]", ct, defchk ? "ON" : "OFF");
-      if (cd[0]) {
-        avk_printf("      %s", cd);
+      int val = defchk ? 1 : 0;
+      if (avk_has_preset()) {
+        char pkey[32];
+        snprintf(pkey, sizeof(pkey), "item.%d.%d", group_id, idx);
+        char * pv = avk_preset_lookup(args[3], pkey);
+        if (pv) {
+          val = (atoi(pv) != 0) ? 1 : 0;
+          free(pv);
+        }
+        avk_printf("  [PRESET] %s: %s", ct, val ? "ON" : "OFF");
       }
-      int k = avk_wait_key();
-      int val = (k == AVK_KEY_NONE) ? (defchk ? 1 : 0) : ((k == AVK_KEY_UP) ? 1 : 0);
-      avk_printf("  -> %s: %s", ct, val ? "ON" : "OFF");
-      if (fp) {
-        fprintf(fp, "item.%d.%d=%d\n", group_id, idx, val);
+      else {
+        avk_emit_single_line("");
+        avk_printf("  [?] %s  [Default: %s]", ct, defchk ? "ON" : "OFF");
+        if (cd[0]) {
+          avk_printf("      %s", cd);
+        }
+        int k = avk_wait_key();
+        if (k == AVK_KEY_BACK && can_back) {
+          avk_emit_single_line("  <- Back");
+          went_back = 1;
+          break;
+        }
+        val = (k == AVK_KEY_NONE) ? (defchk ? 1 : 0) : ((k == AVK_KEY_UP) ? 1 : 0);
+        avk_printf("  -> %s: %s", ct, val ? "ON" : "OFF");
+      }
+      if (out_cnt < 128) {
+        out_g[out_cnt]   = group_id;
+        out_idx[out_cnt] = idx;
+        out_val[out_cnt] = val;
+        out_cnt++;
       }
     }
   }
 
+  if (went_back) {
+    if (out_back) *out_back = 1;
+    return;
+  }
+
+  FILE * fp = fopen(prop_path, "wb");
   if (fp) {
+    for (i = 0; i < out_cnt; i++) {
+      fprintf(fp, "item.%d.%d=%d\n", out_g[i], out_idx[i], out_val[i]);
+    }
     fclose(fp);
   }
 }
 
-void avk_form(int argc, char ** args, const char * prop_path) {
+void avk_form(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back) {
+  if (out_back) *out_back = 0;
   avk_print_header(args[0], args[1]);
 
   typedef struct {
@@ -699,10 +927,12 @@ void avk_form(int argc, char ** args, const char * prop_path) {
     char * opt_descs[64];
     int    opt_cnt;
     int    opt_def;
+    int    opt_chosen;
     char * chk_iids[64];
     char * chk_titles[64];
     char * chk_descs[64];
     byte   chk_defs[64];
+    byte   chk_vals[64];
     int    chk_cnt;
   } VK_FGROUP;
 
@@ -752,20 +982,38 @@ void avk_form(int argc, char ** args, const char * prop_path) {
     }
   }
 
-  FILE * fp = fopen(prop_path, "wb");
-  for (i = 0; i < g_cnt; i++) {
+  byte went_back = 0;
+  for (i = 0; i < g_cnt && !went_back; i++) {
     VK_FGROUP * g = &groups[i];
     if (g->opt_cnt > 0) {
       int def = (g->opt_def >= 0) ? g->opt_def : 0;
-      int sel = avk_pick_from_list(g->title, g->opt_titles, g->opt_descs, g->opt_cnt, def);
-      if (sel < 0) {
-        sel = def;
+      if (avk_has_preset()) {
+        char * pv = avk_preset_lookup(args[3], g->iid);
+        int sel = def;
+        if (pv) {
+          int k;
+          for (k = 0; k < g->opt_cnt; k++) {
+            if (strcmp(g->opt_iids[k], pv) == 0) {
+              sel = k;
+              break;
+            }
+          }
+          free(pv);
+        }
+        g->opt_chosen = sel;
+        avk_printf("  [PRESET] %s=%s", g->iid, g->opt_iids[sel]);
       }
-      if (fp) {
-        fprintf(fp, "%s=%s\n", g->iid, g->opt_iids[sel]);
+      else {
+        int sel = avk_pick_from_list(g->title, g->opt_titles, g->opt_descs, g->opt_cnt, def, can_back);
+        if (sel == -2) {
+          went_back = 1;
+          break;
+        }
+        if (sel < 0) sel = def;
+        g->opt_chosen = sel;
       }
     }
-    if (g->chk_cnt > 0) {
+    if (g->chk_cnt > 0 && !went_back) {
       if (g->opt_cnt == 0 && g->title && g->title[0]) {
         char cg[256];
         avk_strip_markup(g->title, cg, sizeof(cg));
@@ -777,33 +1025,137 @@ void avk_form(int argc, char ** args, const char * prop_path) {
         char ct[256], cd[256];
         avk_strip_markup(g->chk_titles[j], ct, sizeof(ct));
         avk_strip_markup(g->chk_descs[j], cd, sizeof(cd));
-        avk_emit_single_line("");
-        avk_printf("  [?] %s  [Default: %s]", ct, g->chk_defs[j] ? "ON" : "OFF");
-        if (cd[0]) {
-          avk_printf("      %s", cd);
+        int val = g->chk_defs[j];
+        if (avk_has_preset()) {
+          char * pv = avk_preset_lookup(args[3], g->chk_iids[j]);
+          if (pv) {
+            val = (atoi(pv) != 0) ? 1 : 0;
+            free(pv);
+          }
+          avk_printf("  [PRESET] %s: %s", ct, val ? "ON" : "OFF");
         }
-        avk_emit_single_line("  [VOL+] Enable (ON)   |   [VOL-] Disable (OFF)");
-        int k = avk_wait_key();
-        int val = (k == AVK_KEY_NONE) ? g->chk_defs[j] : ((k == AVK_KEY_UP) ? 1 : 0);
-        avk_printf("  -> %s: %s", ct, val ? "ON" : "OFF");
-        if (fp) {
-          fprintf(fp, "%s=%d\n", g->chk_iids[j], val);
+        else {
+          avk_emit_single_line("");
+          avk_printf("  [?] %s  [Default: %s]", ct, g->chk_defs[j] ? "ON" : "OFF");
+          if (cd[0]) {
+            avk_printf("      %s", cd);
+          }
+          avk_emit_single_line(can_back
+            ? "  [VOL+] ON  |  [VOL-] OFF  |  [Hold VOL-] Back"
+            : "  [VOL+] Enable (ON)   |   [VOL-] Disable (OFF)");
+          int k = avk_wait_key();
+          if (k == AVK_KEY_BACK && can_back) {
+            avk_emit_single_line("  <- Back");
+            went_back = 1;
+            break;
+          }
+          val = (k == AVK_KEY_NONE) ? g->chk_defs[j] : ((k == AVK_KEY_UP) ? 1 : 0);
+          avk_printf("  -> %s: %s", ct, val ? "ON" : "OFF");
         }
+        g->chk_vals[j] = (byte) val;
       }
     }
   }
 
+  if (went_back) {
+    if (out_back) *out_back = 1;
+    free(groups);
+    return;
+  }
+
+  FILE * fp = fopen(prop_path, "wb");
   if (fp) {
+    for (i = 0; i < g_cnt; i++) {
+      VK_FGROUP * g = &groups[i];
+      if (g->opt_cnt > 0) {
+        fprintf(fp, "%s=%s\n", g->iid, g->opt_iids[g->opt_chosen]);
+      }
+      int j;
+      for (j = 0; j < g->chk_cnt; j++) {
+        fprintf(fp, "%s=%d\n", g->chk_iids[j], g->chk_vals[j]);
+      }
+    }
     fclose(fp);
   }
   free(groups);
+}
+
+void avk_slider(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back) {
+  if (out_back) *out_back = 0;
+  avk_print_header(args[0], args[1]);
+
+  const char * key  = args[4];
+  int min_v  = atoi(args[5]);
+  int max_v  = atoi(args[6]);
+  int step_v = atoi(args[7]);
+  int cur_v  = atoi(args[8]);
+  const char * unit = (argc >= 10 && args[9]) ? args[9] : "";
+  if (max_v < min_v) { int t = max_v; max_v = min_v; min_v = t; }
+  if (step_v < 1) step_v = 1;
+  if (cur_v < min_v) cur_v = min_v;
+  if (cur_v > max_v) cur_v = max_v;
+
+  if (avk_has_preset()) {
+    char * pv = avk_preset_lookup(args[3], key);
+    if (pv) {
+      cur_v = atoi(pv);
+      if (cur_v < min_v) cur_v = min_v;
+      if (cur_v > max_v) cur_v = max_v;
+      free(pv);
+    }
+    char vbuf[32];
+    snprintf(vbuf, sizeof(vbuf), "%d", cur_v);
+    aui_set_prop_key(prop_path, key, vbuf);
+    avk_printf("  [PRESET] %s=%d%s%s", key, cur_v, unit[0] ? " " : "", unit);
+    return;
+  }
+
+  avk_printf("  Range: %d .. %d (step %d)%s%s", min_v, max_v, step_v, unit[0] ? " " : "", unit);
+  avk_emit_single_line(can_back
+    ? "  [VOL+] +Step  |  [VOL-] Confirm  |  [Hold VOL-] Back"
+    : "  [VOL+] +Step  |  [VOL-] Confirm");
+
+  while (1) {
+    char bar[21];
+    int span = max_v - min_v;
+    int fill = (span > 0) ? (((cur_v - min_v) * 16) / span) : 16;
+    if (fill < 0) fill = 0;
+    if (fill > 16) fill = 16;
+    int b;
+    for (b = 0; b < 16; b++) {
+      bar[b] = (b < fill) ? '#' : '-';
+    }
+    bar[16] = '\0';
+    avk_printf("  > [%s] %d%s%s", bar, cur_v, unit[0] ? " " : "", unit);
+
+    int k = avk_wait_key();
+    if (k == AVK_KEY_BACK && can_back) {
+      avk_emit_single_line("  <- Back");
+      if (out_back) *out_back = 1;
+      return;
+    }
+    if (k == AVK_KEY_UP) {
+      cur_v += step_v;
+      if (cur_v > max_v) {
+        cur_v = min_v;
+      }
+    }
+    else {
+      avk_printf("  [*] Set: %d%s%s", cur_v, unit[0] ? " " : "", unit);
+      break;
+    }
+  }
+
+  char vbuf[32];
+  snprintf(vbuf, sizeof(vbuf), "%d", cur_v);
+  aui_set_prop_key(prop_path, key, vbuf);
 }
 
 int avk_run_install(const char * title, const char * desc) {
   avk_print_header(title, desc);
 
   /* Config-only mode (invoked from customize.sh in Magisk / KernelSU / APatch app):
-   * Stop cleanly here and leave AROMA_TMP/*.prop intact for customize.sh to apply. */
+   * Stop cleanly here and leave AROMA_TMP prop files intact for customize.sh to apply. */
   if (g_vk_config_only) {
     g_vk_done_install = 1;
     avk_emit_single_line("- AROMA-Next configuration captured; continuing module install...");

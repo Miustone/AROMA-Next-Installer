@@ -90,6 +90,7 @@ CORE_SRCS = [
     "src/controls/aroma_control_textbox.c",
     "src/controls/aroma_control_threads.c",
     "src/controls/aroma_control_imgbutton.c",
+    "src/controls/aroma_control_slider.c",
     # libs
     "src/libs/aroma_array.c",
     "src/libs/aroma_freetype.c",

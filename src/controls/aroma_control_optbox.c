@@ -109,57 +109,93 @@ void acopt_redrawitem(ACONTROLP ctl, int index) {
   ag_rect(c, 0, p->y, d->clientWidth, p->h, acfg()->textbg);
   
   if (p->isTitle) {
-    ag_roundgrad(c, 0, p->y, d->clientWidth, p->h, acfg()->titlebg, acfg()->titlebg_g, 0);
-    ag_textf(c, d->clientTextW + (agdp() * 14), (d->clientTextX - (agdp() * 14)) + 1, p->y + p->ty, p->title, acfg()->titlebg_g, 0);
-    //ag_text(c,d->clientTextW+(agdp()*14),(d->clientTextX-(agdp()*14))+1,p->y+p->dy,p->desc,acfg()->titlebg_g,0);
-    ag_text(c, d->clientTextW + (agdp() * 14), d->clientTextX - (agdp() * 14), p->y + p->ty - 1, p->title, acfg()->titlefg, 0);
-    //ag_text(c,d->clientTextW+(agdp()*14),d->clientTextX-(agdp()*14),p->y+p->dy-1,p->desc,acfg()->titlefg,0);
+    if (aui_is_m3()) {
+      color hdrCol = ag_calculatealpha(acfg()->winfg, acfg()->selectbg, 190);
+      ag_text(c, d->clientWidth - (agdp() * 8), agdp() * 4, p->y + p->ty, p->title, hdrCol, 0);
+    }
+    else {
+      ag_roundgrad(c, 0, p->y, d->clientWidth, p->h, acfg()->titlebg, acfg()->titlebg_g, 0);
+      ag_textf(c, d->clientTextW + (agdp() * 14), (d->clientTextX - (agdp() * 14)) + 1, p->y + p->ty, p->title, acfg()->titlebg_g, 0);
+      ag_text(c, d->clientTextW + (agdp() * 14), d->clientTextX - (agdp() * 14), p->y + p->ty - 1, p->title, acfg()->titlefg, 0);
+    }
   }
   else {
     color txtcolor = acfg()->textfg;
     color graycolor = acfg()->textfg_gray;
     byte isselectcolor = 0;
+    byte is_selected = (p->id == d->selectedIndexs[p->group]) ? 1 : 0;
+    color card_fill = acfg()->dialogbg;
     
-    if (index == d->touchedItem) {
-      if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-        color pshad = ag_calpushad(acfg()->selectbg_g);
-        dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+    if (aui_is_m3()) {
+      int m3_gap = agdp() * 2;
+      int m3_r   = agdp() * 7;
+      int cy     = p->y + m3_gap;
+      int ch     = p->h - (m3_gap * 2);
+      color card_border = is_selected ? ag_calculatealpha(acfg()->border, acfg()->selectbg, 140) : acfg()->border;
+      if (index == d->touchedItem) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 95);
+        card_border = acfg()->selectbg;
+      }
+      else if ((index == d->focusedItem) && (d->focused)) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 45);
+        card_border = acfg()->selectbg;
+      }
+      else if (is_selected) {
+        card_fill   = ag_calculatealpha(acfg()->dialogbg, acfg()->selectbg, 22);
+      }
+      ag_roundgrad(c, 0, cy, d->clientWidth, ch, card_border, card_border, m3_r);
+      ag_roundgrad(c, 1, cy + 1, d->clientWidth - 2, ch - 2, card_fill, card_fill, max(m3_r - 1, 1));
+    }
+    else {
+      if (index == d->touchedItem) {
+        if (!atheme_draw("img.selection.push", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+          color pshad = ag_calpushad(acfg()->selectbg_g);
+          dword hl1 = ag_calcpushlight(acfg()->selectbg, pshad);
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, pshad, (agdp()*acfg()->roundsz));
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+        }
+        graycolor = txtcolor = acfg()->selectfg;
+        isselectcolor = 1;
+      }
+      else if ((index == d->focusedItem) && (d->focused)) {
+        if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
+          dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
+          ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+        }
+        graycolor = txtcolor = acfg()->selectfg;
+        isselectcolor = 1;
       }
       
-      graycolor = txtcolor = acfg()->selectfg;
-      isselectcolor = 1;
-    }
-    else if ((index == d->focusedItem) && (d->focused)) {
-      if (!atheme_draw("img.selection", c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2))) {
-        dword hl1 = ag_calchighlight(acfg()->selectbg, acfg()->selectbg_g);
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, p->h - (agdp() * 2), acfg()->selectbg, acfg()->selectbg_g, (agdp()*acfg()->roundsz));
-        ag_roundgrad(c, 0, p->y + agdp(), d->clientWidth, (p->h - (agdp() * 2)) / 2, LOWORD(hl1), HIWORD(hl1), (agdp()*acfg()->roundsz));
+      if (index < d->itemn - 1) {
+        //-- Not Last... Add Separator
+        color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
+        ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
       }
-      
-      graycolor = txtcolor = acfg()->selectfg;
-      isselectcolor = 1;
-    }
-    
-    if (index < d->itemn - 1) {
-      //-- Not Last... Add Separator
-      color sepcl = ag_calculatealpha(acfg()->textbg, acfg()->textfg_gray, 80);
-      ag_rect(c, 0, p->y + p->h - 1, d->clientWidth, 1, sepcl);
     }
     
     //-- Now Draw The Text
-    if (isselectcolor) {
-      ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->ty, p->title, acfg()->selectbg_g, 0);
-      ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->dy, p->desc, acfg()->selectbg_g, 0);
+    if (aui_is_m3()) {
+      int contentH = p->th + (p->desc[0] ? (agdp() + p->dh) : 0);
+      int startY   = p->y + ((p->h - contentH) / 2);
+      ag_text(c, d->clientTextW - (agdp() * 2), d->clientTextX, startY, p->title, txtcolor, 0);
+      if (p->desc[0]) {
+        ag_text(c, d->clientTextW - (agdp() * 2), d->clientTextX, startY + p->th + agdp(), p->desc, graycolor, 0);
+      }
     }
-    
-    ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->ty - 1, p->title, txtcolor, 0);
-    ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->dy - 1, p->desc, graycolor, 0);
-    //-- Now Draw The Checkbox
+    else {
+      if (isselectcolor) {
+        ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->ty, p->title, acfg()->selectbg_g, 0);
+        ag_textf(c, d->clientTextW, d->clientTextX, p->y + p->dy, p->desc, acfg()->selectbg_g, 0);
+      }
+      
+      ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->ty - 1, p->title, txtcolor, 0);
+      ag_text(c, d->clientTextW, d->clientTextX - 1, p->y + p->dy - 1, p->desc, graycolor, 0);
+    }
+    //-- Now Draw The Radio
     int halfdp   = ceil(((float) agdp()) / 2);
     int halfdp2  = halfdp * 2;
-    int optbox_s = (agdp() * 10);
+    int optbox_s = aui_is_m3() ? (agdp() * 11) : (agdp() * 10);
     int optbox_r = floor(optbox_s / 2);
     int optbox_x = round((d->clientTextX / 2) - (optbox_s / 2));
     int optbox_y = p->y + round((p->h / 2) - (optbox_s / 2));
@@ -167,57 +203,74 @@ void acopt_redrawitem(ACONTROLP ctl, int index) {
     int minpad = 3 * agdp();
     int addpad = 6 * agdp();
     
-    if (p->id == d->selectedIndexs[p->group]) {
-      if (index == d->touchedItem) {
-        drawed = atheme_draw("img.radio.on.push", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
-      }
-      else if ((index == d->focusedItem) && (d->focused)) {
-        drawed = atheme_draw("img.radio.on.focus", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
-      }
-      else {
-        drawed = atheme_draw("img.radio.on", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
-      }
-    }
-    else {
-      if (index == d->touchedItem) {
-        drawed = atheme_draw("img.radio.push", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
-      }
-      else if ((index == d->focusedItem) && (d->focused)) {
-        drawed = atheme_draw("img.radio.focus", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+    if (!aui_is_m3()) {
+      if (is_selected) {
+        if (index == d->touchedItem) {
+          drawed = atheme_draw("img.radio.on.push", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
+        else if ((index == d->focusedItem) && (d->focused)) {
+          drawed = atheme_draw("img.radio.on.focus", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
+        else {
+          drawed = atheme_draw("img.radio.on", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
       }
       else {
-        drawed = atheme_draw("img.radio", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        if (index == d->touchedItem) {
+          drawed = atheme_draw("img.radio.push", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
+        else if ((index == d->focusedItem) && (d->focused)) {
+          drawed = atheme_draw("img.radio.focus", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
+        else {
+          drawed = atheme_draw("img.radio", c, optbox_x - minpad, optbox_y - minpad, optbox_s + addpad, optbox_s + addpad);
+        }
       }
     }
     
     if (!drawed) {
-      ag_roundgrad(c,
-                   optbox_x,
-                   optbox_y,
-                   optbox_s,
-                   optbox_s,
-                   acfg()->controlbg_g,
-                   acfg()->controlbg,
-                   optbox_r
-                  );
-      ag_roundgrad(c,
-                   optbox_x + halfdp,
-                   optbox_y + halfdp,
-                   optbox_s - halfdp2,
-                   optbox_s - halfdp2,
-                   acfg()->textbg,
-                   acfg()->textbg,
-                   optbox_r - halfdp);
-                   
-      if (p->id == d->selectedIndexs[p->group]) {
+      if (aui_is_m3()) {
+        int ringW = max(agdp(), 2);
+        color ringCol = is_selected ? acfg()->selectbg : acfg()->textfg_gray;
+        ag_roundgrad(c, optbox_x, optbox_y, optbox_s, optbox_s, ringCol, ringCol, optbox_r);
+        ag_roundgrad(c, optbox_x + ringW, optbox_y + ringW, optbox_s - (ringW * 2), optbox_s - (ringW * 2), card_fill, card_fill, max(optbox_r - ringW, 1));
+        if (is_selected) {
+          int dotOff = ringW + max(agdp(), 2);
+          int dotS   = optbox_s - (dotOff * 2);
+          if (dotS > 2) {
+            ag_roundgrad(c, optbox_x + dotOff, optbox_y + dotOff, dotS, dotS, acfg()->selectbg, acfg()->selectbg, dotS / 2);
+          }
+        }
+      }
+      else {
         ag_roundgrad(c,
-                     optbox_x + halfdp2,
-                     optbox_y + halfdp2,
-                     optbox_s - (halfdp2 * 2),
-                     optbox_s - (halfdp2 * 2),
-                     acfg()->selectbg,
-                     acfg()->selectbg_g,
-                     optbox_r - halfdp2);
+                     optbox_x,
+                     optbox_y,
+                     optbox_s,
+                     optbox_s,
+                     acfg()->controlbg_g,
+                     acfg()->controlbg,
+                     optbox_r
+                    );
+        ag_roundgrad(c,
+                     optbox_x + halfdp,
+                     optbox_y + halfdp,
+                     optbox_s - halfdp2,
+                     optbox_s - halfdp2,
+                     acfg()->textbg,
+                     acfg()->textbg,
+                     optbox_r - halfdp);
+                     
+        if (is_selected) {
+          ag_roundgrad(c,
+                       optbox_x + halfdp2,
+                       optbox_y + halfdp2,
+                       optbox_s - (halfdp2 * 2),
+                       optbox_s - (halfdp2 * 2),
+                       acfg()->selectbg,
+                       acfg()->selectbg_g,
+                       optbox_r - halfdp2);
+        }
       }
     }
   }
@@ -288,13 +341,22 @@ byte acopt_add(ACONTROLP ctl, char * title, char * desc, byte selected) {
   snprintf(newip->title, 64, "%s", title);
   snprintf(newip->desc, 128, "%s", desc);
   newip->th       = ag_txtheight(d->clientTextW, newip->title, 0);
-  newip->dh       = ag_txtheight(d->clientTextW, newip->desc, 0);
-  newip->ty       = agdp() * 5;
-  newip->dy       = (agdp() * 5) + newip->th;
-  newip->h        = (agdp() * 10) + newip->dh + newip->th;
-  
-  if (newip->h < (agdp() * 22)) {
-    newip->h = (agdp() * 22);
+  newip->dh       = newip->desc[0] ? ag_txtheight(d->clientTextW, newip->desc, 0) : 0;
+  if (aui_is_m3()) {
+    newip->ty     = agdp() * 6;
+    newip->dy     = (agdp() * 7) + newip->th;
+    newip->h      = (agdp() * 14) + newip->dh + newip->th;
+    if (newip->h < (agdp() * 28)) {
+      newip->h = (agdp() * 28);
+    }
+  }
+  else {
+    newip->ty     = agdp() * 5;
+    newip->dy     = (agdp() * 5) + newip->th;
+    newip->h      = (agdp() * 10) + newip->dh + newip->th;
+    if (newip->h < (agdp() * 22)) {
+      newip->h = (agdp() * 22);
+    }
   }
   
   newip->id       = d->itemn;
@@ -437,29 +499,27 @@ void acopt_ondraw(void * x) {
       float scrdif    = ((float) newh) / ((float) d->client.h);
       int  scrollbarH = floor(scrdif * newh);
       int  scrollbarY = floor(scrdif * d->scrollY) + agdp();
+      int  sbW        = aui_is_m3() ? max(agdp() / 2, 3) : agdp();
+      color sbCol     = aui_is_m3() ? acfg()->border : acfg()->scrollbar;
+      int  sbX        = (ctl->w - agdp() * 2 - sbW) + ctl->x;
       
       if (d->scrollY < 0) {
         scrollbarY = agdp();
         int alp = (1.0 - (((float) abs(d->scrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
       }
       else if (d->scrollY > d->maxScrollY) {
         scrollbarY = floor(scrdif * d->maxScrollY) + agdp();
         int alp = (1.0 - (((float) abs(d->scrollY - d->maxScrollY)) / (((float) ctl->h) / 4))) * 255;
-        
-        if (alp < 0) {
-          alp = 0;
-        }
-        
-        ag_rectopa(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar, alp);
+        if (alp < 0) alp = 0;
+        ag_rectopa(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, alp);
+      }
+      else if (aui_is_m3()) {
+        ag_roundgrad(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol, sbCol, sbW / 2);
       }
       else {
-        ag_rect(pc, (ctl->w - agdp() * 3) + ctl->x, scrollbarY + ctl->y, agdp(), scrollbarH, acfg()->scrollbar);
+        ag_rect(pc, sbX, scrollbarY + ctl->y, sbW, scrollbarH, sbCol);
       }
     }
   }
@@ -771,12 +831,19 @@ ACONTROLP acopt(
   d->client.data = NULL;
   //-- Draw Control
   ag_draw_ex(&d->control, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control, 0, 0, w, h, acfg()->border);
-  ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
-  //-- Draw Focused Control
-  ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
-  ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
-  ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  if (aui_is_m3()) {
+    ag_roundgrad(&d->control, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_roundgrad(&d->control_focused, 0, 0, w, h, acfg()->textbg, acfg()->textbg, agdp() * 6);
+  }
+  else {
+    ag_rect(&d->control, 0, 0, w, h, acfg()->border);
+    ag_rect(&d->control, 0, 1, w, h - 2, acfg()->textbg);
+    //-- Draw Focused Control
+    ag_draw_ex(&d->control_focused, &win->c, 0, 0, x, y, w, h);
+    ag_rect(&d->control_focused, 0, 0, w, h, acfg()->selectbg);
+    ag_rect(&d->control_focused, 0, 1, w, h - 2, acfg()->textbg);
+  }
   //-- Set Scroll Value
   d->scrollY     = 0;
   d->maxScrollY  = 0;

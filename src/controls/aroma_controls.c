@@ -1144,6 +1144,9 @@ void aw_unmaskparent(AWINDOWP win, CANVAS * p, CANVAS * maskc, int x, int y, int
 }
 static void aw_draw_dialog_border(CANVAS * c, PNGCANVASP winp, int winX, int winY, int winW, int winH, int titH) {
   (void) winp;
+  if (aui_is_m3()) {
+    return;
+  }
   int dlg_id = atheme_id("img.dialog");
   if (dlg_id >= 0 && acfg_var.theme_9p[dlg_id]) {
     return;
@@ -1226,28 +1229,38 @@ void aw_textdialog(AWINDOWP parent, char * titlev, char * text, char * ok_text) 
   int infY    = winY + titH + pad;
   int txtY    = infY;
   //-- Calculate Button Size & Position
-  int btnW    = winW / 2;
+  int btnW    = aui_is_m3() ? txtW : (winW / 2);
   int btnY    = infY + infH + pad;
-  int btnX    = (agw() / 2) - (btnW / 2);
+  int btnX    = aui_is_m3() ? txtX : ((agw() / 2) - (btnW / 2));
   //-- Initializing Canvas
   CANVAS alertbg;
   ag_canvas(&alertbg, agw(), agh());
   ag_draw(&alertbg, agc(), 0, 0);
   
-  //-- Draw Window
-  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  if (aui_is_m3()) {
+    int m3r = agdp() * 10;
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border, m3r + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg, m3r);
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg, m3r, 1, 1, 0, 0);
+    ag_rect(&alertbg, winX, winY + titH - 1, winW, 1, acfg_var.border);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  
-  //-- Draw Title
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  else {
+    //-- Draw Window
+    if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+      ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+      ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+    }
+    
+    //-- Draw Title
+    if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+      ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+    }
+    aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+    
+    ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
-  
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   AWINDOWP hWin   = aw(&alertbg);
   actext(hWin, txtX, txtY, txtW, txtH, text, 0);
   ACONTROLP okbtn = acbutton(hWin, btnX, btnY, btnW, btnH, (ok_text == NULL ? acfg_var.text_ok : ok_text), 0, 5);
@@ -1281,10 +1294,10 @@ void aw_alert(AWINDOWP parent, char * titlev, char * textv, char * img, char * o
   CANVAS * maskc = aw_maskparent();
   //ag_sync();
   //ag_sync_fade(acfg_var.fadeframes);
-  char title[32];
-  char text[512];
-  snprintf(title, 32, "%s", titlev);
-  snprintf(text, 512, "%s", textv);
+  char title[96];
+  char text[2048];
+  snprintf(title, sizeof(title), "%s", titlev);
+  snprintf(text, sizeof(text), "%s", textv);
   int pad   = agdp() * 4;
   int winW  = agw() - (pad * 2);
   int txtW  = winW - (pad * 2);
@@ -1325,8 +1338,8 @@ void aw_alert(AWINDOWP parent, char * titlev, char * textv, char * img, char * o
   
   if (apng_load(&ap, img)) {
     imgE      = 1;
-    imgW      = min(ap.w, agdp() * 30);
-    imgH      = min(ap.h, agdp() * 30);
+    imgW      = aui_is_m3() ? (agdp() * 22) : min(ap.w, agdp() * 30);
+    imgH      = aui_is_m3() ? (agdp() * 22) : min(ap.h, agdp() * 30);
     int imgA  = pad + imgW;
     txtX     += imgA;
     txtW     -= imgA;
@@ -1356,42 +1369,54 @@ void aw_alert(AWINDOWP parent, char * titlev, char * textv, char * img, char * o
   int txtY    = infY + ((infH - txtH) / 2);
   int imgY    = infY;
   //-- Calculate Button Size & Position
-  int btnW    = winW / 2;
+  int btnW    = aui_is_m3() ? (winW - (pad * 2)) : (winW / 2);
   int btnY    = infY + infH + pad;
-  int btnX    = (agw() / 2) - (btnW / 2);
+  int btnX    = aui_is_m3() ? (winX + pad) : ((agw() / 2) - (btnW / 2));
   //-- Initializing Canvas
   CANVAS alertbg;
   ag_canvas(&alertbg, agw(), agh());
   ag_draw(&alertbg, agc(), 0, 0);
   
-  //-- Draw Window
-  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  if (aui_is_m3()) {
+    int m3r = agdp() * 10;
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border, m3r + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg, m3r);
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg, m3r, 1, 1, 0, 0);
+    ag_rect(&alertbg, winX, winY + titH - 1, winW, 1, acfg_var.border);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  
-  //-- Draw Title
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  else {
+    //-- Draw Window
+    if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+      ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+      ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+    }
+    
+    //-- Draw Title
+    if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+      ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+    }
+    aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+    
+    ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
-  
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   
   //-- Draw Image
   if (imgE) {
-    apng_draw_ex(&alertbg, &ap, vimgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&alertbg, &ap, vimgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
   //-- Draw Text
-  ag_textf(&alertbg, txtW, txtX + 1, txtY + 1, text, acfg_var.dialogbg, 0);
+  if (!aui_is_m3()) {
+    ag_textf(&alertbg, txtW, txtX + 1, txtY + 1, text, acfg_var.dialogbg, 0);
+  }
   ag_text(&alertbg, txtW, txtX, txtY, text, acfg_var.dialogfg, 0);
   AWINDOWP hWin   = aw(&alertbg);
-  acbutton(hWin, btnX, btnY, btnW, btnH, (ok_text == NULL ? acfg_var.text_ok : ok_text), 0, 5);
+  ACONTROLP okbtn = acbutton(hWin, btnX, btnY, btnW, btnH, (ok_text == NULL ? acfg_var.text_ok : ok_text), 0, 5);
   // aw_show_ex(hWin, 5, 0, NULL);
-  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, aui_is_m3() ? okbtn : NULL);
   /*
   aw_show(hWin);
   */
@@ -1419,10 +1444,10 @@ byte aw_confirm(AWINDOWP parent, char * titlev, char * textv, char * img, char *
   CANVAS * maskc = aw_maskparent();
   //ag_sync();
   //ag_sync_fade(acfg_var.fadeframes);
-  char title[64];
-  char text[512];
-  snprintf(title, 64, "%s", titlev);
-  snprintf(text, 512, "%s", textv);
+  char title[96];
+  char text[2048];
+  snprintf(title, sizeof(title), "%s", titlev);
+  snprintf(text, sizeof(text), "%s", textv);
   int pad   = agdp() * 4;
   int winW  = agw() - (pad * 2);
   int txtW  = winW - (pad * 2);
@@ -1463,8 +1488,8 @@ byte aw_confirm(AWINDOWP parent, char * titlev, char * textv, char * img, char *
   
   if (apng_load(&ap, img)) {
     imgE      = 1;
-    imgW      = min(ap.w, agdp() * 30);
-    imgH      = min(ap.h, agdp() * 30);
+    imgW      = aui_is_m3() ? (agdp() * 22) : min(ap.w, agdp() * 30);
+    imgH      = aui_is_m3() ? (agdp() * 22) : min(ap.h, agdp() * 30);
     int imgA  = pad + imgW;
     txtX     += imgA;
     txtW     -= imgA;
@@ -1494,44 +1519,56 @@ byte aw_confirm(AWINDOWP parent, char * titlev, char * textv, char * img, char *
   int txtY    = infY + ((infH - txtH) / 2);
   int imgY    = infY;
   //-- Calculate Button Size & Position
-  int btnW    = (txtW / 2) - (pad / 2);
+  int btnW    = aui_is_m3() ? ((winW - (pad * 3)) / 2) : ((txtW / 2) - (pad / 2));
   int btnY    = infY + infH + pad;
-  int btnX    = txtX;
-  int btnX2   = txtX + (txtW / 2) + (pad / 2);
+  int btnX    = aui_is_m3() ? (winX + pad) : txtX;
+  int btnX2   = aui_is_m3() ? (btnX + btnW + pad) : (txtX + (txtW / 2) + (pad / 2));
   //-- Initializing Canvas
   CANVAS alertbg;
   ag_canvas(&alertbg, agw(), agh());
   ag_draw(&alertbg, agc(), 0, 0);
   
-  //-- Draw Window
-  if (!atheme_draw("img.dialog", &alertbg, winX - 1, winY - 1, winW + 2, winH + 2)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+  if (aui_is_m3()) {
+    int m3r = agdp() * 10;
+    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border, m3r + 1);
+    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg, m3r);
+    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg, m3r, 1, 1, 0, 0);
+    ag_rect(&alertbg, winX, winY + titH - 1, winW, 1, acfg_var.border);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  
-  //-- Draw Title
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+  else {
+    //-- Draw Window
+    if (!atheme_draw("img.dialog", &alertbg, winX - 1, winY - 1, winW + 2, winH + 2)) {
+      ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+      ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+    }
+    
+    //-- Draw Title
+    if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+      ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+    }
+    aw_draw_dialog_border(&alertbg, winp, winX - 1, winY - 1, winW + 2, winH + 2, titH + 1);
+    
+    ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+    ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   }
-  aw_draw_dialog_border(&alertbg, winp, winX - 1, winY - 1, winW + 2, winH + 2, titH + 1);
-  
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
   
   //-- Draw Image
   if (imgE) {
-    apng_draw_ex(&alertbg, &ap, vimgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&alertbg, &ap, vimgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
   //-- Draw Text
-  ag_textf(&alertbg, txtW, txtX + 1, txtY + 1, text, acfg_var.dialogbg, 0);
+  if (!aui_is_m3()) {
+    ag_textf(&alertbg, txtW, txtX + 1, txtY + 1, text, acfg_var.dialogbg, 0);
+  }
   ag_text(&alertbg, txtW, txtX, txtY, text, acfg_var.dialogfg, 0);
   AWINDOWP hWin   = aw(&alertbg);
-  acbutton(hWin, btnX, btnY, btnW, btnH, (yes_text == NULL ? acfg_var.text_yes : yes_text), 0, 6);
+  ACONTROLP yesbtn = acbutton(hWin, btnX, btnY, btnW, btnH, (yes_text == NULL ? acfg_var.text_yes : yes_text), 0, 6);
   acbutton(hWin, btnX2, btnY, btnW, btnH, (no_text == NULL ? acfg_var.text_no : no_text), 0, 5);
   //aw_show_ex(hWin, 5, 0, NULL);
-  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, aui_is_m3() ? yesbtn : NULL);
   byte ondispatch = 1;
   byte res = 0;
   
@@ -2031,21 +2068,72 @@ byte aw_calibtools_(AWINDOWP parent) {
   
   return isvalid;*/
 }
+static const char * aw_theme_display_name(const char * id) {
+  if (!id || id[0] == '\0' || strcmp(id, "generic") == 0) return "Generic";
+  if (strcmp(id, "amoled") == 0)      return "AMOLED Modern";
+  if (strcmp(id, "blacknwhite") == 0) return "Black & White";
+  if (strcmp(id, "ics") == 0)         return "ICS Theme";
+  if (strcmp(id, "miui4") == 0)       return "MIUI 4 Theme";
+  if (strcmp(id, "miui") == 0)        return "MIUI Theme";
+  if (strcmp(id, "touchwiz") == 0)    return "TouchWiz";
+  if (strcmp(id, "franzyroy") == 0)   return "Franzyroy";
+  return id;
+}
+
+static const char * aw_accent_display_name(const char * id) {
+  if (!id || id[0] == '\0' || strcmp(id, "default") == 0) return "Theme Default";
+  if (strcmp(id, "blue") == 0)    return "Pixel Blue";
+  if (strcmp(id, "mono") == 0)    return "Monochrome White";
+  if (strcmp(id, "emerald") == 0) return "Emerald Green";
+  if (strcmp(id, "crimson") == 0) return "Crimson Red";
+  if (strcmp(id, "amber") == 0)   return "Warm Amber";
+  if (strcmp(id, "violet") == 0)  return "Electric Violet";
+  if (strcmp(id, "cyan") == 0)    return "Ice Cyan";
+  return id;
+}
+
+static const char * aw_font_display_name(const char * id) {
+  if (!id || id[0] == '\0')                return "Google Sans";
+  if (strcmp(id, "googlesans") == 0)       return "Google Sans";
+  if (strcmp(id, "roboto") == 0)           return "Roboto";
+  if (strcmp(id, "inter") == 0)            return "Inter";
+  if (strcmp(id, "plusjakartasans") == 0)  return "Plus Jakarta Sans";
+  if (strcmp(id, "outfit") == 0)           return "Outfit";
+  if (strcmp(id, "ubuntu") == 0)           return "Ubuntu";
+  if (strcmp(id, "jetbrainsmono") == 0)    return "JetBrains Mono";
+  return id;
+}
+
+static const char * aw_transition_display_name(const char * id) {
+  if (!id || id[0] == '\0')        return "Fade";
+  if (strcmp(id, "fade") == 0)     return "Fade";
+  if (strcmp(id, "slide") == 0)    return "Slide";
+  if (strcmp(id, "stack") == 0)    return "Stack";
+  if (strcmp(id, "zoom") == 0)     return "Zoom";
+  if (strcmp(id, "none") == 0)     return "None (Instant)";
+  return id;
+}
+
 void aw_about_dialog(AWINDOWP parent) {
-  char unchkmsg[512];
-  snprintf(unchkmsg, 512,
+  char unchkmsg[2048];
+  char slot[16] = {0};
+  aui_get_slot_suffix(slot, sizeof(slot));
+  const char * backend_str = (ag_backend() == 2) ? "DRM/KMS" : ((ag_backend() == 1) ? "fbdev" : "Headless");
+
+  snprintf(unchkmsg, sizeof(unchkmsg),
            "<b>%s %s</b>\n"
            "%s\n\n"
-           "  <#selectbg_g>Build <u>%s</u></#> (<b>%s</b>)\n"
-           "  %s\n"
-           "  %s\n"
-           "  <u>%s</u>\n\n"
-           "ROM Name:\n  <b><#selectbg_g>%s</#></b>\n"
-           "ROM Version:\n  <b><#selectbg_g>%s</#></b>\n"
-           "ROM Author:\n  <b><#selectbg_g>%s</#></b>\n"
-           "Device:\n  <b><#selectbg_g>%s</#></b>\n"
-           "Update:\n  <b><#selectbg_g>%s</#></b>"
-           ,
+           "<b>Build:</b> <#selectbg_g>%s</#> (%s)\n"
+           "<b>Origin:</b> %s\n"
+           "<b>Support:</b> %s\n"
+           "<u>%s</u>\n\n"
+           "<b>Display:</b> %s  •  %dx%d (dp=%d)%s%s\n"
+           "<b>Appearance:</b> %s  •  %s  •  %s\n\n"
+           "<b>Package Name:</b>  <#selectbg_g>%s</#>\n"
+           "<b>Version:</b>  <#selectbg_g>%s</#>\n"
+           "<b>Author:</b>  <#selectbg_g>%s</#>\n"
+           "<b>Device:</b>  <#selectbg_g>%s</#>\n"
+           "<b>Date / Update:</b>  <#selectbg_g>%s</#>",
            AROMA_NAME,
            AROMA_VERSION,
            AROMA_COPY,
@@ -2054,6 +2142,12 @@ void aw_about_dialog(AWINDOWP parent) {
            AROMA_BUILD_L,
            AROMA_BUILD_A,
            AROMA_BUILD_URL,
+           backend_str, agw(), agh(), agdp(),
+           slot[0] ? "  •  Slot " : "",
+           slot[0] ? ((strcmp(slot, "_a") == 0) ? "A" : ((strcmp(slot, "_b") == 0) ? "B" : slot)) : "",
+           aw_theme_display_name(acfg()->themename),
+           aw_accent_display_name(aui_get_user_accent()),
+           aw_font_display_name(aui_get_user_font()),
            acfg()->rom_name,
            acfg()->rom_version,
            acfg()->rom_author,
@@ -2063,38 +2157,29 @@ void aw_about_dialog(AWINDOWP parent) {
   aw_alert(parent,
            AROMA_NAME " " AROMA_VERSION,
            unchkmsg,
-           "@install",
+           "@info",
            NULL);
 }
-static byte aw_theme_dialog(AWINDOWP parent) {
-  static const struct {
-    const char * id;
-    const char * title;
-    const char * desc;
-  } known_themes[] = {
-    { "blacknwhite", "Black & White", "By Miustone (Default)" },
-    { "ics",         "ICS Theme",     "Ice Cream Sandwich by DemonWav & amarullz" },
-    { "miui4",       "MIUI 4 Theme",  "MIUI 4/ICS by amarullz & Lennox" },
-    { "miui",        "MIUI Theme",    "Classic MIUI by mickey-r & amarullz" },
-    { "touchwiz",    "Touchwiz",      "Touchwiz by titanic_fanatic" },
-    { "franzyroy",   "Franzyroy",     "Franzyroy by franzyroy" },
-    { "",            "Generic",       "Unthemed Classic AROMA" }
-  };
 
-  const char * avail_ids[8];
-  const char * avail_titles[8];
-  const char * avail_descs[8];
-  int avail_cnt = 0;
-  int i;
-  for (i = 0; i < (int)(sizeof(known_themes) / sizeof(known_themes[0])); i++) {
-    if (aui_theme_exists(known_themes[i].id)) {
-      avail_ids[avail_cnt]    = known_themes[i].id;
-      avail_titles[avail_cnt] = known_themes[i].title;
-      avail_descs[avail_cnt]  = known_themes[i].desc;
-      avail_cnt++;
-    }
-  }
-  if (avail_cnt == 0) {
+/* Stay-Open Live Preview Picker Dialog:
+ * Tapping any item applies it LIVE & redraws the dialog in-place without closing,
+ * preserving scroll position so the user can browse & try every option freely!
+ * Only tapping "Done" closes the picker. Returns 1 if any change was applied. */
+typedef void (*AW_LIVE_APPLY_FN)(int pick_idx, void * ctx);
+static void aw_draw_bottom_sheet_bg(CANVAS * cv, int winX, int winY, int winW, int winH);
+
+static byte aw_live_picker_loop(
+  AWINDOWP parent,
+  const char * title_str,
+  const char ** titles,
+  const char ** descs,
+  int count,
+  int active_idx,
+  int height_pct,
+  AW_LIVE_APPLY_FN apply_fn,
+  void * ctx
+) {
+  if (count <= 0) {
     return 0;
   }
 
@@ -2102,101 +2187,244 @@ static byte aw_theme_dialog(AWINDOWP parent) {
   on_dialog_window = 1;
   CANVAS * maskc = aw_maskparent();
 
-  char title[32];
-  snprintf(title, sizeof(title), "Select Theme");
-  int pad  = agdp() * 4;
-  int winW = agw() - (pad * 2);
-  int btnH = agdp() * 20;
-  int titW = ag_txtwidth(title, 1);
-  int titH = ag_fontheight(1) + (pad * 2);
+  int saved_scroll = 0;
+  byte any_applied = 0;
+  byte first_show = 1;
+  byte stay_open = 1;
+  int last_winX = 0, last_winY = 0, last_winW = agw(), last_winH = agh();
 
-  PNGCANVASP winp = atheme("img.dialog");
-  PNGCANVASP titp = atheme("img.dialog.titlebar");
-  APNG9 winv, titv;
-  int vtitY = -1;
-  int vpadB = pad;
-  int listX = pad * 2;
-  int listW = winW - (pad * 2);
-  int tit_id = atheme_id("img.dialog.titlebar");
-  int dlg_id = atheme_id("img.dialog");
+  while (stay_open) {
+    char title[64];
+    snprintf(title, sizeof(title), "%s", title_str);
+    int titW = ag_txtwidth(title, 1);
+    int btnH = agdp() * 20;
 
-  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
-    int tmptitH = titH - (pad * 2);
-    titH  = tmptitH + (titv.t + titv.b);
-    vtitY = titv.t;
-  }
-  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
-    listW = winW - (winv.l + winv.r);
-    listX = pad + winv.l;
-    vpadB = winv.b;
-  }
+    CANVAS alertbg;
+    ag_canvas(&alertbg, agw(), agh());
+    ag_draw(&alertbg, maskc, 0, 0);
 
-  int listH = (agh() * 55) / 100;
-  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
-  int winX  = pad;
-  int winY  = (agh() / 2) - (winH / 2);
-  int titX  = (agw() / 2) - (titW / 2);
-  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
-  int listY = winY + titH + pad;
-  int btnW  = (listW / 2) - (pad / 2);
-  int btnY  = listY + listH + pad;
-  int btnX  = listX;
-  int btnX2 = listX + (listW / 2) + (pad / 2);
+    int listX, listY, listW, listH, btnX, btnY, btnW;
 
-  CANVAS alertbg;
-  ag_canvas(&alertbg, agw(), agh());
-  ag_draw(&alertbg, agc(), 0, 0);
+    if (aui_is_m3()) {
+      /* Unified Material 3 Tall Modal Bottom Sheet (matches 3-dot & Appearance hub 1:1!) */
+      int pad    = agdp() * 5;
+      int topPad = agdp() * 10;
+      int titH   = ag_fontheight(1) + (agdp() * 5);
+      int maxLH  = agh() - aui_statusbar_height() - topPad - titH - btnH - (pad * 3) - (agdp() * 16);
+      listH      = (agh() * height_pct) / 100;
+      if (listH > maxLH && maxLH > agdp() * 40) listH = maxLH;
 
-  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
-  }
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
-  }
-  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+      int winW = agw();
+      int winH = topPad + titH + listH + pad + btnH + pad;
+      int winX = 0;
+      int winY = agh() - winH;
+      last_winX = winX; last_winY = winY; last_winW = winW; last_winH = winH;
 
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
+      aw_draw_bottom_sheet_bg(&alertbg, winX, winY, winW, winH);
+      ag_text(&alertbg, titW, (agw() - titW) / 2, winY + topPad, title, acfg_var.dlgtitlefg, 1);
 
-  AWINDOWP hWin = aw(&alertbg);
-  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
-  for (i = 0; i < avail_cnt; i++) {
-    byte sel = (strcmp(acfg_var.themename, avail_ids[i]) == 0) ? 1 : 0;
-    acopt_add(opt1, (char *) avail_titles[i], (char *) avail_descs[i], sel);
-  }
-  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
-  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
-  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
+      /* Align acmenu cards pixel-for-pixel with Done button (compensating acmenu's internal agdp()*4 margin) */
+      int m3_inset = pad - (agdp() * 4);
+      if (m3_inset < 0) m3_inset = 0;
+      listX = m3_inset;
+      listW = winW - (m3_inset * 2);
+      listY = winY + topPad + titH;
+      btnX  = pad;
+      btnW  = winW - (pad * 2);
+      btnY  = listY + listH + pad;
+    }
+    else {
+      int pad  = agdp() * 4;
+      int winW = agw() - (pad * 2);
+      int titH = ag_fontheight(1) + (pad * 2);
 
-  byte applied = 0;
-  byte ondispatch = 1;
-  while (ondispatch) {
-    dword msg = aw_dispatch(hWin);
-    switch (aw_gm(msg)) {
-      case 6: {
-        int selidx = acopt_getselectedindex(opt1, 0);
-        if (selidx != -1) {
-          int pick = acopt_getgroupid(opt1, selidx);
-          if (pick >= 0 && pick < avail_cnt) {
-            aui_set_user_theme(avail_ids[pick]);
-            applied = 1;
-          }
-        }
-        ondispatch = 0;
+      PNGCANVASP winp = atheme("img.dialog");
+      PNGCANVASP titp = atheme("img.dialog.titlebar");
+      APNG9 winv, titv;
+      int vtitY = -1;
+      int vpadB = pad;
+      listX = pad * 2;
+      listW = winW - (pad * 2);
+      int tit_id = atheme_id("img.dialog.titlebar");
+      int dlg_id = atheme_id("img.dialog");
+
+      if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
+        int tmptitH = titH - (pad * 2);
+        titH  = tmptitH + (titv.t + titv.b);
+        vtitY = titv.t;
       }
-      break;
-      case 5:
-        ondispatch = 0;
-        break;
+      if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
+        listW = winW - (winv.l + winv.r);
+        listX = pad + winv.l;
+        vpadB = winv.b;
+      }
+
+      listH = (agh() * height_pct) / 100;
+      int winH  = titH + listH + btnH + (pad * 2) + vpadB;
+      int winX  = pad;
+      int winY  = (agh() / 2) - (winH / 2);
+      int titX  = (agw() / 2) - (titW / 2);
+      int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
+      listY = winY + titH + pad;
+      btnX  = listX;
+      btnW  = listW;
+      btnY  = listY + listH + pad;
+      last_winX = winX; last_winY = winY; last_winW = winW; last_winH = winH;
+
+      if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
+        ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
+        ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
+      }
+      if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
+        ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
+      }
+      aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
+      ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
+      ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
+    }
+
+    AWINDOWP hWin = aw(&alertbg);
+    ACONTROLP menu1 = acmenu(hWin, listX, listY, listW, listH, 6);
+    if (aui_is_m3()) {
+      acmenu_set_m3_colors(menu1, acfg_var.dialogbg, acfg_var.controlbg);
+    }
+    int i;
+    for (i = 0; i < count; i++) {
+      char tbuf[128];
+      if (i == active_idx) {
+        snprintf(tbuf, sizeof(tbuf), "<b>%s  • Active</b>", titles[i]);
+      }
+      else {
+        snprintf(tbuf, sizeof(tbuf), "%s", titles[i]);
+      }
+      acmenu_add(menu1, tbuf, (char *) descs[i], "");
+    }
+    acmenu_set_active_index(menu1, active_idx);
+    acmenu_setscroll(menu1, saved_scroll);
+    ACONTROLP donebtn = acbutton(hWin, btnX, btnY, btnW, btnH, "Done", 0, 5);
+    aw_show_ex2(hWin, first_show ? 5 : 4, 0, 0, agw(), agh(), donebtn);
+    first_show = 0;
+
+    byte ondispatch = 1;
+    while (ondispatch) {
+      dword msg = aw_dispatch(hWin);
+      switch (aw_gm(msg)) {
+        case 6: {
+          int sel = acmenu_getselectedindex(menu1);
+          saved_scroll = acmenu_getscroll(menu1);
+          if (sel >= 0 && sel < count) {
+            active_idx = sel;
+            if (apply_fn) {
+              apply_fn(sel, ctx);
+              aui_sync_theme_and_font();
+              any_applied = 1;
+            }
+          }
+          ondispatch = 0; /* Rebuild dialog immediately with new live look! */
+        } break;
+        case 5:
+          stay_open = 0;
+          ondispatch = 0;
+          break;
+      }
+    }
+
+    aw_destroy(hWin);
+    ag_ccanvas(&alertbg);
+  }
+
+  on_dialog_window = 0;
+  aw_unmaskparent(parent, tmpc, maskc, 0, 0, agw(), agh());
+  return any_applied;
+}
+
+static void aw_apply_theme_cb(int pick, void * ctx) {
+  const char ** ids = (const char **) ctx;
+  aui_set_user_theme(ids[pick]);
+}
+
+static byte aw_theme_dialog(AWINDOWP parent) {
+  static const struct {
+    const char * id;
+    const char * title;
+    const char * desc;
+  } known_themes[] = {
+    { "amoled",      "AMOLED Modern", "Pure OLED Black & Material 3 You Surfaces" },
+    { "blacknwhite", "Black & White", "High-Contrast Monochrome by Miustone" },
+    { "ics",         "ICS Theme",     "Ice Cream Sandwich by DemonWav & amarullz" },
+    { "miui4",       "MIUI 4 Theme",  "MIUI 4/ICS by amarullz & Lennox" },
+    { "miui",        "MIUI Theme",    "Classic MIUI by mickey-r & amarullz" },
+    { "touchwiz",    "TouchWiz",      "TouchWiz by titanic_fanatic" },
+    { "franzyroy",   "Franzyroy",     "Franzyroy by franzyroy" },
+    { "",            "Generic",       "Unthemed Classic AROMA" }
+  };
+
+  const char * avail_ids[10];
+  const char * avail_titles[10];
+  const char * avail_descs[10];
+  int avail_cnt = 0;
+  int active_idx = -1;
+  int i;
+  for (i = 0; i < (int)(sizeof(known_themes) / sizeof(known_themes[0])); i++) {
+    if (aui_theme_exists(known_themes[i].id)) {
+      if (strcmp(acfg_var.themename, known_themes[i].id) == 0) {
+        active_idx = avail_cnt;
+      }
+      avail_ids[avail_cnt]    = known_themes[i].id;
+      avail_titles[avail_cnt] = known_themes[i].title;
+      avail_descs[avail_cnt]  = known_themes[i].desc;
+      avail_cnt++;
     }
   }
+  return aw_live_picker_loop(parent, "Themes (Live Preview)", avail_titles, avail_descs, avail_cnt, active_idx, 58, aw_apply_theme_cb, (void *) avail_ids);
+}
 
-  aw_destroy(hWin);
-  ag_ccanvas(&alertbg);
-  on_dialog_window = 0;
-  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
-  return applied;
+static void aw_apply_accent_cb(int pick, void * ctx) {
+  const char ** ids = (const char **) ctx;
+  aui_set_user_accent(ids[pick]);
+}
+
+static byte aw_accent_dialog(AWINDOWP parent) {
+  static const struct {
+    const char * id;
+    const char * title;
+    const char * desc;
+  } accents[] = {
+    { "default", "Theme Default",    "Use the active theme's native highlight colors" },
+    { "blue",    "Pixel Blue",       "#3B82F6 — Modern Material You Blue" },
+    { "mono",    "Monochrome White", "#EAEAEA — Crisp High-Contrast Silver/White" },
+    { "emerald", "Emerald Green",    "#10B981 — Vibrant Material Emerald" },
+    { "crimson", "Crimson Red",      "#EF4444 — Bold Red Accent" },
+    { "amber",   "Warm Amber",       "#F59E0B — Golden Amber Highlight" },
+    { "violet",  "Electric Violet",  "#8B5CF6 — Deep Material You Purple" },
+    { "cyan",    "Ice Cyan",         "#06B6D4 — Cool Cyan Highlight" }
+  };
+  int cnt = (int)(sizeof(accents) / sizeof(accents[0]));
+  const char * ids[10];
+  const char * titles[10];
+  const char * descs[10];
+  const char * cur = aui_get_user_accent();
+  int active_idx = 0;
+  int i;
+  for (i = 0; i < cnt; i++) {
+    ids[i]    = accents[i].id;
+    titles[i] = accents[i].title;
+    descs[i]  = accents[i].desc;
+    if (cur && strcmp(cur, accents[i].id) == 0) {
+      active_idx = i;
+    }
+  }
+  return aw_live_picker_loop(parent, "Accent Color (Live Preview)", titles, descs, cnt, active_idx, 58, aw_apply_accent_cb, (void *) ids);
+}
+
+typedef struct {
+  const char ** ids;
+  const char ** files;
+} AW_FONT_CTX;
+
+static void aw_apply_font_cb(int pick, void * ctx) {
+  AW_FONT_CTX * fc = (AW_FONT_CTX *) ctx;
+  aui_set_user_font(fc->ids[pick], fc->files[pick]);
 }
 
 static byte aw_font_dialog(AWINDOWP parent) {
@@ -2220,9 +2448,14 @@ static byte aw_font_dialog(AWINDOWP parent) {
   const char * avail_titles[8];
   const char * avail_descs[8];
   int avail_cnt = 0;
+  int active_idx = -1;
+  const char * cur_font = aui_get_user_font();
   int i;
   for (i = 0; i < (int)(sizeof(known_fonts) / sizeof(known_fonts[0])); i++) {
     if (aui_font_exists(known_fonts[i].file)) {
+      if (cur_font && strcmp(cur_font, known_fonts[i].id) == 0) {
+        active_idx = avail_cnt;
+      }
       avail_ids[avail_cnt]    = known_fonts[i].id;
       avail_files[avail_cnt]  = known_fonts[i].file;
       avail_titles[avail_cnt] = known_fonts[i].title;
@@ -2230,110 +2463,13 @@ static byte aw_font_dialog(AWINDOWP parent) {
       avail_cnt++;
     }
   }
-  if (avail_cnt == 0) {
-    return 0;
-  }
+  AW_FONT_CTX fctx = { avail_ids, avail_files };
+  return aw_live_picker_loop(parent, "Fonts (Live Preview)", avail_titles, avail_descs, avail_cnt, active_idx, 56, aw_apply_font_cb, &fctx);
+}
 
-  CANVAS * tmpc = aw_muteparent(parent);
-  on_dialog_window = 1;
-  CANVAS * maskc = aw_maskparent();
-
-  char title[32];
-  snprintf(title, sizeof(title), "Select Font");
-  int pad  = agdp() * 4;
-  int winW = agw() - (pad * 2);
-  int btnH = agdp() * 20;
-  int titW = ag_txtwidth(title, 1);
-  int titH = ag_fontheight(1) + (pad * 2);
-
-  PNGCANVASP winp = atheme("img.dialog");
-  PNGCANVASP titp = atheme("img.dialog.titlebar");
-  APNG9 winv, titv;
-  int vtitY = -1;
-  int vpadB = pad;
-  int listX = pad * 2;
-  int listW = winW - (pad * 2);
-  int tit_id = atheme_id("img.dialog.titlebar");
-  int dlg_id = atheme_id("img.dialog");
-
-  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
-    int tmptitH = titH - (pad * 2);
-    titH  = tmptitH + (titv.t + titv.b);
-    vtitY = titv.t;
-  }
-  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
-    listW = winW - (winv.l + winv.r);
-    listX = pad + winv.l;
-    vpadB = winv.b;
-  }
-
-  int listH = (agh() * 55) / 100;
-  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
-  int winX  = pad;
-  int winY  = (agh() / 2) - (winH / 2);
-  int titX  = (agw() / 2) - (titW / 2);
-  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
-  int listY = winY + titH + pad;
-  int btnW  = (listW / 2) - (pad / 2);
-  int btnY  = listY + listH + pad;
-  int btnX  = listX;
-  int btnX2 = listX + (listW / 2) + (pad / 2);
-
-  CANVAS alertbg;
-  ag_canvas(&alertbg, agw(), agh());
-  ag_draw(&alertbg, agc(), 0, 0);
-
-  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
-  }
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
-  }
-  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
-
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
-
-  AWINDOWP hWin = aw(&alertbg);
-  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
-  const char * cur_font = aui_get_user_font();
-  for (i = 0; i < avail_cnt; i++) {
-    byte sel = (cur_font != NULL && strcmp(cur_font, avail_ids[i]) == 0) ? 1 : 0;
-    acopt_add(opt1, (char *) avail_titles[i], (char *) avail_descs[i], sel);
-  }
-  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
-  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
-  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
-
-  byte applied = 0;
-  byte ondispatch = 1;
-  while (ondispatch) {
-    dword msg = aw_dispatch(hWin);
-    switch (aw_gm(msg)) {
-      case 6: {
-        int selidx = acopt_getselectedindex(opt1, 0);
-        if (selidx != -1) {
-          int pick = acopt_getgroupid(opt1, selidx);
-          if (pick >= 0 && pick < avail_cnt) {
-            aui_set_user_font(avail_ids[pick], avail_files[pick]);
-            applied = 1;
-          }
-        }
-        ondispatch = 0;
-      }
-      break;
-      case 5:
-        ondispatch = 0;
-        break;
-    }
-  }
-
-  aw_destroy(hWin);
-  ag_ccanvas(&alertbg);
-  on_dialog_window = 0;
-  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
-  return applied;
+static void aw_apply_transition_cb(int pick, void * ctx) {
+  const char ** ids = (const char **) ctx;
+  aui_set_user_transition(ids[pick]);
 }
 
 static byte aw_transition_dialog(AWINDOWP parent) {
@@ -2349,169 +2485,118 @@ static byte aw_transition_dialog(AWINDOWP parent) {
     { "none",  "None (Instant)", "Disable animations for instant screen switching" }
   };
   int cnt = (int)(sizeof(styles) / sizeof(styles[0]));
-
-  CANVAS * tmpc = aw_muteparent(parent);
-  on_dialog_window = 1;
-  CANVAS * maskc = aw_maskparent();
-
-  char title[32];
-  snprintf(title, sizeof(title), "Transitions");
-  int pad  = agdp() * 4;
-  int winW = agw() - (pad * 2);
-  int btnH = agdp() * 20;
-  int titW = ag_txtwidth(title, 1);
-  int titH = ag_fontheight(1) + (pad * 2);
-
-  PNGCANVASP winp = atheme("img.dialog");
-  PNGCANVASP titp = atheme("img.dialog.titlebar");
-  APNG9 winv, titv;
-  int vtitY = -1;
-  int vpadB = pad;
-  int listX = pad * 2;
-  int listW = winW - (pad * 2);
-  int tit_id = atheme_id("img.dialog.titlebar");
-  int dlg_id = atheme_id("img.dialog");
-
-  if (titp != NULL && tit_id >= 0 && acfg_var.theme_9p[tit_id] && apng9_calc(titp, &titv, 1)) {
-    int tmptitH = titH - (pad * 2);
-    titH  = tmptitH + (titv.t + titv.b);
-    vtitY = titv.t;
-  }
-  if (winp != NULL && dlg_id >= 0 && acfg_var.theme_9p[dlg_id] && apng9_calc(winp, &winv, 1)) {
-    listW = winW - (winv.l + winv.r);
-    listX = pad + winv.l;
-    vpadB = winv.b;
-  }
-
-  int listH = (agh() * 48) / 100;
-  int winH  = titH + listH + btnH + (pad * 2) + vpadB;
-  int winX  = pad;
-  int winY  = (agh() / 2) - (winH / 2);
-  int titX  = (agw() / 2) - (titW / 2);
-  int titY  = (vtitY != -1) ? (winY + vtitY) : (winY + pad);
-  int listY = winY + titH + pad;
-  int btnW  = (listW / 2) - (pad / 2);
-  int btnY  = listY + listH + pad;
-  int btnX  = listX;
-  int btnX2 = listX + (listW / 2) + (pad / 2);
-
-  CANVAS alertbg;
-  ag_canvas(&alertbg, agw(), agh());
-  ag_draw(&alertbg, agc(), 0, 0);
-
-  if (!atheme_draw("img.dialog", &alertbg, winX, winY, winW, winH)) {
-    ag_roundgrad(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, (acfg_var.roundsz * agdp()) + 1);
-    ag_roundgrad(&alertbg, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg_g, acfg_var.roundsz * agdp());
-  }
-  if (!atheme_draw("img.dialog.titlebar", &alertbg, winX, winY, winW, titH)) {
-    ag_roundgrad_ex(&alertbg, winX, winY, winW, titH, acfg_var.dlgtitlebg, acfg_var.dlgtitlebg_g, acfg_var.roundsz * agdp(), 1, 1, 0, 0);
-  }
-  aw_draw_dialog_border(&alertbg, winp, winX, winY, winW, winH, titH);
-
-  ag_textf(&alertbg, titW, titX + 1, titY + 1, title, acfg_var.dlgtitlebg_g, 1);
-  ag_text(&alertbg, titW, titX, titY, title, acfg_var.dlgtitlefg, 1);
-
-  AWINDOWP hWin = aw(&alertbg);
-  ACONTROLP opt1 = acopt(hWin, listX, listY, listW, listH);
+  const char * ids[8];
+  const char * titles[8];
+  const char * descs[8];
   const char * cur_tr = aui_get_user_transition();
+  int active_idx = 0;
   int i;
   for (i = 0; i < cnt; i++) {
-    byte sel = (cur_tr != NULL && strcmp(cur_tr, styles[i].id) == 0) ? 1 : 0;
-    acopt_add(opt1, (char *) styles[i].title, (char *) styles[i].desc, sel);
-  }
-  acbutton(hWin, btnX, btnY, btnW, btnH, acfg_var.text_back, 0, 5);
-  acbutton(hWin, btnX2, btnY, btnW, btnH, acfg_var.text_ok, 0, 6);
-  aw_show_ex2(hWin, 5, winX - 1, winY - 1, winW + 2, winH + 2, NULL);
-
-  byte applied = 0;
-  byte ondispatch = 1;
-  while (ondispatch) {
-    dword msg = aw_dispatch(hWin);
-    switch (aw_gm(msg)) {
-      case 6: {
-        int selidx = acopt_getselectedindex(opt1, 0);
-        if (selidx != -1) {
-          int pick = acopt_getgroupid(opt1, selidx);
-          if (pick >= 0 && pick < cnt) {
-            aui_set_user_transition(styles[pick].id);
-            applied = 1;
-          }
-        }
-        ondispatch = 0;
-      }
-      break;
-      case 5:
-        ondispatch = 0;
-        break;
+    ids[i]    = styles[i].id;
+    titles[i] = styles[i].title;
+    descs[i]  = styles[i].desc;
+    if (cur_tr && strcmp(cur_tr, styles[i].id) == 0) {
+      active_idx = i;
     }
   }
+  return aw_live_picker_loop(parent, "Transitions (Live)", titles, descs, cnt, active_idx, 48, aw_apply_transition_cb, (void *) ids);
+}
 
-  aw_destroy(hWin);
-  ag_ccanvas(&alertbg);
-  on_dialog_window = 0;
-  aw_unmaskparent(parent, tmpc, maskc, winX - 1, winY - 1, winW + 2, winH + 2);
-  return applied;
+static void aw_draw_bottom_sheet_bg(CANVAS * cv, int winX, int winY, int winW, int winH) {
+  if (aui_is_m3()) {
+    int r = agdp() * 10;
+    ag_roundgrad_ex(cv, winX, winY - 1, winW, winH + 1, acfg_var.border, acfg_var.border, r, 1, 1, 0, 0);
+    ag_roundgrad_ex(cv, winX, winY, winW, winH, acfg_var.dialogbg, acfg_var.dialogbg, r, 1, 1, 0, 0);
+    /* Material 3 centered drag-handle pill */
+    int hw = agdp() * 24;
+    int hh = max(agdp() * 2, 4);
+    int hx = (agw() - hw) / 2;
+    int hy = winY + (agdp() * 4);
+    ag_roundgrad(cv, hx, hy, hw, hh, acfg_var.border, acfg_var.border, hh / 2);
+  }
+  else {
+    ag_roundgrad_ex(cv, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, 0, 1, 1, 0, 0);
+    ag_roundgrad_ex(cv, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
+  }
 }
 
 static byte aw_themes_submenu(AWINDOWP parent) {
-  CANVAS * tmpc = aw_muteparent(parent);
-  on_dialog_window = 2;
-  ag_rectopa(agc(), 0, 0, agw(), agh(), 0x0000, 180);
+  byte any_changed = 0;
+  byte keep_hub = 1;
 
-  int item_cnt = 4;
-  int btnH  = agdp() * 19;
-  int pad   = agdp() * 2;
-  int vpad  = agdp() * 1;
-  int winH  = ((btnH + vpad) * item_cnt) + pad;
-  int winW  = agw();
-  int winX  = 0;
-  int winY  = agh() - winH;
-  int btnY  = winY + pad;
-  int btnX  = winX + pad;
-  int btnW  = winW - (pad * 2);
+  while (keep_hub) {
+    CANVAS * tmpc = aw_muteparent(parent);
+    on_dialog_window = 2;
+    ag_rectopa(agc(), 0, 0, agw(), agh(), 0x0000, 180);
 
-  CANVAS alertbg;
-  ag_canvas(&alertbg, agw(), agh());
-  ag_draw(&alertbg, agc(), 0, 0);
-  ag_roundgrad_ex(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, 0, 1, 1, 0, 0);
-  ag_roundgrad_ex(&alertbg, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
+    int item_cnt = 5;
+    int btnH   = agdp() * 20;
+    int pad    = aui_is_m3() ? (agdp() * 5) : (agdp() * 2);
+    int topPad = aui_is_m3() ? (agdp() * 10) : (agdp() * 2);
+    int vpad   = aui_is_m3() ? (agdp() * 3) : (agdp() * 1);
+    int winH   = topPad + ((btnH + vpad) * item_cnt) + pad;
+    int winW   = agw();
+    int winX   = 0;
+    int winY   = agh() - winH;
+    int btnY   = winY + topPad;
+    int btnX   = winX + pad;
+    int btnW   = winW - (pad * 2);
 
-  AWINDOWP hWin = aw(&alertbg);
-  int row = 0;
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Theme", 0, 15);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Select Font",  0, 16);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Transitions",  0, 18);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
-  aw_show_ex(hWin, 1, winY - 1, NULL);
+    CANVAS alertbg;
+    ag_canvas(&alertbg, agw(), agh());
+    ag_draw(&alertbg, agc(), 0, 0);
+    aw_draw_bottom_sheet_bg(&alertbg, winX, winY, winW, winH);
 
-  byte ondispatch = 1;
-  byte pick = 0;
-  while (ondispatch) {
-    dword msg = aw_dispatch(hWin);
-    switch (aw_gm(msg)) {
-      case 5:  ondispatch = 0; break;
-      case 15: pick = 1; ondispatch = 0; break;
-      case 16: pick = 2; ondispatch = 0; break;
-      case 18: pick = 3; ondispatch = 0; break;
+    char lbl_theme[96], lbl_accent[96], lbl_font[96], lbl_tr[96];
+    snprintf(lbl_theme,  sizeof(lbl_theme),  "Theme: %s",        aw_theme_display_name(acfg_var.themename));
+    snprintf(lbl_accent, sizeof(lbl_accent), "Accent Color: %s", aw_accent_display_name(aui_get_user_accent()));
+    snprintf(lbl_font,   sizeof(lbl_font),   "Font: %s",         aw_font_display_name(aui_get_user_font()));
+    snprintf(lbl_tr,     sizeof(lbl_tr),     "Transition: %s",   aw_transition_display_name(aui_get_user_transition()));
+
+    AWINDOWP hWin = aw(&alertbg);
+    int row = 0;
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, lbl_theme,  0, 15);
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, lbl_accent, 0, 19);
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, lbl_font,   0, 16);
+    acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, lbl_tr,     0, 18);
+    ACONTROLP backbtn = acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Done", 0, 5);
+    aw_show_ex(hWin, 1, winY - 1, backbtn);
+
+    byte ondispatch = 1;
+    byte pick = 0;
+    while (ondispatch) {
+      dword msg = aw_dispatch(hWin);
+      switch (aw_gm(msg)) {
+        case 5:  ondispatch = 0; break;
+        case 15: pick = 1; ondispatch = 0; break;
+        case 19: pick = 4; ondispatch = 0; break;
+        case 16: pick = 2; ondispatch = 0; break;
+        case 18: pick = 3; ondispatch = 0; break;
+      }
+    }
+
+    aw_destroy(hWin);
+    ag_ccanvas(&alertbg);
+    on_dialog_window = 0;
+    aw_unmuteparent(parent, tmpc);
+
+    if (pick == 1) {
+      if (aw_theme_dialog(parent)) any_changed = 1;
+    }
+    else if (pick == 4) {
+      if (aw_accent_dialog(parent)) any_changed = 1;
+    }
+    else if (pick == 2) {
+      if (aw_font_dialog(parent)) any_changed = 1;
+    }
+    else if (pick == 3) {
+      aw_transition_dialog(parent);
+    }
+    else {
+      keep_hub = 0;
     }
   }
-
-  aw_destroy(hWin);
-  ag_ccanvas(&alertbg);
-  on_dialog_window = 0;
-  aw_unmuteparent(parent, tmpc);
-
-  if (pick == 1) {
-    return aw_theme_dialog(parent) ? 3 : 0;
-  }
-  else if (pick == 2) {
-    return aw_font_dialog(parent) ? 3 : 0;
-  }
-  else if (pick == 3) {
-    aw_transition_dialog(parent);
-    return 0;
-  }
-  return 0;
+  return any_changed ? 3 : 0;
 }
 
 byte aw_showmenu(AWINDOWP parent) {
@@ -2521,35 +2606,35 @@ byte aw_showmenu(AWINDOWP parent) {
   ag_rectopa(agc(),   0, 0, agw(), agh(), 0x0000, 180);
   byte in_fm = afm_is_active();
   int item_cnt = in_fm ? 4 : 5;
-  int btnH  = agdp() * 19;
-  int pad   = agdp() * 2;
-  int vpad  = agdp() * 1;
-  int winH  = ((btnH + vpad) * item_cnt) + pad;
-  int winW  = agw();
-  int winX  = 0;
-  int winY  = agh() - winH;
-  int btnY  = winY + pad;
-  int btnX  = winX + pad;
-  int btnW  = winW - (pad * 2);
+  int btnH   = agdp() * 20;
+  int pad    = aui_is_m3() ? (agdp() * 5) : (agdp() * 2);
+  int topPad = aui_is_m3() ? (agdp() * 10) : (agdp() * 2);
+  int vpad   = aui_is_m3() ? (agdp() * 3) : (agdp() * 1);
+  int winH   = topPad + ((btnH + vpad) * item_cnt) + pad;
+  int winW   = agw();
+  int winX   = 0;
+  int winY   = agh() - winH;
+  int btnY   = winY + topPad;
+  int btnX   = winX + pad;
+  int btnW   = winW - (pad * 2);
   //-- Initializing Canvas
   CANVAS alertbg;
   ag_canvas(&alertbg, agw(), agh());
   ag_draw(&alertbg, agc(), 0, 0);
-  //-- Draw Window Background
-  ag_roundgrad_ex(&alertbg, winX - 1, winY - 1, winW + 2, winH + 2, acfg_var.border, acfg_var.border_g, 0, 1, 1, 0, 0);
-  ag_roundgrad_ex(&alertbg, winX, winY, winW, winH, acfg_var.navbg, acfg_var.navbg_g, 0, 1, 1, 0, 0);
-  //-- Create Window (Top -> Bottom: About, Themes, Filemanager, Exit, Back)
+  //-- Draw Window Background (Material 3 Modal Bottom Sheet on AMOLED)
+  aw_draw_bottom_sheet_bg(&alertbg, winX, winY, winW, winH);
+  //-- Create Window (Top -> Bottom: About, Appearance, Filemanager, Exit, Back)
   AWINDOWP hWin   = aw(&alertbg);
   int row = 0;
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_about, 0, 11);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Themes", 0, 15);
+  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Appearance", 0, 15);
   if (!in_fm) {
     acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Filemanager", 0, 17);
   }
   acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, "Exit", 0, 14);
-  acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
-  /* aw_show(hWin); */
-  aw_show_ex(hWin, 1, winY - 1, NULL);
+  ACONTROLP backbtn = acbutton(hWin, btnX, btnY + ((btnH + vpad) * row++), btnW, btnH, acfg_var.text_back, 0, 5);
+  /* Focus Back button subtly instead of screaming highlight on About */
+  aw_show_ex(hWin, 1, winY - 1, backbtn);
   byte ondispatch = 1;
   byte res        = 0;
   

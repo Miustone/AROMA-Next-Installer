@@ -22,6 +22,7 @@
  */
 
 #include <sys/stat.h>       //-- Filesystem Stats
+#include <time.h>           //-- Clock for Top Status Bar
 #include "../edify/expr.h"  //-- Edify Parser
 #include "../aroma.h"
 
@@ -252,9 +253,236 @@ char aroma_theme_request[64] = {0};
 byte aroma_theme_new_request = 1;
 static char aroma_user_theme[64] = {0};
 static byte aroma_has_user_theme = 0;
+static char aroma_user_accent[32] = "default";
+static byte aroma_has_user_accent = 0;
+static byte aroma_accent_dirty = 0;
 static char aroma_user_font[64] = "googlesans";
 static char aroma_user_font_file[96] = "GoogleSans-Regular.ttf";
 static byte aroma_has_user_font = 0;
+
+const char * aui_get_user_accent(void) {
+  return aroma_user_accent;
+}
+
+static void aui_apply_accent_colors(void) {
+  if (strcmp(aroma_user_accent, "default") == 0 || aroma_user_accent[0] == '\0') {
+    return;
+  }
+
+  color c1 = 0, c2 = 0, cfg_fg = 0xFFFF, glow = 0;
+  byte matched = 1;
+
+  if (strcmp(aroma_user_accent, "blue") == 0) {
+    c1 = strtocolor("#3B82F6"); c2 = strtocolor("#2563EB"); glow = strtocolor("#60A5FA"); cfg_fg = strtocolor("#FFFFFF");
+  }
+  else if (strcmp(aroma_user_accent, "mono") == 0) {
+    c1 = strtocolor("#EAEAEA"); c2 = strtocolor("#CFCFCF"); glow = strtocolor("#FFFFFF"); cfg_fg = strtocolor("#000000");
+  }
+  else if (strcmp(aroma_user_accent, "emerald") == 0) {
+    c1 = strtocolor("#10B981"); c2 = strtocolor("#059669"); glow = strtocolor("#34D399"); cfg_fg = strtocolor("#FFFFFF");
+  }
+  else if (strcmp(aroma_user_accent, "crimson") == 0) {
+    c1 = strtocolor("#EF4444"); c2 = strtocolor("#DC2626"); glow = strtocolor("#F87171"); cfg_fg = strtocolor("#FFFFFF");
+  }
+  else if (strcmp(aroma_user_accent, "amber") == 0) {
+    c1 = strtocolor("#F59E0B"); c2 = strtocolor("#D97706"); glow = strtocolor("#FBBF24"); cfg_fg = strtocolor("#000000");
+  }
+  else if (strcmp(aroma_user_accent, "violet") == 0) {
+    c1 = strtocolor("#8B5CF6"); c2 = strtocolor("#7C3AED"); glow = strtocolor("#A78BFA"); cfg_fg = strtocolor("#FFFFFF");
+  }
+  else if (strcmp(aroma_user_accent, "cyan") == 0) {
+    c1 = strtocolor("#06B6D4"); c2 = strtocolor("#0891B2"); glow = strtocolor("#22D3EE"); cfg_fg = strtocolor("#000000");
+  }
+  else if (aroma_user_accent[0] == '#' && (strlen(aroma_user_accent) == 4 || strlen(aroma_user_accent) == 7)) {
+    c1 = strtocolor(aroma_user_accent);
+    c2 = ag_calpushad(c1);
+    glow = ag_calculatealpha(c1, 0xFFFF, 75);
+    int lum = (ag_r(c1) * 299 + ag_g(c1) * 587 + ag_b(c1) * 114) / 1000;
+    cfg_fg = (lum > 155) ? strtocolor("#000000") : strtocolor("#FFFFFF");
+  }
+  else {
+    matched = 0;
+  }
+
+  if (!matched) {
+    return;
+  }
+
+  /* Release legacy selection/progress PNGs so live accent color shines through on every theme */
+  atheme_release("img.selection");
+  atheme_release("img.selection.push");
+  atheme_release("img.prograss.fill");
+
+  acfg()->selectbg     = c1;
+  acfg()->selectbg_g   = c2;
+  acfg()->selectfg     = cfg_fg;
+  acfg()->progressglow = glow;
+  acfg()->scrollbar    = c1;
+}
+
+void aui_set_user_accent(const char * id) {
+  aroma_has_user_accent = 1;
+  snprintf(aroma_user_accent, sizeof(aroma_user_accent), "%s", (id && id[0]) ? id : "default");
+  aroma_accent_dirty = 1;
+  aroma_theme_new_request = 1;
+  aui_isbgredraw = 1;
+}
+
+void aui_get_slot_suffix(char * out, size_t out_sz) {
+  if (!out || out_sz == 0) return;
+  out[0] = '\0';
+  /* 1. Classic /proc/cmdline */
+  FILE * fp = fopen("/proc/cmdline", "r");
+  if (fp) {
+    char buf[4096];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, fp);
+    fclose(fp);
+    buf[n] = '\0';
+    const char * p = strstr(buf, "androidboot.slot_suffix=");
+    if (p) {
+      p += 24;
+      size_t i = 0;
+      while (p[i] && p[i] != ' ' && p[i] != '\n' && p[i] != '\r' && i + 1 < out_sz) {
+        out[i] = p[i];
+        i++;
+      }
+      out[i] = '\0';
+      if (out[0]) return;
+    }
+  }
+  /* 2. Modern Android 12-16+ /proc/bootconfig (e.g. Pixel / Tensor / GKI 2.0) */
+  fp = fopen("/proc/bootconfig", "r");
+  if (fp) {
+    char buf[8192];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, fp);
+    fclose(fp);
+    buf[n] = '\0';
+    const char * p = strstr(buf, "androidboot.slot_suffix");
+    if (p) {
+      const char * eq = strchr(p, '=');
+      if (eq) {
+        eq++;
+        while (*eq == ' ' || *eq == '\t' || *eq == '"') eq++;
+        size_t i = 0;
+        while (eq[i] && eq[i] != '"' && eq[i] != '\n' && eq[i] != '\r' && eq[i] != ' ' && i + 1 < out_sz) {
+          out[i] = eq[i];
+          i++;
+        }
+        out[i] = '\0';
+      }
+    }
+  }
+}
+
+int aui_statusbar_height(void) {
+  int fh = ag_fontheight(0);
+  if (fh <= 0) fh = agdp() * 12;
+  return fh + (agdp() * 4);
+}
+
+void aui_draw_statusbar(CANVAS * cv, int sbH) {
+  if (!cv || sbH <= 0) return;
+
+  /* Background matches titlebar seamlessly */
+  color sbg = acfg()->titlebg;
+  ag_rect(cv, 0, 0, agw(), sbH, sbg);
+
+  /* Clock (left of center punch-hole camera) */
+  char timebuf[24] = "";
+  time_t now = time(NULL);
+  struct tm lt;
+  if (localtime_r(&now, &lt) != NULL) {
+    snprintf(timebuf, sizeof(timebuf), "%02d:%02d", lt.tm_hour, lt.tm_min);
+  }
+
+  /* Battery capacity & charging state */
+  int bat = -1;
+  byte chg = 0;
+  FILE * fp = fopen("/sys/class/power_supply/battery/capacity", "r");
+  if (!fp) fp = fopen("/sys/class/power_supply/bms/capacity", "r");
+  if (fp) {
+    if (fscanf(fp, "%d", &bat) != 1) bat = -1;
+    fclose(fp);
+  }
+  fp = fopen("/sys/class/power_supply/battery/status", "r");
+  if (fp) {
+    char st[32] = {0};
+    if (fgets(st, sizeof(st), fp)) {
+      if (strncmp(st, "Charging", 8) == 0) chg = 1;
+    }
+    fclose(fp);
+  }
+
+  /* Active A/B slot */
+  char slot[16] = {0};
+  aui_get_slot_suffix(slot, sizeof(slot));
+  const char * slot_lbl = NULL;
+  if (strcmp(slot, "_a") == 0) slot_lbl = "Slot A";
+  else if (strcmp(slot, "_b") == 0) slot_lbl = "Slot B";
+
+  char rightbuf[64] = "";
+  if (slot_lbl && bat >= 0) {
+    snprintf(rightbuf, sizeof(rightbuf), "%s  •  %d%%%s", slot_lbl, bat, chg ? "+" : "");
+  }
+  else if (bat >= 0) {
+    snprintf(rightbuf, sizeof(rightbuf), "%d%%%s", bat, chg ? "+" : "");
+  }
+  else if (slot_lbl) {
+    snprintf(rightbuf, sizeof(rightbuf), "%s", slot_lbl);
+  }
+
+  int margin = agdp() * 5;
+  int ty = (sbH - ag_fontheight(0)) / 2;
+  if (ty < 0) ty = 0;
+  color fg = ag_calculatealpha(acfg()->titlebg, acfg()->titlefg, 210);
+
+  if (timebuf[0]) {
+    int tw = ag_txtwidth(timebuf, 0);
+    ag_text(cv, tw, margin, ty, timebuf, fg, 0);
+  }
+  if (rightbuf[0]) {
+    int rw = ag_txtwidth(rightbuf, 0);
+    ag_text(cv, rw, agw() - margin - rw, ty, rightbuf, fg, 0);
+  }
+}
+
+/* Update or append a single key=val line in a .prop file while preserving other keys */
+void aui_set_prop_key(const char * path, const char * key, const char * val) {
+  if (!path || !key || !val) return;
+  char * existing = aui_readfromfs((char *) path);
+  FILE * fp = fopen(path, "wb");
+  if (!fp) {
+    if (existing) free(existing);
+    return;
+  }
+  byte replaced = 0;
+  size_t klen = strlen(key);
+  if (existing) {
+    char * p = existing;
+    while (*p) {
+      char * nl = strchr(p, '\n');
+      size_t len = nl ? (size_t)(nl - p) : strlen(p);
+      while (len > 0 && p[len - 1] == '\r') len--;
+      if (len > klen && strncmp(p, key, klen) == 0 && p[klen] == '=') {
+        if (!replaced) {
+          fprintf(fp, "%s=%s\n", key, val);
+          replaced = 1;
+        }
+      }
+      else if (len > 0) {
+        fwrite(p, 1, len, fp);
+        fputc('\n', fp);
+      }
+      if (!nl) break;
+      p = nl + 1;
+    }
+    free(existing);
+  }
+  if (!replaced) {
+    fprintf(fp, "%s=%s\n", key, val);
+  }
+  fclose(fp);
+}
 
 byte aui_font_exists(const char * ttf_file) {
   if (ttf_file == NULL || ttf_file[0] == '\0') {
@@ -363,6 +591,11 @@ void aui_set_user_theme(const char * id) {
   aroma_has_user_theme = 1;
   snprintf(aroma_user_theme, sizeof(aroma_user_theme), "%s", (id != NULL) ? id : "");
   snprintf(aroma_theme_request, sizeof(aroma_theme_request), "%s", aroma_user_theme);
+  /* Reset live accent override when switching to a classic theme so its authentic 9-patch & palette stay 100% intact */
+  if (strcmp(aroma_user_theme, "amoled") != 0) {
+    snprintf(aroma_user_accent, sizeof(aroma_user_accent), "default");
+    aroma_accent_dirty = 1;
+  }
   aroma_theme_new_request = 1;
   aui_isbgredraw = 1;
 }
@@ -371,19 +604,22 @@ byte aroma_theme_update() {
   char themename[256];
   snprintf(themename, 256, "%s/themes/%s/theme.prop", AROMA_DIR, aroma_theme_request);
   
-  if (strcmp(aroma_theme_request, acfg()->themename) == 0) {
+  if (!aroma_accent_dirty && strcmp(aroma_theme_request, acfg()->themename) == 0) {
     /* Not Changed */
+    aroma_theme_new_request = 0;
     return 0;
   }
   
   /* Reset Request */
   aroma_theme_new_request = 0;
+  aroma_accent_dirty = 0;
   /* Reset Theme */
   acfg_init_ex(1);
   
   /* Return If Generic */
   if ((strcmp(aroma_theme_request, "") == 0) || (strcmp(aroma_theme_request, "generic") == 0)) {
     snprintf(acfg()->themename, 64, "");
+    aui_apply_accent_colors();
     return 1;
   }
   
@@ -445,7 +681,8 @@ byte aroma_theme_update() {
   else {
     snprintf(acfg()->themename, 64, "");
   }
-  
+
+  aui_apply_accent_colors();
   return 1;
 }
 //*
@@ -470,19 +707,27 @@ void aui_redraw() {
   aui_next_icon();
   aui_menu_icon();
   ag_blank(&aui_bg);
+  int sbH   = aui_statusbar_height();
   int elmP  = agdp() * 2;
   int capH  = ag_fontheight(1) + (elmP * 2);
-  aui_minY  = capH;
+  aui_minY  = sbH + capH;
   ag_rect(&aui_bg, 0, 0, agw(), agh(), 0x0000);
   
   //-- Background
   if (!atheme_id_draw(0, &aui_bg, 0, 0, agw(), agh())) {
     ag_roundgrad(&aui_bg, 0, 0, agw(), agh(), acfg()->winbg, acfg()->winbg_g, acfg()->winroundsz * agdp() + 2);
   }
+
+  //-- Slim Top Status Bar (Clock | Punch-hole Safe Gap | Slot + Battery)
+  aui_draw_statusbar(&aui_bg, sbH);
   
-  //-- Titlebar
-  if (!atheme_id_draw(1, &aui_bg, 0, 0, agw(), capH)) {
-    ag_roundgrad_ex(&aui_bg, 0, 0, agw(), capH, acfg()->titlebg, acfg()->titlebg_g, (acfg()->winroundsz * agdp()) - 2, 1, 1, 0, 0);
+  //-- Titlebar directly below status bar
+  if (!atheme_id_draw(1, &aui_bg, 0, sbH, agw(), capH)) {
+    ag_roundgrad_ex(&aui_bg, 0, sbH, agw(), capH, acfg()->titlebg, acfg()->titlebg_g, 0, 0, 0, 0, 0);
+  }
+  /* Subtle hairline divider under titlebar for modern AMOLED Material 3 separation */
+  if (aui_is_m3()) {
+    ag_rect(&aui_bg, 0, sbH + capH - 1, agw(), 1, ag_calculatealpha(acfg()->titlebg, acfg()->border, 120));
   }
   
   aui_isbgredraw = 0;
@@ -495,11 +740,14 @@ void aui_setbg(char * titlev) {
   char title[64];
   snprintf(title, 64, "%s", titlev);
   aui_redraw();
+  int sbH   = aui_statusbar_height();
   int elmP  = agdp() * 2;
   int titW  = ag_txtwidth(title, 1);
   ag_draw(&aui_win_bg, &aui_bg, 0, 0);
-  ag_textf(&aui_win_bg, titW, ((agw() / 2) - (titW / 2)) + 1, elmP + 1, title, acfg()->titlebg_g, 1);
-  ag_text(&aui_win_bg, titW, (agw() / 2) - (titW / 2), elmP, title, acfg()->titlefg, 1);
+  /* Refresh live clock & battery on every screen transition */
+  aui_draw_statusbar(&aui_win_bg, sbH);
+  ag_textf(&aui_win_bg, titW, ((agw() / 2) - (titW / 2)) + 1, sbH + elmP + 1, title, acfg()->titlebg_g, 1);
+  ag_text(&aui_win_bg, titW, (agw() / 2) - (titW / 2), sbH + elmP, title, acfg()->titlefg, 1);
 }
 
 //*
@@ -1494,10 +1742,23 @@ Value * AROMA_INI_GET(const char * name, State * state, int argc, Expr * argv[])
     snprintf(retval, 128, "%i", acfg()->vibrate);
   }
   else if (strcmp(args[0], "icon_next") == 0) {
-    snprintf(acfg()->icon_next, 128, "%s", args[1]);
+    snprintf(retval, 128, "%s", acfg()->icon_next);
   }
   else if (strcmp(args[0], "icon_back") == 0) {
     snprintf(retval, 128, "%s", acfg()->icon_back);
+  }
+  else if (strcmp(args[0], "volkey") == 0) {
+    snprintf(retval, 128, "%s", a_volkey_mode() ? "1" : "0");
+  }
+  else if (strcmp(args[0], "accent") == 0) {
+    snprintf(retval, 128, "%s", aui_get_user_accent());
+  }
+  else if (strcmp(args[0], "theme") == 0) {
+    const char * t = acfg()->themename[0] ? acfg()->themename : aroma_theme_request;
+    snprintf(retval, 128, "%s", t[0] ? t : "generic");
+  }
+  else if (strcmp(args[0], "slot") == 0) {
+    aui_get_slot_suffix(retval, sizeof(retval));
   }
   else if (strcmp(args[0], "text_ok") == 0) {
     snprintf(retval, 128, "%s", acfg()->text_ok);
@@ -1955,44 +2216,111 @@ Value * AROMA_VIEWBOX(const char * name, State * state, int argc, Expr * argv[])
   int  imgX       = pad;
   int  tifY       = chkY;
   int  imgY       = chkY;
-  
-  if (apng_load(&ap, args[2])) {
-    imgE  = 1;
-    imgW  = min(ap.w, agdp() * 30);
-    imgH  = min(ap.h, agdp() * 30);
-    imgA  = imgW;
-    tifX += imgA;
+  int  m3_cbY     = 0;
+  byte m3_scroll  = 0;
+  int  m3_scrollY = 0;
+  int  m3_scrollH = 0;
+
+  if (aui_is_m3()) {
+    int cardX   = pad;
+    int cardW   = chkW;
+    int inPad   = agdp() * 6;
+    int innerX  = cardX + inPad;
+    int innerW  = cardW - (inPad * 2);
+    int cbAreaH = (!isplain) ? (agdp() * 26 + pad) : 0;
+    int imgS    = agdp() * 24;
+    int gapY    = agdp() * 5;
+
+    if (apng_load(&ap, args[2])) {
+      imgE = 1;
+      imgW = imgS;
+      imgH = imgS;
+    }
+
+    int txtH   = ag_txtheight(innerW, text, 0);
+    int headH  = imgE ? (imgH + gapY) : 0;
+    int needH  = inPad + headH + txtH + inPad;
+    int availH = chkH - cbAreaH;
+    int cardR  = agdp() * 8;
+
+    if (needH <= availH) {
+      /* Snug full-width Material 3 Hero Card (zero wasted left gutter!) */
+      int cardY = chkY;
+      int cardH = needH;
+      ag_roundgrad(&aui_win_bg, cardX, cardY, cardW, cardH, acfg()->border, acfg()->border, cardR);
+      ag_roundgrad(&aui_win_bg, cardX + 1, cardY + 1, cardW - 2, cardH - 2, acfg()->dialogbg, acfg()->dialogbg, max(cardR - 1, 1));
+      int curY = cardY + inPad;
+      if (imgE) {
+        apng_stretch(&aui_win_bg, &ap, cardX + ((cardW - imgW) / 2), curY, imgW, imgH, 0, 0, ap.w, ap.h);
+        apng_close(&ap);
+        curY += imgH + gapY;
+      }
+      ag_text(&aui_win_bg, innerW, innerX, curY, text, acfg()->dialogfg, 0);
+      m3_cbY = cardY + cardH + pad;
+    }
+    else {
+      /* Long viewbox text: centered hero icon above a scrollable Material 3 text card */
+      int curY = chkY;
+      if (imgE) {
+        apng_stretch(&aui_win_bg, &ap, cardX + ((cardW - imgW) / 2), curY, imgW, imgH, 0, 0, ap.w, ap.h);
+        apng_close(&ap);
+        curY += imgH + pad;
+      }
+      m3_scroll  = 1;
+      m3_scrollY = curY;
+      m3_scrollH = (chkY + availH) - curY;
+      if (m3_scrollH < agdp() * 32) m3_scrollH = agdp() * 32;
+      m3_cbY = m3_scrollY + m3_scrollH + pad;
+    }
+
+    if (!isplain) {
+      int cbCardH = agdp() * 24;
+      ag_roundgrad(&aui_win_bg, cardX, m3_cbY, cardW, cbCardH, acfg()->border, acfg()->border, agdp() * 7);
+      ag_roundgrad(&aui_win_bg, cardX + 1, m3_cbY + 1, cardW - 2, cbCardH - 2, acfg()->dialogbg, acfg()->dialogbg, agdp() * 6);
+    }
   }
-  
-  int txtH        = ag_txtheight(chkW - ((pad * 2) + imgA), text, 0);
-  
-  if (imgE) {
-    if (txtH < imgH) {
-      tifY += (imgH - txtH) / 2;
-      txtH = imgH;
+  else {
+    if (apng_load(&ap, args[2])) {
+      imgE  = 1;
+      imgW  = min(ap.w, agdp() * 30);
+      imgH  = min(ap.h, agdp() * 30);
+      imgA  = imgW;
+      tifX += imgA;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
-    apng_close(&ap);
+    int txtH        = ag_txtheight(chkW - ((pad * 2) + imgA), text, 0);
+    
+    if (imgE) {
+      if (txtH < imgH) {
+        tifY += (imgH - txtH) / 2;
+        txtH = imgH;
+      }
+      
+      apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
+      apng_close(&ap);
+    }
+    
+    //-- Draw Text
+    ag_textf(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX + 1, tifY + 1, text, acfg()->winbg, 0);
+    ag_text(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX, tifY, text, acfg()->winfg, 0);
+    
+    //-- Draw Separator
+    if (!isplain) {
+      color sepcl = ag_calculatealpha(acfg()->winbg, 0x0000, 80);
+      color sepcb = ag_calculatealpha(acfg()->winbg, 0xffff, 127);
+      ag_rect(&aui_win_bg, tifX, tifY + pad + txtH, chkW - ((pad * 2) + imgA), 1, sepcl);
+      ag_rect(&aui_win_bg, tifX, tifY + pad + txtH + 1, chkW - ((pad * 2) + imgA), 1, sepcb);
+    }
+    
+    //-- Resize Checkbox Size & Pos
+    chkY += txtH + pad;
+    chkH -= txtH + pad;
   }
-  
-  //-- Draw Text
-  ag_textf(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX + 1, tifY + 1, text, acfg()->winbg, 0);
-  ag_text(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX, tifY, text, acfg()->winfg, 0);
-  
-  //-- Draw Separator
-  if (!isplain) {
-    color sepcl = ag_calculatealpha(acfg()->winbg, 0x0000, 80);
-    color sepcb = ag_calculatealpha(acfg()->winbg, 0xffff, 127);
-    ag_rect(&aui_win_bg, tifX, tifY + pad + txtH, chkW - ((pad * 2) + imgA), 1, sepcl);
-    ag_rect(&aui_win_bg, tifX, tifY + pad + txtH + 1, chkW - ((pad * 2) + imgA), 1, sepcb);
-  }
-  
-  //-- Resize Checkbox Size & Pos
-  chkY += txtH + pad;
-  chkH -= txtH + pad;
   //-- Create Window
   AWINDOWP hWin   = aw(&aui_win_bg);
+  if (m3_scroll) {
+    actext(hWin, agdp() * 2, m3_scrollY, agw() - (agdp() * 4), m3_scrollH, text, 0);
+  }
   ACONTROLP txtcb = NULL;
   
   if (!isplain) {
@@ -2006,7 +2334,12 @@ Value * AROMA_VIEWBOX(const char * name, State * state, int argc, Expr * argv[])
     
     //-- Check Box
     int chkaH = agdp() * 20;
-    txtcb     = accb(hWin, tifX, tifY + (pad * 2) + txtH, chkW - ((pad * 2) + imgA), chkaH + pad, args[3], initial_chk);
+    if (aui_is_m3()) {
+      txtcb = accb(hWin, pad + (agdp() * 4), m3_cbY + (agdp() * 2), chkW - (agdp() * 8), chkaH, args[3], initial_chk);
+    }
+    else {
+      txtcb = accb(hWin, tifX, tifY + (pad * 2) + (chkY - (aui_minY + pad) - pad), chkW - ((pad * 2) + imgA), chkaH + pad, args[3], initial_chk);
+    }
   }
   
   /*
@@ -2217,7 +2550,7 @@ Value * AROMA_TEXTBOX(const char * name, State * state, int argc, Expr * argv[])
       txtH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -2361,9 +2694,17 @@ Value * AROMA_CHECKOPT(const char * name, State * state, int argc, Expr * argv[]
   _INITARGS();
   if (a_volkey_mode()) {
     char vk_path[256];
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0;
     snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
-    avk_form(argc, args, vk_path);
+    avk_form(argc, args, vk_path, can_back, &go_back);
     _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
     _FINISHBACK();
     return StringValue(strdup(""));
   }
@@ -2412,7 +2753,7 @@ Value * AROMA_CHECKOPT(const char * name, State * state, int argc, Expr * argv[]
       txtH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -2605,9 +2946,17 @@ Value * AROMA_CHECKBOX(const char * name, State * state, int argc, Expr * argv[]
   _INITARGS();
   if (a_volkey_mode()) {
     char vk_path[256];
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0;
     snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
-    avk_checkbox(argc, args, vk_path);
+    avk_checkbox(argc, args, vk_path, can_back, &go_back);
     _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
     _FINISHBACK();
     return StringValue(strdup(""));
   }
@@ -2656,7 +3005,7 @@ Value * AROMA_CHECKBOX(const char * name, State * state, int argc, Expr * argv[]
       txtH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -2821,9 +3170,17 @@ Value * AROMA_SELECTBOX(const char * name, State * state, int argc, Expr * argv[
   _INITARGS();
   if (a_volkey_mode()) {
     char vk_path[256];
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0;
     snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
-    avk_selectbox(argc, args, vk_path);
+    avk_selectbox(argc, args, vk_path, can_back, &go_back);
     _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
     _FINISHBACK();
     return StringValue(strdup(""));
   }
@@ -2872,7 +3229,7 @@ Value * AROMA_SELECTBOX(const char * name, State * state, int argc, Expr * argv[
       txtH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -3039,9 +3396,17 @@ Value * AROMA_MENUBOX(const char * name, State * state, int argc, Expr * argv[])
   _INITARGS();
   if (a_volkey_mode()) {
     char vk_path[256];
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0;
     snprintf(vk_path, 256, "%s/%s", AROMA_TMP, args[3]);
-    avk_menubox(argc, args, vk_path);
+    avk_menubox(argc, args, vk_path, can_back, &go_back);
     _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
     _FINISHBACK();
     return StringValue(strdup(""));
   }
@@ -3090,7 +3455,7 @@ Value * AROMA_MENUBOX(const char * name, State * state, int argc, Expr * argv[])
       txtH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -3277,7 +3642,7 @@ Value * AROMA_INSTALL(const char * name, State * state, int argc, Expr * argv[])
       txtFH = imgH;
     }
     
-    apng_draw_ex(&aui_win_bg, &ap, imgX, imgY, 0, 0, imgW, imgH);
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
     apng_close(&ap);
   }
   
@@ -3908,6 +4273,19 @@ Value * AROMA_LANG(const char * name, State * state, int argc, Expr * argv[]) {
   return StringValue(strdup((out == NULL) ? "" : out));
 }
 
+static void aui_strip_cr(char * s) {
+  if (!s) return;
+  char * r = s;
+  char * w = s;
+  while (*r) {
+    if (*r != '\r') {
+      *w++ = *r;
+    }
+    r++;
+  }
+  *w = '\0';
+}
+
 Value * AROMA_INCLUDE(const char * name, State * state, int argc, Expr * argv[]) {
   if (argc != 1) {
     return ErrorAbort(state, "%s() expects 1 args (include file path in aroma dir), got %d", name, argc);
@@ -3953,6 +4331,7 @@ Value * AROMA_INCLUDE(const char * name, State * state, int argc, Expr * argv[])
   }
   
   //-- PARSE CONFIG SCRIPT
+  aui_strip_cr(script_data);
   Expr * root;
   int error_count = 0;
   yy_scan_string(script_data);
@@ -4017,6 +4396,7 @@ Value * AROMA_EVAL(const char * name, State * state, int argc, Expr * argv[]) {
   }
   
   //-- PARSE CONFIG SCRIPT
+  aui_strip_cr(script_data);
   Expr * root;
   int error_count = 0;
   yy_scan_string(script_data);
@@ -4047,6 +4427,456 @@ Value * AROMA_EVAL(const char * name, State * state, int argc, Expr * argv[]) {
   }
   
   return StringValue(result);
+}
+
+//*
+//* is_volkey
+//*
+Value * AROMA_IS_VOLKEY(const char * name, State * state, int argc, Expr * argv[]) {
+  if (argc != 0) {
+    return ErrorAbort(state, "%s() expects 0 args, got %d", name, argc);
+  }
+  return StringValue(strdup(a_volkey_mode() ? "1" : "0"));
+}
+
+//*
+//* accent
+//*
+Value * AROMA_ACCENT(const char * name, State * state, int argc, Expr * argv[]) {
+  if (argc != 1) {
+    return ErrorAbort(state, "%s() expects 1 arg (preset or #RRGGBB), got %d", name, argc);
+  }
+  ag_setbusy();
+  _INITARGS();
+  if (!aroma_has_user_accent) {
+    snprintf(aroma_user_accent, sizeof(aroma_user_accent), "%s", (args[0] && args[0][0]) ? args[0] : "default");
+    aroma_accent_dirty = 1;
+    aroma_theme_new_request = 1;
+    aui_isbgredraw = 1;
+  }
+  _FREEARGS();
+  return StringValue(strdup(""));
+}
+
+//*
+//* slider(title, desc, ico, propfile, key, min, max, step, default [, unit])
+//*
+Value * AROMA_SLIDER(const char * name, State * state, int argc, Expr * argv[]) {
+  _INITBACK();
+
+  if (argc != 9 && argc != 10) {
+    return ErrorAbort(state, "%s() expects 9 or 10 args (title,desc,ico,propfile,key,min,max,step,default[,unit]), got %d", name, argc);
+  }
+
+  ag_setbusy();
+  _INITARGS();
+  if (a_volkey_mode()) {
+    char vk_path[256];
+    byte can_back = ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) ? 1 : 0;
+    byte go_back = 0;
+    snprintf(vk_path, sizeof(vk_path), "%s/%s", AROMA_TMP, args[3]);
+    avk_slider(argc, args, vk_path, can_back, &go_back);
+    _FREEARGS();
+    if (go_back && can_back) {
+      aparse_startpos = aparse_backpos;
+      aparse_backpos  = 0;
+      aparse_isback   = 1;
+      return NULL;
+    }
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
+
+  aui_setbg(args[0]);
+  char path[256];
+  char text[512];
+  char key[64];
+  char unit[32] = {0};
+  snprintf(path, sizeof(path), "%s/%s", AROMA_TMP, args[3]);
+  snprintf(text, sizeof(text), "%s", args[1]);
+  snprintf(key,  sizeof(key),  "%s", args[4]);
+  int min_v  = atoi(args[5]);
+  int max_v  = atoi(args[6]);
+  int step_v = atoi(args[7]);
+  int def_v  = atoi(args[8]);
+  if (step_v < 1) step_v = 1;
+  if (argc == 10 && args[9]) {
+    snprintf(unit, sizeof(unit), "%s", args[9]);
+  }
+
+  /* Restore previously saved value on Back */
+  char * saved = aui_parseprop(path, key);
+  if (saved != NULL) {
+    def_v = atoi(saved);
+    free(saved);
+  }
+
+  int pad  = agdp() * 4;
+  int chkW = agw() - (pad * 2);
+  int bntH = agdp() * 20;
+  int chkH = agh() - (aui_minY + bntH + (pad * 4));
+  int chkY = aui_minY + pad;
+  int btnY = chkY + chkH + (pad * 2);
+
+  aui_drawnav(&aui_win_bg, 0, btnY - pad, agw(), bntH + (pad * 2));
+
+  PNGCANVAS ap;
+  byte imgE = 0;
+  int  imgA = 0, imgW = 0, imgH = 0;
+  int  tifX = pad * 2, imgX = pad;
+  int  tifY = chkY, imgY = chkY;
+  if (apng_load(&ap, args[2])) {
+    imgE  = 1;
+    imgW  = min(ap.w, agdp() * 30);
+    imgH  = min(ap.h, agdp() * 30);
+    imgA  = imgW;
+    tifX += imgA;
+  }
+
+  int txtH = ag_txtheight(chkW - ((pad * 2) + imgA), text, 0);
+  if (imgE) {
+    if (txtH < imgH) {
+      tifY += (imgH - txtH) / 2;
+      txtH = imgH;
+    }
+    apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
+    apng_close(&ap);
+  }
+
+  ag_textf(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX + 1, tifY + 1, text, acfg()->winbg, 0);
+  ag_text(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX, tifY, text, acfg()->winfg, 0);
+
+  chkY += txtH + (pad * 2);
+  chkH -= txtH + (pad * 2);
+
+  AWINDOWP hWin = aw(&aui_win_bg);
+
+  /* Vertically center slider card + [-]/[+] fine-tune row */
+  int cardH   = ag_fontheight(1) + ag_fontheight(0) + (agdp() * 34);
+  int stepBtnH = agdp() * 22;
+  int totalH  = cardH + pad + stepBtnH;
+  int startY  = chkY + max(0, (chkH - totalH) / 3);
+
+  ACONTROLP sld = acslider(hWin, pad, startY, chkW, cardH, min_v, max_v, step_v, def_v, unit);
+
+  char minus_lbl[32], plus_lbl[32];
+  snprintf(minus_lbl, sizeof(minus_lbl), "- %d", step_v);
+  snprintf(plus_lbl,  sizeof(plus_lbl),  "+ %d", step_v);
+  int halfW = (chkW - pad) / 2;
+  int stepBtnY = startY + cardH + pad;
+  acbutton(hWin, pad,               stepBtnY, halfW, stepBtnH, minus_lbl, 0, 31);
+  acbutton(hWin, pad + halfW + pad, stepBtnY, halfW, stepBtnH, plus_lbl,  0, 32);
+
+  int nPad    = agdp() * 2;
+  int nHeight = bntH + agdp() * 4;
+  int nWidth  = floor((agw() - (nPad * 2) - nHeight) / 2);
+  int nY      = btnY - agdp() * 2;
+
+  if ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) {
+    imgbtn(hWin, nPad, nY, nWidth, nHeight, aui_back_icon(), acfg()->text_back, 4, 5);
+  }
+  imgbtn(hWin, nPad + nWidth + nHeight, nY, nWidth, nHeight, aui_next_icon(), acfg()->text_next, 5, 6);
+  ACONTROLP menubtn = imgbtn(hWin, nPad + nWidth, nY, nHeight, nHeight, aui_menu_icon(), NULL, 4, 200);
+
+  _FREEARGS();
+  aw_show_ex(hWin, is_back_request, 0, menubtn);
+
+  byte ondispatch = 1;
+  while (ondispatch) {
+    dword msg = aw_dispatch(hWin);
+    switch (aw_gm(msg)) {
+      case 31:
+        acslider_step(sld, -1);
+        aw_draw(hWin);
+        break;
+      case 32:
+        acslider_step(sld, 1);
+        aw_draw(hWin);
+        break;
+      case 6:
+        ondispatch = 0;
+        break;
+      case 5: {
+        if ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) {
+          aparse_startpos = aparse_backpos;
+          aparse_backpos  = 0;
+          aparse_isback   = 1;
+          ondispatch      = 0;
+        }
+      } break;
+      case 4:
+        func_pos   = -4;
+        ondispatch = 0;
+        break;
+      case 7:
+        aparse_startpos = func_pos;
+        aparse_backpos  = 0;
+        aparse_isback   = 1;
+        ondispatch      = 0;
+        break;
+    }
+  }
+
+  int final_val = acslider_getvalue(sld);
+  char valbuf[32];
+  snprintf(valbuf, sizeof(valbuf), "%d", final_val);
+  aui_set_prop_key(path, key, valbuf);
+
+  aw_destroy(hWin);
+
+  if (aparse_isback) {
+    return NULL;
+  }
+
+  _FINISHBACK();
+  return StringValue(strdup(valbuf));
+}
+
+//*
+//* live_appearance(mode, title, desc, ico)
+//* mode: "theme" | "accent" | "font" | "transition"
+//* Full wizard screen where tapping ANY item previews & applies it LIVE without leaving the screen!
+//*
+Value * AROMA_LIVE_APPEARANCE(const char * name, State * state, int argc, Expr * argv[]) {
+  _INITBACK();
+
+  if (argc != 4) {
+    return ErrorAbort(state, "%s() expects 4 args (mode,title,desc,ico), got %d", name, argc);
+  }
+
+  ag_setbusy();
+  _INITARGS();
+  char mode[32], title_s[128], desc_s[512], ico_s[128];
+  snprintf(mode,    sizeof(mode),    "%s", args[0]);
+  snprintf(title_s, sizeof(title_s), "%s", args[1]);
+  snprintf(desc_s,  sizeof(desc_s),  "%s", args[2]);
+  snprintf(ico_s,   sizeof(ico_s),   "%s", args[3]);
+  _FREEARGS();
+
+  if (a_volkey_mode()) {
+    avk_printf("  [Appearance: %s] Skipped in headless Volume Key mode.", mode);
+    _FINISHBACK();
+    return StringValue(strdup(""));
+  }
+
+  static const struct { const char * id; const char * t; const char * d; } themes[] = {
+    { "amoled",      "AMOLED Modern", "Pure OLED Black & Material 3 You Surfaces" },
+    { "blacknwhite", "Black & White", "High-Contrast Monochrome by Miustone" },
+    { "ics",         "ICS Theme",     "Ice Cream Sandwich by DemonWav & amarullz" },
+    { "miui4",       "MIUI 4 Theme",  "MIUI 4/ICS by amarullz & Lennox" },
+    { "miui",        "MIUI Theme",    "Classic MIUI by mickey-r & amarullz" },
+    { "touchwiz",    "TouchWiz",      "TouchWiz by titanic_fanatic" },
+    { "franzyroy",   "Franzyroy",     "Franzyroy by franzyroy" },
+    { "",            "Generic",       "Unthemed Classic AROMA" }
+  };
+  static const struct { const char * id; const char * t; const char * d; } accents[] = {
+    { "default", "Theme Default",    "Use the active theme's native highlight colors" },
+    { "blue",    "Pixel Blue",       "#3B82F6 — Modern Material You Blue" },
+    { "emerald", "Emerald Green",    "#10B981 — Vibrant Material Emerald" },
+    { "violet",  "Electric Violet",  "#8B5CF6 — Deep Material You Purple" },
+    { "crimson", "Crimson Red",      "#EF4444 — Bold Red Accent" },
+    { "amber",   "Warm Amber",       "#F59E0B — Golden Amber Highlight" },
+    { "cyan",    "Ice Cyan",         "#06B6D4 — Cool Cyan Highlight" },
+    { "mono",    "Monochrome White", "#EAEAEA — Crisp High-Contrast Silver/White" }
+  };
+  static const struct { const char * id; const char * f; const char * t; const char * d; } fonts[] = {
+    { "googlesans",      "GoogleSans-Regular.ttf",      "Google Sans",       "Official Android geometric sans (Default)" },
+    { "roboto",          "Roboto-Regular.ttf",          "Roboto",            "Classic Android system sans-serif" },
+    { "inter",           "Inter-Regular.ttf",           "Inter",             "Clean high-legibility modern UI font" },
+    { "plusjakartasans", "PlusJakartaSans-Regular.ttf", "Plus Jakarta Sans", "Contemporary rounded geometric sans" },
+    { "outfit",          "Outfit-Regular.ttf",          "Outfit",            "Minimalist geometric sans-serif" },
+    { "ubuntu",          "Ubuntu-Regular.ttf",          "Ubuntu",            "Distinctive humanist sans-serif" },
+    { "jetbrainsmono",   "JetBrainsMono-Regular.ttf",   "JetBrains Mono",    "Developer monospace typeface" }
+  };
+  static const struct { const char * id; const char * t; const char * d; } trans[] = {
+    { "fade",  "Fade",           "Ultra-clean 60-120Hz smooth crossfade (Default)" },
+    { "slide", "Slide",          "Classic smooth horizontal slide" },
+    { "stack", "Stack",          "Depth card stack with scale & overlay" },
+    { "zoom",  "Zoom",           "Modern Material-style zoom & fade transition" },
+    { "none",  "None (Instant)", "Disable animations for instant screen switching" }
+  };
+
+  int saved_scroll = 0;
+  byte first_draw = 1;
+  byte stay_on_step = 1;
+
+  while (stay_on_step) {
+    aui_sync_theme_and_font();
+    aui_setbg(title_s);
+
+    int pad  = agdp() * 4;
+    int chkW = agw() - (pad * 2);
+    int bntH = agdp() * 20;
+    int chkH = agh() - (aui_minY + bntH + (pad * 4));
+    int chkY = aui_minY + pad;
+    int btnY = chkY + chkH + (pad * 2);
+    aui_drawnav(&aui_win_bg, 0, btnY - pad, agw(), bntH + (pad * 2));
+
+    PNGCANVAS ap;
+    byte imgE = 0;
+    int imgA = 0, imgW = 0, imgH = 0;
+    int tifX = pad * 2, imgX = pad;
+    int tifY = chkY, imgY = chkY;
+    if (apng_load(&ap, ico_s)) {
+      imgE = 1;
+      imgW = min(ap.w, agdp() * 30);
+      imgH = min(ap.h, agdp() * 30);
+      imgA = imgW;
+      tifX += imgA;
+    }
+    int txtH = ag_txtheight(chkW - ((pad * 2) + imgA), desc_s, 0);
+    if (imgE) {
+      if (txtH < imgH) {
+        tifY += (imgH - txtH) / 2;
+        txtH = imgH;
+      }
+      apng_stretch(&aui_win_bg, &ap, imgX, imgY, imgW, imgH, 0, 0, ap.w, ap.h);
+      apng_close(&ap);
+    }
+    ag_textf(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX + 1, tifY + 1, desc_s, acfg()->winbg, 0);
+    ag_text(&aui_win_bg, chkW - ((pad * 2) + imgA), tifX, tifY, desc_s, acfg()->winfg, 0);
+
+    chkY += txtH + pad;
+    chkH -= txtH + pad;
+
+    AWINDOWP hWin = aw(&aui_win_bg);
+    ACONTROLP menu1 = acmenu(hWin, 0, chkY, chkW + (pad * 2), chkH + pad, 60);
+
+    const char * map_ids[16];
+    const char * map_files[16];
+    int cnt = 0;
+    int active_idx = -1;
+    int i;
+    if (strcmp(mode, "theme") == 0) {
+      for (i = 0; i < (int)(sizeof(themes) / sizeof(themes[0])); i++) {
+        if (!aui_theme_exists(themes[i].id)) continue;
+        char tbuf[128];
+        if (strcmp(acfg()->themename, themes[i].id) == 0) {
+          snprintf(tbuf, sizeof(tbuf), "<b>%s  • Active</b>", themes[i].t);
+          active_idx = cnt;
+        }
+        else {
+          snprintf(tbuf, sizeof(tbuf), "%s", themes[i].t);
+        }
+        acmenu_add(menu1, tbuf, (char *) themes[i].d, "");
+        map_ids[cnt++] = themes[i].id;
+      }
+    }
+    else if (strcmp(mode, "accent") == 0) {
+      const char * cur = aui_get_user_accent();
+      for (i = 0; i < (int)(sizeof(accents) / sizeof(accents[0])); i++) {
+        char tbuf[128];
+        if (cur && strcmp(cur, accents[i].id) == 0) {
+          snprintf(tbuf, sizeof(tbuf), "<b>%s  • Active</b>", accents[i].t);
+          active_idx = cnt;
+        }
+        else {
+          snprintf(tbuf, sizeof(tbuf), "%s", accents[i].t);
+        }
+        acmenu_add(menu1, tbuf, (char *) accents[i].d, "");
+        map_ids[cnt++] = accents[i].id;
+      }
+    }
+    else if (strcmp(mode, "font") == 0) {
+      const char * cur = aui_get_user_font();
+      for (i = 0; i < (int)(sizeof(fonts) / sizeof(fonts[0])); i++) {
+        if (!aui_font_exists(fonts[i].f)) continue;
+        char tbuf[128];
+        if (cur && strcmp(cur, fonts[i].id) == 0) {
+          snprintf(tbuf, sizeof(tbuf), "<b>%s  • Active</b>", fonts[i].t);
+          active_idx = cnt;
+        }
+        else {
+          snprintf(tbuf, sizeof(tbuf), "%s", fonts[i].t);
+        }
+        acmenu_add(menu1, tbuf, (char *) fonts[i].d, "");
+        map_ids[cnt] = fonts[i].id;
+        map_files[cnt] = fonts[i].f;
+        cnt++;
+      }
+    }
+    else {
+      const char * cur = aui_get_user_transition();
+      for (i = 0; i < (int)(sizeof(trans) / sizeof(trans[0])); i++) {
+        char tbuf[128];
+        if (cur && strcmp(cur, trans[i].id) == 0) {
+          snprintf(tbuf, sizeof(tbuf), "<b>%s  • Active</b>", trans[i].t);
+          active_idx = cnt;
+        }
+        else {
+          snprintf(tbuf, sizeof(tbuf), "%s", trans[i].t);
+        }
+        acmenu_add(menu1, tbuf, (char *) trans[i].d, "");
+        map_ids[cnt++] = trans[i].id;
+      }
+    }
+
+    acmenu_set_active_index(menu1, active_idx);
+    acmenu_setscroll(menu1, saved_scroll);
+
+    int nPad    = agdp() * 2;
+    int nHeight = bntH + agdp() * 4;
+    int nWidth  = floor((agw() - (nPad * 2) - nHeight) / 2);
+    int nY      = btnY - agdp() * 2;
+    if ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) {
+      imgbtn(hWin, nPad, nY, nWidth, nHeight, aui_back_icon(), acfg()->text_back, 4, 5);
+    }
+    imgbtn(hWin, nPad + nWidth + nHeight, nY, nWidth, nHeight, aui_next_icon(), acfg()->text_next, 5, 6);
+    ACONTROLP menubtn = imgbtn(hWin, nPad + nWidth, nY, nHeight, nHeight, aui_menu_icon(), NULL, 4, 200);
+
+    aw_show_ex(hWin, first_draw ? is_back_request : 4, 0, menubtn);
+    first_draw = 0;
+
+    byte ondispatch = 1;
+    while (ondispatch) {
+      dword msg = aw_dispatch(hWin);
+      switch (aw_gm(msg)) {
+        case 60: {
+          int sel = acmenu_getselectedindex(menu1);
+          saved_scroll = acmenu_getscroll(menu1);
+          if (sel >= 0 && sel < cnt) {
+            if (strcmp(mode, "theme") == 0)      aui_set_user_theme(map_ids[sel]);
+            else if (strcmp(mode, "accent") == 0) aui_set_user_accent(map_ids[sel]);
+            else if (strcmp(mode, "font") == 0)   aui_set_user_font(map_ids[sel], map_files[sel]);
+            else                                  aui_set_user_transition(map_ids[sel]);
+            aui_isbgredraw = 1;
+          }
+          ondispatch = 0; /* Stay on screen & redraw live! */
+        } break;
+        case 6:
+          stay_on_step = 0;
+          ondispatch = 0;
+          break;
+        case 5:
+          if ((aparse_backpos > 0) && (aparse_backpos > aparse_installpos)) {
+            aparse_startpos = aparse_backpos;
+            aparse_backpos  = 0;
+            aparse_isback   = 1;
+            stay_on_step    = 0;
+            ondispatch      = 0;
+          }
+          break;
+        case 4:
+          func_pos     = -4;
+          stay_on_step = 0;
+          ondispatch   = 0;
+          break;
+        case 7:
+          saved_scroll = acmenu_getscroll(menu1);
+          aui_isbgredraw = 1;
+          ondispatch = 0;
+          break;
+      }
+    }
+
+    aw_destroy(hWin);
+  }
+
+  if (aparse_isback) {
+    return NULL;
+  }
+  _FINISHBACK();
+  return StringValue(strdup(""));
 }
 
 //*
@@ -4092,6 +4922,8 @@ void RegisterAroma() {
   RegisterFunction("calibtool",     AROMA_CALIBTOOL);     //-- SHOW CALIBRATING TOOL
   //-- SET THEME
   RegisterFunction("theme",         AROMA_THEME);         //-- SET THEME
+  RegisterFunction("accent",        AROMA_ACCENT);        //-- SET LIVE ACCENT COLOR
+  RegisterFunction("is_volkey",     AROMA_IS_VOLKEY);     //-- CHECK BOOTMODE=1 VOLKEY MODE
   RegisterFunction("fontload",      AROMA_FONT);          //-- LOAD FONTS
   RegisterFunction("fontresload",   AROMA_FONT);          //-- LOAD FONTS
   //-- LANGUAGE FUNCTIONS
@@ -4138,6 +4970,8 @@ void RegisterAroma() {
   RegisterFunction("checkviewbox",  AROMA_VIEWBOX);       //-- VIEWBOX
   RegisterFunction("agreebox",      AROMA_TEXTBOX);       //-- AGREEBOX
   RegisterFunction("menubox",       AROMA_MENUBOX);       //-- MENUBOX
+  RegisterFunction("slider",        AROMA_SLIDER);        //-- INTERACTIVE SLIDER CONTROL
+  RegisterFunction("live_appearance", AROMA_LIVE_APPEARANCE); //-- STAY-OPEN LIVE THEME/ACCENT/FONT/TRANSITION PICKER
   //-- INSTALL UI
   RegisterFunction("install",       AROMA_INSTALL);       //-- START INSTALLATION PROCCESS
   RegisterFunction("filemanager",   AROMA_FILEMANAGER);   //-- INTEGRATED FILE & MODULE MANAGER
@@ -4204,6 +5038,7 @@ byte aui_start() {
   RegisterAroma();
   FinishRegistration();
   //-- PARSE CONFIG SCRIPT
+  aui_strip_cr(script_data);
   Expr * root;
   int error_count = 0;
   yy_scan_string(script_data);

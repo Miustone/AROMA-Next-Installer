@@ -73,8 +73,11 @@ typedef struct {
   int     vk;               /* Virtual Key Code ID */
   byte    state;            /* State */
   int     mt_slot;          /* Active Type-B MT slot */
+  byte    mt_type_b;        /* Device uses Linux MT Protocol Type-B */
   byte    mt_untouched;     /* Slot 0 untouched flag */
   byte    mt_release_next;  /* Release on next SYN_REPORT */
+  byte    has_x;            /* Received at least one X coordinate */
+  byte    has_y;            /* Received at least one Y coordinate */
   struct  input_absinfo xi; /* Calibrate X */
   struct  input_absinfo yi; /* Calibrate Y */
 } INDR_POS, *INDR_POSP;

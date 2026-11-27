@@ -26,7 +26,7 @@ anisplash(
 #-- Default Font (Google Sans) & Default Theme (Black & White)
 fontresload("0", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "12");
 fontresload("1", "ttf/GoogleSans-Regular.ttf;ttf/Roboto-Regular.ttf;ttf/DroidSansFallback.ttf;", "14");
-theme("blacknwhite");
+theme("amoled");
 
 #-- Step 1: Welcome
 viewbox(

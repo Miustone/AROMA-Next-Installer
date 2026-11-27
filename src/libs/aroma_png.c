@@ -984,3 +984,77 @@ byte apng_stretch_(
   free(qe);
   return 1;
 }
+
+/* Save RGB565 AROMA Canvas as Lossless 24-bit RGB PNG via libpng 1.6.59 */
+byte apng_save_rgb565(const char * filepath, const CANVAS * cv) {
+  if (filepath == NULL || cv == NULL || cv->data == NULL || cv->w <= 0 || cv->h <= 0) {
+    return 0;
+  }
+
+  FILE * fp = fopen(filepath, "wb");
+  if (!fp) {
+    return 0;
+  }
+
+  png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+  if (!png_ptr) {
+    fclose(fp);
+    return 0;
+  }
+
+  png_infop info_ptr = png_create_info_struct(png_ptr);
+  if (!info_ptr) {
+    png_destroy_write_struct(&png_ptr, NULL);
+    fclose(fp);
+    return 0;
+  }
+
+  png_bytep row = NULL;
+  if (setjmp(png_jmpbuf(png_ptr))) {
+    if (row) free(row);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    fclose(fp);
+    return 0;
+  }
+
+  png_init_io(png_ptr, fp);
+  png_set_compression_level(png_ptr, 6);
+  png_set_IHDR(
+    png_ptr, info_ptr,
+    (png_uint_32) cv->w, (png_uint_32) cv->h,
+    8, PNG_COLOR_TYPE_RGB,
+    PNG_INTERLACE_NONE,
+    PNG_COMPRESSION_TYPE_DEFAULT,
+    PNG_FILTER_TYPE_DEFAULT
+  );
+  png_write_info(png_ptr, info_ptr);
+
+  row = (png_bytep) malloc((size_t) cv->w * 3);
+  if (!row) {
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    fclose(fp);
+    return 0;
+  }
+
+  int y, x;
+  for (y = 0; y < cv->h; y++) {
+    const color * src = cv->data + ((size_t) y * (size_t) cv->w);
+    png_bytep dst = row;
+    for (x = 0; x < cv->w; x++) {
+      word px = src[x];
+      byte r5 = (byte)((px >> 11) & 0x1F);
+      byte g6 = (byte)((px >> 5) & 0x3F);
+      byte b5 = (byte)(px & 0x1F);
+      *dst++ = (byte)((r5 << 3) | (r5 >> 2));
+      *dst++ = (byte)((g6 << 2) | (g6 >> 4));
+      *dst++ = (byte)((b5 << 3) | (b5 >> 2));
+    }
+    png_write_row(png_ptr, row);
+  }
+
+  png_write_end(png_ptr, NULL);
+  free(row);
+  png_destroy_write_struct(&png_ptr, &info_ptr);
+  fclose(fp);
+  return 1;
+}

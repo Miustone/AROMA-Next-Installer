@@ -85,6 +85,8 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
     }
     else {
       dev->p.mt_untouched = 0;
+      dev->p.mt_release_next = 0;
+      dev->p.state &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
     }
     goto return_none;
   }
@@ -92,6 +94,7 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
   /* Process EV_ABS Event */
   if (ev->type == EV_ABS) {
     if (ev->code == ABS_MT_SLOT) {
+      dev->p.mt_type_b = 1;
       dev->p.mt_slot = ev->value;
       goto return_none;
     }
@@ -111,26 +114,34 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       case ABS_X:
         /* X Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_X;
+        dev->p.state    &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
         dev->p.x         = ev->value;
+        dev->p.has_x     = 1;
         break;
         
       case ABS_Y:
         /* Y Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_Y;
+        dev->p.state    &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
         dev->p.y         = ev->value;
+        dev->p.has_y     = 1;
         break;
         
       case ABS_MT_POSITION_X:
         /* Multitouch X Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_X;
+        dev->p.state    &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
         dev->p.x         = ev->value;
+        dev->p.has_x     = 1;
         dev->p.mt_untouched = 0;
         break;
         
       case ABS_MT_POSITION_Y:
         /* Multitouch Y Only Event */
         dev->p.state    |= INDR_POS_ST_SYNC_Y;
+        dev->p.state    &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
         dev->p.y         = ev->value;
+        dev->p.has_y     = 1;
         dev->p.mt_untouched = 0;
         break;
         
@@ -143,9 +154,11 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
           dev->p.y = 0;
         }
         else {
-          dev->p.state  &= ~INDR_POS_ST_LASTSYNC;
+          dev->p.state  &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
           dev->p.x = (ev->value & 0x7FFF0000) >> 16;
           dev->p.y = (ev->value & 0xFFFF);
+          dev->p.has_x = 1;
+          dev->p.has_y = 1;
         }
         ev->type = EV_SYN;
         ev->code = SYN_REPORT;
@@ -153,26 +166,29 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
         
       case ABS_MT_TOUCH_MAJOR:
       case ABS_MT_PRESSURE:
-        /* Multitouch Pressure Event */
-        if (ev->value == 0) {
-          /* Screen UnTouched */
+        /* Legacy Type-A release only; Type-B uses ABS_MT_TRACKING_ID < 0 / BTN_TOUCH=0 */
+        if (ev->value == 0 && !dev->p.mt_type_b) {
           dev->p.state |= INDR_POS_ST_RLS_NEXT;
           dev->p.x = 0;
           dev->p.y = 0;
         }
+        else if (ev->value > 0) {
+          dev->p.state &= ~INDR_POS_ST_LASTSYNC;
+        }
         break;
         
       case ABS_MT_TRACKING_ID:
+        dev->p.mt_type_b = 1;
         if (ev->value < 0) {
-          /* Screen UnTouched */
+          /* Type-B Finger Lifted */
           dev->p.state |= INDR_POS_ST_RLS_NEXT;
-          dev->p.x = 0;
-          dev->p.y = 0;
           dev->p.mt_release_next = 1;
           dev->p.mt_untouched = 1;
         }
         else {
           dev->p.mt_untouched = 0;
+          dev->p.mt_release_next = 0;
+          dev->p.state &= ~(INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT);
         }
         break;
         
@@ -193,8 +209,18 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       goto return_clear_sync;
     }
     
-    if (((dev->p.state & (INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT)) && !dev->p.mt_untouched) ||
-        (dev->p.mt_untouched && dev->p.mt_release_next == 1)) {
+    byte has_xy_sync = (dev->p.state & (INDR_POS_ST_SYNC_X | INDR_POS_ST_SYNC_Y)) ? 1 : 0;
+    byte should_release = 0;
+    if (dev->p.mt_release_next == 1) {
+      should_release = 1;
+    }
+    else if (!dev->p.mt_type_b &&
+             (dev->p.state & (INDR_POS_ST_LASTSYNC | INDR_POS_ST_RLS_NEXT)) &&
+             !has_xy_sync && !dev->p.mt_untouched) {
+      should_release = 1;
+    }
+
+    if (should_release) {
       /* Set Destination Coordinate */
       dev->p.mt_release_next = 0;
       dest_ev->x      = dev->p.tx;
@@ -202,10 +228,9 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       
       /* Sometime It Reported Twice, So Check This Value */
       if ((dev->p.tx == -1) || (dev->p.ty == -1)) {
-        /* LOG RAW */
-        //ALOGRT("INDR Got Double EV_SYN-UP Event. Ignore It.");
         dev->p.state    &= ~INDR_POS_ST_DOWNED;
         dev->p.state    &= ~INDR_POS_ST_RLS_NEXT;
+        dev->p.state    &= ~INDR_POS_ST_LASTSYNC;
         goto return_clear_sync;
       }
       
@@ -216,6 +241,7 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       dev->p.state    &= ~INDR_POS_ST_DOWNED;
       /* Reset Release Next */
       dev->p.state    &= ~INDR_POS_ST_RLS_NEXT;
+      dev->p.state    &= ~INDR_POS_ST_LASTSYNC;
       
       /* It was touch up event if not on virtualkey */
       if (!(dev->p.state & INDR_POS_ST_IS_VKEY)) {
@@ -238,14 +264,7 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
         int yd = abs(dev->vks[dev->p.vk].y - dest_ev->y);
         
         if ((xd < dev->vks[dev->p.vk].w / 2) && (yd < dev->vks[dev->p.vk].h / 2)) {
-          /* It Still On Virtual Key. Set As UP */
           key_ev.value = 0;
-          /* LOG RAW */
-          //ALOGRT("INDR VIRTUALKEY UP : [%i,%i] on %ix%ipx\n",dev->p.vk,key_ev.code,xd,yd);
-        }
-        else {
-          /* LOG RAW */
-          //ALOGRT("INDR VIRTUALKEY CANCEL : [%i,%i] on %ix%ipx\n",dev->p.vk,key_ev.code,xd,yd);
         }
         
         /* Reset Virtual Key ID */
@@ -257,20 +276,32 @@ byte INDR_translate_touch(AINPUTP me, INDR_DEVICEP dev,
       return AINPUT_EV_RET_TOUCH;
     }
     
-    /* Set on EV_SYN */
-    dev->p.state  |= INDR_POS_ST_LASTSYNC;
+    /* Only legacy Type-A uses empty SYN_REPORT as finger lift */
+    if (!dev->p.mt_type_b) {
+      dev->p.state |= INDR_POS_ST_LASTSYNC;
+    }
     /* Calibrated X, Y */
     int cx = -1;
     int cy = -1;
     
-    /* Check if X and Y has been synced */
-    if ((dev->p.state & INDR_POS_ST_SYNC_X) && (dev->p.state & INDR_POS_ST_SYNC_Y)) {
+    /* Check if X and Y can be emitted:
+     * - Initial DOWN requires both X and Y to have been seen
+     * - While DOWN (scrolling / dragging on Type-B), either X or Y changing is enough! */
+    byte can_emit = 0;
+    if (dev->p.state & INDR_POS_ST_DOWNED) {
+      can_emit = (has_xy_sync && dev->p.has_x && dev->p.has_y) ? 1 : 0;
+    }
+    else {
+      can_emit = ((dev->p.state & INDR_POS_ST_SYNC_X) && (dev->p.state & INDR_POS_ST_SYNC_Y))
+                 || (dev->p.mt_type_b && has_xy_sync && dev->p.has_x && dev->p.has_y);
+    }
+
+    if (can_emit) {
       if (!INDR_calibrate(me, &dev->p, &cx, &cy)) {
         goto return_none;
       }
     }
     else {
-      /* If Error */
       goto return_none;
     }
     

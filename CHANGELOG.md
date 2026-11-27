@@ -4,6 +4,44 @@ All notable changes in **AROMA-Next-Installer** are documented per release below
 
 ---
 
+## [V26.11-RC5] — 2026-11-27
+
+### 🚀 Biggest Highlights from RC4 → RC5
+1. **New `AMOLED Modern` Material 3 You Default Theme + 17 Redesigned Icons + 8 Live Accent Colors:** Pure `#000000` OLED black canvas, unified rounded Material 3 cards across every screen (`viewbox`, `menubox`, `selectbox`, `checkbox`, `checkopt`, `textbox`, `slider`, bottom navigation bar, dialogs, and bottom sheets), native **Monochrome White** default highlight, **8 Live Accent Colors** (`Theme Default`, `Pixel Blue`, `Monochrome White`, `Emerald Green`, `Crimson Red`, `Warm Amber`, `Electric Violet`, `Ice Cyan`, plus `#RRGGBB` hex support), and **17 crisp 4×-supersampled Material 3 You icons**. All 7 classic themes (`Black & White`, `ICS`, `MIUI 4`, `MIUI`, `TouchWiz`, `Franzyroy`, `Generic`) remain 100% preserved.
+2. **1-Tap Stay-Open Live Appearance Hub (`3-Dot → Appearance` & `live_appearance(...)`):** Unified Material 3 Bottom Sheet hub for **Theme**, **Accent Color**, **Font**, and **Transition** — tapping any option previews & applies it **live in-place** without closing the sheet or losing your scroll position until you tap **Done**.
+3. **Slim Android-Style Top Status Bar (Punch-Hole Safe):** Always-visible top bar displaying the live system clock on the left and active A/B slot + battery level (`Slot A • 92%+`, supporting both `/proc/cmdline` and Android 13–16+ `/proc/bootconfig`) on the right — leaving the center camera cutout completely clear.
+4. **Lossless PNG Screenshots (`Vol-Down + Power`):** Replaced legacy ~9 MB uncompressed BMP dumps with crisp lossless PNG encoding via vendored **`libpng 1.6.59`** (~200–420 KB per QHD+ screenshot, saved cleanly to `/sdcard/Pictures/AROMA-Next/AROMA-Next-NNN.png`).
+5. **New Interactive `slider(...)` Edify Control:** Touch-draggable Material 3 slider card + `[-]` / `[+]` fine-tuning pills in Recovery (`BOOTMODE=0`) and automatic Volume Key stepper in `BOOTMODE=1`, writing exact values to `.prop` files (ideal for kernel frequencies, ZRAM size, audio gain, DPI, etc.).
+6. **Upgraded `AROMA-Next-Filemanager` (`ANF`) Recovery Toolkit:** Added **Bootloop-Saver** (*Disable ALL / Re-Enable ALL Modules* in one tap), **ZIP Inspector & Extractor** (`minzip`), **Quick Reboot Menu** (*System / Recovery / Bootloader / Fastbootd*), **Backup `/tmp/recovery.log`**, and **Export Hardware Diagnostics** (`/sdcard/AROMA-Next-Diagnostics.txt`), plus streamlined Material 3 pill tabs and rounded path bar.
+7. **Upgraded `BOOTMODE=1` Volume Key Selector (`Go Back` + `--preset`):** Added step-back navigation (`<- Go Back` + `VOL-` long-press ≥ 600ms) and unattended `--preset <file>` / `AROMA_PRESET` replay support, plus new Edify helpers `is_volkey()`, `accent(...)`, `live_appearance(...)`, and `ini_get("volkey" | "accent" | "theme" | "slot")`.
+8. **Critical Touch Scrolling & Engine Fixes:** Fixed Linux Multitouch Protocol Type-B touch scrolling on modern OLED panels (e.g. Pixel 7 Pro `synaptics_tcm_touch`), added a 256-entry mutex-protected touch FIFO queue, added automatic CRLF stripping for Windows-authored Edify configs, expanded About/Alert/Confirm text buffers to `2048` bytes, and fixed `ini_get("icon_next")` bounds checking.
+9. **New Companion Ecosystem Repositories:**
+   - **[AROMA-Next-AnyKernel3](https://github.com/Miustone/AROMA-Next-AnyKernel3):** Official custom-kernel template built on top of `osm0sis/AnyKernel3` for Android 10–16+ GKI 2.0 & Non-GKI kernels (live touch configuration in Recovery + automatic Volume Key configuration in Kernel Flasher apps).
+   - **[aroma-next-action](https://github.com/Miustone/aroma-next-action):** Reusable GitHub Action (`uses: Miustone/aroma-next-action@v1`) that downloads official ANI binaries & UI assets and packages flashable ZIPs in CI without committing binaries.
+
+### Added & Changed
+- **Material 3 You / AMOLED Modern Engine (`src/controls/`, `assets/.../themes/amoled/`, `assets/.../icons/`):**
+  - Added `themes/amoled/theme.prop` (pure `#000000` OLED black, `#12121A` cards, `#1B1B26` elevated controls, `#EAEAEA` Monochrome White native highlight) and made `amoled` the default across Base, Magisk, Filemanager, Demo, and AnyKernel3 templates.
+  - Replaced all 17 legacy 2011 icons with 4×-supersampled 192×192 Material 3 You icon badges and 96×96 navigation icons; switched header/dialog icon blitting to proportional `apng_stretch`.
+  - Redesigned `acmenu`, `acopt`, `accheck`, `acchkopt`, `actext`, `acbutton`, `imgbtn`, `aw_alert`, `aw_confirm`, `aw_textdialog`, `aw_showmenu`, `aw_themes_submenu`, `aw_live_picker_loop`, and `AROMA_VIEWBOX` with unified Material 3 rounded cards, centered Hero `viewbox`, crisp M3 checkboxes/radios, and Material 3 Tall Modal Bottom Sheets when `amoled` is active.
+- **Lossless PNG Screenshots (`src/libs/aroma_png.c`, `src/libs/aroma_graph.c`):**
+  - Implemented `apng_save_rgb565()` using vendored `libpng 1.6.59` and switched `ag_takescreenshoot()` from 9 MB `.bmp` to ~250 KB lossless `.png` in `/sdcard/Pictures/AROMA-Next/`.
+- **Interactive `slider(...)` Control & New Edify Functions (`src/controls/aroma_control_slider.c`, `src/main/aroma_ui.c`, `src/main/aroma_volkey.c`):**
+  - Added `slider(title, desc, icon, prop, key, min, max, step, default, unit)` with touch drag, `[-]`/`[+]` fine-tuning, and `BOOTMODE=1` Volume Key stepping.
+  - Added `is_volkey()`, `accent(name_or_hex)`, `live_appearance(mode, title, desc, icon)`, and `ini_get("volkey" | "accent" | "theme" | "slot")`.
+- **Top Status Bar & `ANF` Power Tools (`src/main/aroma_ui.c`, `src/main/aroma_filemanager.c`):**
+  - Added punch-hole-safe top status bar (clock left, `Slot A/B • XX%+` right via `/proc/cmdline` + `/proc/bootconfig` + `/sys/class/power_supply/*`).
+  - Added Bootloop-Saver (*Disable ALL / Re-Enable ALL Modules*), `minzip` ZIP Inspector & Extractor, Quick Reboot (*System / Recovery / Bootloader / Fastbootd*), `/tmp/recovery.log` backup, and Hardware Diagnostics export to **ANF**.
+- **`BOOTMODE=1` Volume Key Back Navigation & Presets (`src/main/aroma_volkey.c`, `src/main/aroma.c`):**
+  - Added `<- Go Back` option and `VOL-` long-press (≥ 600ms) back navigation across interactive prompts plus `--preset <file>` / `AROMA_PRESET` non-interactive replay.
+
+### Fixed
+- **Fixed Linux MT Protocol Type-B Touch Scrolling (`src/libs/input/input_translate/translate_touch.c`, `src/libs/aroma_input.c`):** Prevented premature synthetic `MOUSEUP` during active single-finger drags on Type-B OLED touchscreens (e.g. Pixel 7 Pro `synaptics_tcm_touch`), enabled single-axis touch movement reporting, and added a 256-entry mutex-protected touch event FIFO queue.
+- **Fixed Classic Theme Isolation on Live Accent Changes (`src/main/aroma_ui.c`):** Automatically resets custom accent overrides to `"default"` when switching away from `amoled` so classic 9-patch themes keep their native PNGs intact.
+- **Fixed CRLF Edify Script Parsing & Buffer Limits (`src/main/aroma_ui.c`, `src/controls/aroma_controls.c`):** Added `aui_strip_cr()` before Edify lexical scanning, expanded `aw_about_dialog()`, `aw_alert()`, and `aw_confirm()` text buffers to `2048` bytes, and fixed `ini_get("icon_next")` bounds checking.
+
+---
+
 ## [V26.11-RC4] — 2026-11-26
 
 ### 🚀 Biggest Highlights from RC3 → RC4

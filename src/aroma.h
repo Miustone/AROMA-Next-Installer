@@ -122,6 +122,8 @@ byte a_config_only_mode(void);
 void a_set_plain_output(byte enabled);
 byte a_plain_output(void);
 byte a_volkey_install_stopped(void);
+void a_set_preset_file(const char * path);
+const char * a_get_preset_file(void);
 int  avk_init_input(void);
 void avk_close_input(void);
 int  avk_wait_key(void);
@@ -132,10 +134,11 @@ void avk_textbox(byte isplain, int argc, char ** args, byte can_back, byte * out
 void avk_alert(int argc, char ** args);
 byte avk_confirm(int argc, char ** args);
 void avk_textdialog(int argc, char ** args);
-void avk_menubox(int argc, char ** args, const char * prop_path);
-void avk_selectbox(int argc, char ** args, const char * prop_path);
-void avk_checkbox(int argc, char ** args, const char * prop_path);
-void avk_form(int argc, char ** args, const char * prop_path);
+void avk_menubox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back);
+void avk_selectbox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back);
+void avk_checkbox(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back);
+void avk_form(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back);
+void avk_slider(int argc, char ** args, const char * prop_path, byte can_back, byte * out_back);
 int  avk_run_install(const char * title, const char * desc);
 
 
@@ -544,6 +547,7 @@ PNGCANVAS * aui_menu_icon();
 // AROMA PNG Functions
 //
 byte      apng_load(PNGCANVAS * pngcanvas, char * imgname);       // Load PNG From Zip Item
+byte      apng_save_rgb565(const char * filepath, const CANVAS * cv); // Save Canvas as Lossless PNG
 void      apng_close(PNGCANVAS * pngcanvas);                            // Release PNG Memory
 byte      apng_draw(CANVAS * _b, PNGCANVAS * p, int xpos, int ypos);    // Draw PNG Into Canvas
 byte apng_stretch(
@@ -841,11 +845,17 @@ void aw_textdialog(AWINDOWP parent, char * title, char * text, char * ok_text);
 void aw_about_dialog(AWINDOWP parent);
 byte aui_theme_exists(const char * id);
 void aui_set_user_theme(const char * id);
+const char * aui_get_user_accent(void);
+void aui_set_user_accent(const char * id);
 byte aui_font_exists(const char * ttf_file);
 const char * aui_get_user_font(void);
 void aui_set_user_font(const char * id, const char * ttf_file);
 const char * aui_get_user_transition(void);
 void aui_set_user_transition(const char * style);
+int  aui_statusbar_height(void);
+void aui_draw_statusbar(CANVAS * cv, int sbH);
+void aui_get_slot_suffix(char * out, size_t out_sz);
+void aui_set_prop_key(const char * path, const char * key, const char * val);
 void aui_sync_theme_and_font(void);
 byte afm_is_active(void);
 byte afm_run(AWINDOWP parent, const char * start_path);
@@ -972,6 +982,11 @@ ACONTROLP acmenu(
 );
 byte acmenu_add(ACONTROLP ctl, char * title, char * desc, char * img);
 int acmenu_getselectedindex(ACONTROLP ctl);
+int acmenu_getscroll(ACONTROLP ctl);
+void acmenu_setscroll(ACONTROLP ctl, int y);
+void acmenu_set_m3_colors(ACONTROLP ctl, color bg, color card);
+void acmenu_set_active_index(ACONTROLP ctl, int idx);
+#define aui_is_m3() (strcmp(acfg()->themename, "amoled") == 0)
 
 /* CHECKBOX + OPTIONBOX HYBRID */
 ACONTROLP acchkopt(
@@ -991,6 +1006,17 @@ int acchkopt_getgroupid(ACONTROLP ctl, int index);
 char * acchkopt_getitemiid(ACONTROLP ctl, int index);
 int acchkopt_getselectedindex(ACONTROLP ctl, int group);
 byte acchkopt_itemtype(ACONTROLP ctl, int index);
+
+/* TOUCH SLIDER CONTROL */
+ACONTROLP acslider(
+  AWINDOWP win,
+  int x, int y, int w, int h,
+  int min_val, int max_val, int step, int initial_val,
+  const char * unit
+);
+int  acslider_getvalue(ACONTROLP ctl);
+void acslider_setvalue(ACONTROLP ctl, int val);
+void acslider_step(ACONTROLP ctl, int delta_steps);
 
 //**********[ AROMA LOGGING ]**********//
 #define _AROMA_DEBUG_TAG "aroma"

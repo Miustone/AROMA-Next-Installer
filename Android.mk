@@ -106,7 +106,8 @@ include $(CLEAR_VARS)
     src/controls/aroma_control_optbox.c \
     src/controls/aroma_control_textbox.c \
     src/controls/aroma_control_threads.c \
-    src/controls/aroma_control_imgbutton.c
+    src/controls/aroma_control_imgbutton.c \
+    src/controls/aroma_control_slider.c
   
   ## AROMA LIBRARIES SOURCE FILES
   LOCAL_SRC_FILES += \

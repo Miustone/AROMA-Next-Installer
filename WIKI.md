@@ -1,6 +1,9 @@
-# AROMA-Next-Installer Wiki & Developer Guide
+# AROMA-Next-Installer (`ANI`) & Filemanager (`ANF`) — Wiki & Developer Guide
 
-Welcome to the complete technical reference and developer manual for **[AROMA-Next-Installer](https://github.com/Miustone/AROMA-Next-Installer)** — the modern 64-bit (`arm64-v8a` + `armeabi-v7a`) Touch-GUI Installer, Native `BOOTMODE=1` Volume Key Engine, and Integrated File & Root Module Manager for Android 10–16+.
+Welcome to the complete technical reference and developer manual for **[AROMA-Next-Installer (`ANI`)](https://github.com/Miustone/AROMA-Next-Installer)** — the modern 64-bit (`arm64-v8a` + `armeabi-v7a`) Material 3 You Touch-GUI Installer, Native `BOOTMODE=1` Volume Key Engine, and Integrated **AROMA-Next-Filemanager (`ANF`)** & Recovery Toolkit for Android 10–16+.
+
+> **Abbreviations:** **`ANI`** = **AROMA-Next-Installer** | **`ANF`** = **AROMA-Next-Filemanager**.
+> **Companion Repositories:** **[AROMA-Next-AnyKernel3](https://github.com/Miustone/AROMA-Next-AnyKernel3)** (Custom Kernel Template) • **[aroma-next-action](https://github.com/Miustone/aroma-next-action)** (Reusable GitHub Action CI Packager).
 
 ---
 
@@ -68,10 +71,10 @@ YourPackage.zip
 
 | Package | Target Audience | Purpose |
 | :--- | :--- | :--- |
-| **`AROMA-Next-Installer.zip`** | ROM, Kernel & Mod Developers | Clean base template with HiDPI splash, Google Sans + Black & White theme, Welcome screen, quick Filemanager entry, and safe sample `updater-script`. |
+| **`AROMA-Next-Installer.zip`** | ROM, Kernel & Mod Developers | Clean `ANI` base template with HiDPI splash, **AMOLED Modern** (Monochrome White) + Google Sans default, Hero Welcome card, quick `ANF` entry, and safe sample `updater-script`. |
 | **`AROMA-Next-Magisk-Template.zip`** | Magisk / KernelSU / APatch Authors | Ready-to-use Dual-Mode module template (`BOOTMODE=0` Touch GUI + `BOOTMODE=1` native Volume Key Selector), `aroma-mod-lib.sh`, `aroma-env-check.sh`, and `magisk-installer`. |
-| **`AROMA-Next-Filemanager.zip`** | End Users & Power Users | Standalone recovery tool booting straight into the integrated 4-tab Filemanager & Root Module Manager. |
-| **`AROMA-Next-Demo.zip`** | Testers & Evaluators | Interactive showcase of every widget, all 7 themes, all 7 fonts, all 5 transitions, UTF-8 multilanguage rendering, Filemanager, and simulated install progress. |
+| **`AROMA-Next-Filemanager.zip`** | End Users & Power Users | Standalone **`ANF`** recovery tool booting straight into the 4-tab Filemanager, Root Module Manager, Bootloop-Saver, ZIP Inspector, Quick Reboot & Diagnostics toolkit. |
+| **`AROMA-Next-Demo.zip`** | Testers & Evaluators | Interactive showcase of every `ANI` widget (`slider(...)`, `live_appearance(...)`, checkboxes, forms, menubox), all 8 themes, 8 live accents, 7 fonts, 5 transitions, UTF-8 multilanguage, `ANF`, and simulated install progress. |
 
 ---
 
@@ -273,7 +276,29 @@ form(
 - **Types:** `"group"`, `"select"`, `"select.selected"`, `"check"`, `"check.checked"`, `"hide"`.
 - **VolKey behavior:** Renders each radio group as a `[VOL+] Next | [VOL-] Select` list and each checkbox as `[VOL+] Enable | [VOL-] Disable`, writing the **exact same named keys**!
 
-#### 6. Dialogs, Textboxes, Scripts & Flow Control
+#### 6. `slider` (Interactive Range Slider — Touch GUI + Volume Key Stepper!) *(New in RC5)*
+```edify
+slider(
+    "ZRAM Swap Size",
+    "Drag the slider or tap - / + to tune ZRAM capacity:",
+    "@customize",
+    "tuning.prop",   # Output .prop file inside $AROMA_TMP (preserves other keys!)
+    "zram_mb",       # Key name written to tuning.prop
+    "512",           # Minimum value (integer)
+    "8192",          # Maximum value (integer)
+    "512",           # Step increment (integer >= 1)
+    "4096",          # Default value (integer)
+    "MB"             # Optional unit suffix (10th argument)
+);
+```
+- **Output (`tuning.prop`):** Writes `zram_mb=4096` (preserving any other keys in `tuning.prop`, so you can place multiple `slider(...)` screens into one `.prop` file!) and also returns the chosen value as a string (`"4096"`).
+- **Touch GUI (`BOOTMODE=0`):** Renders an elevated card with live value readout, draggable accent-filled track, tactile thumb knob, and `[- step]` / `[+ step]` fine-tune buttons. Restores the saved value automatically if the user presses Back.
+- **VolKey behavior (`BOOTMODE=1`):** Renders an ASCII progress bar `[########--------] 4096 MB` with `[VOL+] +Step | [VOL-] Confirm | [Hold VOL-] Back`.
+
+#### 7. Built-in Mode Detection, Live Accents, Dialogs & Flow Control
+- `is_volkey()` → returns `"1"` in `BOOTMODE=1` Volume Key mode, `"0"` in Touch GUI mode! (No external shell probe needed!)
+- `ini_get("volkey")` / `ini_get("theme")` / `ini_get("accent")` / `ini_get("slot")` (`"_a"`, `"_b"`, or `""`)
+- `accent("blue")` / `accent("emerald")` / `accent("violet")` / `accent("crimson")` / `accent("amber")` / `accent("cyan")` / `accent("mono")` / `accent("#FF6D00")` → sets a live Material You accent color (overridable anytime by the user via the 3-dot menu!)
 - `textbox(title, desc, ico, text)` / `agreebox(title, desc, ico, text, agree_label, unchk_alert)`
 - `alert(title, text [, ico, ok_label])`
 - `confirm(title, text [, ico, yes_label, no_label])` → returns `"yes"` or `"no"`
@@ -407,9 +432,9 @@ Built directly into the shared AROMA-Next binary (`src/main/aroma_filemanager.c`
 | Tab | Default Path | Capabilities |
 | :--- | :--- | :--- |
 | **`Modules`** | `/data/adb/modules` | Lists all Magisk, KernelSU, and APatch modules with `module.prop` metadata and live status badges (`ACTIVE`, `DISABLED`, `REMOVE PENDING`, `UPDATE PENDING`). One-tap **Enable / Disable** (`disable` flag), **Mark for Removal on Reboot** (`remove` flag), **Delete Module Now**, **Browse Module Files**, **Edit `module.prop`**, and **Edit `system.prop`**. |
-| **`Storage`** | `/sdcard` (`/data/media/0`) | Full file browser with recursive **Copy**, **Cut / Move**, **Paste**, **Delete**, **Rename**, **New Folder**, **New Text File**, **`chmod`** (presets & custom octal), **Properties**, and hidden `.dotfiles` toggle. |
-| **`System`** | `/` & mountpoints | Quick navigation across `/`, `/system`, `/system_root`, `/vendor`, `/product`, `/system_ext`, `/odm`, `/data`, `/cache`, `/persist`, `/metadata`, `/tmp` with live `/proc/mounts` **`[RW]` / `[RO]`** + filesystem badges and a **`Remount Partition RW`** helper. |
-| **`Tools`** | Utilities | Toggle hidden files, quick jump shortcuts, clipboard status, and diagnostics. |
+| **`Storage`** | `/sdcard` (`/data/media/0`) | Full file browser with recursive **Copy**, **Cut / Move**, **Paste**, **Delete**, **Rename**, **New Folder**, **New Text File**, **`chmod`** (presets & custom octal), **Properties**, hidden `.dotfiles` toggle, plus built-in **ZIP Inspector & Extractor** (tap any `.zip` → *Inspect ZIP Contents* or *Extract ZIP Here*). |
+| **`System`** | `/` & mountpoints | Quick navigation across `/`, `/system`, `/system_root`, `/vendor`, `/product`, `/system_ext`, `/odm`, `/data`, `/cache`, `/persist`, `/metadata`, `/tmp` with live `/proc/mounts` **`[RW]` / `[RO]`** + filesystem badges, active A/B Slot readout, and a **`Remount Partition RW`** helper. |
+| **`Tools`** | Recovery Utilities | **Bootloop-Saver (1-Tap Disable ALL Modules / Re-Enable ALL Modules)**, **Quick Reboot Menu** (*System, Recovery, Bootloader, Fastbootd*), **Backup `/tmp/recovery.log`**, **Export Hardware Diagnostic Report** (`/sdcard/AROMA-Next-Diagnostics.txt`), hidden files toggle, remount RW, and Go to Path. |
 
 ### Built-In Touch Keyboard & Text Line Editor
 - Full on-screen **QWERTY keyboard** with lowercase, uppercase, numbers/symbols, and UTF-8 backspace.
@@ -417,14 +442,26 @@ Built directly into the shared AROMA-Next binary (`src/main/aroma_filemanager.c`
 
 ---
 
-## 9. Themes, Fonts, Transitions, UTF-8 & Screenshots
+## 9. Themes, Live Accents, Material 3 Icons, Status Bar & PNG Screenshots
 
-- **Streamlined 3-Dot Menu:** **`About` → `Themes` → `Filemanager` → `Exit` → `Back`**.
-- **Live Switching Without Restarting:** Tap **`Themes`** on any screen to switch:
-  - **7 Themes:** `Black & White` *(Default)*, `ICS`, `MIUI 4`, `MIUI`, `TouchWiz`, `Franzyroy`, `Generic`.
-  - **7 SIL OFL Fonts:** `Google Sans` *(Default)*, `Roboto`, `Inter`, `Plus Jakarta Sans`, `Outfit`, `Ubuntu`, `JetBrains Mono` — all backed by `DroidSansFallback.ttf`, FreeType 2.15.0, and RFC 3629 `minutf8` for Latin, Cyrillic, Hebrew, Japanese, and Chinese UTF-8.
+- **Android-Style Top Status Bar:** Displays live **clock** (left of center punch-hole camera) and **Active A/B Slot + Battery %** (right of camera) above the titlebar across both the installer wizard and Filemanager.
+- **Material 3 You Icons:** All 17 built-in ANI icons (`@welcome`, `@info`, `@install`, `@apps`, `@personalize`, `@customize`, `@update`, `@alert`, `@confirm`, `@agreement`, `@license`, `@default`, and navigation controls) are redesigned as 4x-supersampled Material 3 tonal squircles & rounded strokes.
+- **Streamlined 3-Dot Menu:** **`About` → `Appearance` → `Filemanager` → `Exit` → `Back`**.
+- **1-Tap Instant Live Switching (No Extra "OK" Tap):** Tap **`Appearance`** on any screen to switch live with a single tap:
+  - **8 Themes:** `AMOLED Modern` *(Pure OLED black + Material You surfaces)*, `Black & White`, `ICS`, `MIUI 4`, `MIUI`, `TouchWiz`, `Franzyroy`, `Generic`.
+  - **8 Live Accent Colors:** `Theme Default`, `Pixel Blue`, `Monochrome White`, `Emerald Green`, `Crimson Red`, `Warm Amber`, `Electric Violet`, `Ice Cyan` (plus custom hex via `accent("#RRGGBB");`).
+  - **7 SIL OFL Fonts:** `Google Sans` *(Default)*, `Roboto`, `Inter`, `Plus Jakarta Sans`, `Outfit`, `Ubuntu`, `JetBrains Mono` — all backed by `DroidSansFallback.ttf`, FreeType 2.15.0, and RFC 3629 `minutf8`.
   - **5 VSYNC-Locked 60–120Hz Transitions:** `Fade` *(Default)*, `Slide`, `Stack`, `Zoom`, `None`.
-- **Hardware Screenshots in Recovery:** Press **`Vol-Down + Power`** on any screen! AROMA-Next flashes a white shutter frame (thread-safe via `ag_refreshlock`), suppresses accidental button presses, and saves a full-resolution BMP to `<zipfile>.screenshoot-<N>.bmp`.
+- **Lossless PNG Screenshots in Recovery:** Press **`Vol-Down + Power`** on any screen! ANI flashes a thread-safe white shutter frame (`ag_refreshlock`), suppresses accidental touches, and encodes a **lossless 24-bit PNG** (~150–350 KB instead of 9 MB BMP) via `libpng 1.6.59` into `/sdcard/Pictures/AROMA-Next/AROMA-Next-NNN.png` (falling back beside the ZIP if `/sdcard` is encrypted).
+
+### Unattended Preset Mode (`--preset <file>` / `AROMA_PRESET`)
+In `BOOTMODE=1` (or automated OTA/CI flashing), pass `--preset /path/to/preset.prop` (or set `AROMA_PRESET=/path/to/preset.prop`) to auto-apply answers without waiting for Volume Key presses:
+```ini
+# Format: <propfile>:<key>=<value> (or plain <key>=<value> fallback)
+demo_hub.prop:selected=1
+tuning.prop:zram_mb=4096
+checkbox_demo.prop:item.1.1=1
+```
 
 ---
 
@@ -441,7 +478,39 @@ Outputs static stripped binaries to `out/bin/` and all 4 ZIPs to `dist/`.
 ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Application.mk -j$(nproc)
 ```
 
-### Option 3: GitHub Actions
+### Option 3: Reusable GitHub Action (`Miustone/aroma-next-action@v1`) — Recommended for Module & Kernel Authors
+Instead of committing ~5 MB of `aroma_installer-*` binaries and UI assets into your own repository, let **[Miustone/aroma-next-action](https://github.com/Miustone/aroma-next-action)** download the latest official `ANI` release and merge your repository files into a flashable ZIP automatically in GitHub Actions:
+
+```yaml
+name: Build Flashable ZIP with ANI
+on: [push, release]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package with AROMA-Next-Installer (ANI)
+        id: ani
+        uses: Miustone/aroma-next-action@v1
+        with:
+          source_dir: .
+          template: magisk          # magisk | anykernel3 | installer | none
+          aroma_version: latest     # or pin e.g. V26.11-RC5
+          architectures: arm64,arm32
+          output_zip: dist/MyModule-AROMA.zip
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyModule-AROMA
+          path: ${{ steps.ani.outputs.zip_path }}
+```
+
+For **AnyKernel3 custom kernels**, start from **[Miustone/AROMA-Next-AnyKernel3](https://github.com/Miustone/AROMA-Next-AnyKernel3)** (Android 10–16+ GKI 2.0 & Non-GKI ready) and set `template: anykernel3` in the Action above!
+
+### Option 4: Building `ANI` Itself via GitHub Actions
 Push to `main` (updates rolling `latest` pre-release) or push a version tag `V*` / `v*` (creates a versioned GitHub Release; tags containing `-PRE` or `-TEST` are automatically marked pre-release).
 
 ### Automated Testing of `BOOTMODE=1` Volume Key Mode via ADB
